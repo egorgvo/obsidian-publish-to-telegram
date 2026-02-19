@@ -2,14 +2,19 @@ import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, TFolder, Menu } 
 import { t } from "./lang/helpers";
 import { convert } from "telegram-markdown-v2";
 
-interface TelegramSettings {
+interface TelegramChannel {
+    id: string;
+    name: string;
     botToken: string;
     chatId: string;
 }
 
+interface TelegramSettings {
+    channels: TelegramChannel[];
+}
+
 const DEFAULT_SETTINGS: TelegramSettings = {
-    botToken: "",
-    chatId: ""
+    channels: []
 }
 
 export default class SendToTelegramPlugin extends Plugin {
@@ -22,32 +27,51 @@ export default class SendToTelegramPlugin extends Plugin {
         this.registerEvent(
             this.app.workspace.on("file-menu", (menu: Menu, file: TFile | TFolder) => {
                 if (!(file instanceof TFile)) return;
+                if (this.settings.channels.length === 0) return;
 
-                menu.addItem((item) => {
-                    item
-                        .setTitle(t.MENU_TITLE)
-                        .setIcon("paper-plane")
-                        .onClick(async () => {
-                            await this.sendNoteToTelegram(file);
+                if (this.settings.channels.length === 1) {
+                    // Single channel: direct item
+                    menu.addItem((item) => {
+                        item
+                            .setTitle(t.MENU_TITLE)
+                            .setIcon("paper-plane")
+                            .onClick(async () => {
+                                await this.sendNoteToTelegram(file, this.settings.channels[0]);
+                            });
+                    });
+                } else {
+                    // Multiple channels: Submenu
+                    menu.addItem((item) => {
+                        item
+                            .setTitle(t.MENU_TITLE)
+                            .setIcon("paper-plane");
+                        
+                        const subMenu = (item as any).setSubmenu();
+                        this.settings.channels.forEach((channel) => {
+                            subMenu.addItem((subItem: any) => {
+                                subItem
+                                    .setTitle(channel.name || "Untitled Channel")
+                                    .onClick(async () => {
+                                        await this.sendNoteToTelegram(file, channel);
+                                    });
+                            });
                         });
-                });
+                    });
+                }
             })
         );
     }
 
-    async sendNoteToTelegram(file: TFile): Promise<void> {
-        if (!this.settings.botToken || !this.settings.chatId) {
+    async sendNoteToTelegram(file: TFile, channel: TelegramChannel): Promise<void> {
+        if (!channel.botToken || !channel.chatId) {
             new Notice(t.NOTICE_ERR_CONFIG);
             return;
         }
 
         const getMimeType = (ext: string) => {
             const map: Record<string, string> = {
-                'png': 'image/png',
-                'jpg': 'image/jpeg',
-                'jpeg': 'image/jpeg',
-                'gif': 'image/gif',
-                'webp': 'image/webp'
+                'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                'gif': 'image/gif', 'webp': 'image/webp'
             };
             return map[ext.toLowerCase()] || 'application/octet-stream';
         };
@@ -55,7 +79,6 @@ export default class SendToTelegramPlugin extends Plugin {
         try {
             let content: string = await this.app.vault.read(file);
             
-            // 1. Extract images
             const cache = this.app.metadataCache.getFileCache(file);
             const embeds = cache?.embeds || [];
             const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
@@ -70,89 +93,64 @@ export default class SendToTelegramPlugin extends Plugin {
                 }
             }
 
-            // 2. Prepare text (Remove image syntax and convert to MarkdownV2)
             content = content.replace(/!\[.*?\]\(.*?\)/g, '').replace(/!\[\[.*?\]\]/g, '').trim();
             const formattedContent = convert(content);
 
-            // 3. Logic to send everything as ONE message
             if (imageFiles.length > 0) {
-                // If there are images, we attach the text as a CAPTION to the first image
                 if (imageFiles.length === 1) {
                     const imgFile = imageFiles[0];
                     const arrayBuffer = await this.app.vault.readBinary(imgFile);
                     const blob = new Blob([arrayBuffer], { type: getMimeType(imgFile.extension) });
                     
                     const formData = new FormData();
-                    formData.append("chat_id", this.settings.chatId);
+                    formData.append("chat_id", channel.chatId);
                     formData.append("photo", blob, imgFile.name);
-                    formData.append("caption", formattedContent); // Attached here
+                    formData.append("caption", formattedContent);
                     formData.append("parse_mode", "MarkdownV2");
 
-                    const response = await fetch(`https://api.telegram.org/bot${this.settings.botToken}/sendPhoto`, {
+                    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendPhoto`, {
                         method: "POST",
                         body: formData
                     });
-
-                    if (!response.ok) {
-                        const err = await response.json();
-                        throw new Error(err.description);
-                    }
+                    if (!response.ok) throw new Error((await response.json()).description);
                 } else {
-                    // Send as Album (Media Group)
-                    // Note: Only the FIRST item in the media array should have the caption
                     const formData = new FormData();
-                    formData.append("chat_id", this.settings.chatId);
-                    
+                    formData.append("chat_id", channel.chatId);
                     const mediaArray = [];
                     for (let j = 0; j < Math.min(imageFiles.length, 10); j++) {
                         const imgFile = imageFiles[j];
                         const attachName = `photo${j}`;
-                        
                         mediaArray.push({
                             type: "photo",
                             media: `attach://${attachName}`,
-                            caption: j === 0 ? formattedContent : "", // Text goes here
+                            caption: j === 0 ? formattedContent : "",
                             parse_mode: j === 0 ? "MarkdownV2" : undefined
                         });
-                        
                         const arrayBuffer = await this.app.vault.readBinary(imgFile);
-                        const blob = new Blob([arrayBuffer], { type: getMimeType(imgFile.extension) });
-                        formData.append(attachName, blob, imgFile.name);
+                        formData.append(attachName, new Blob([arrayBuffer], { type: getMimeType(imgFile.extension) }), imgFile.name);
                     }
-                    
                     formData.append("media", JSON.stringify(mediaArray));
-                    
-                    const response = await fetch(`https://api.telegram.org/bot${this.settings.botToken}/sendMediaGroup`, {
+                    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMediaGroup`, {
                         method: "POST",
                         body: formData
                     });
-                    
-                    if (!response.ok) {
-                        const err = await response.json();
-                        throw new Error(err.description);
-                    }
+                    if (!response.ok) throw new Error((await response.json()).description);
                 }
             } else if (formattedContent.length > 0) {
-                // No images? Send as a regular text message
-                const response = await fetch(`https://api.telegram.org/bot${this.settings.botToken}/sendMessage`, {
+                const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMessage`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        chat_id: this.settings.chatId,
+                        chat_id: channel.chatId,
                         text: formattedContent,
                         parse_mode: "MarkdownV2"
                     })
                 });
-
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.description);
-                }
+                if (!response.ok) throw new Error((await response.json()).description);
             }
 
             new Notice(t.NOTICE_SUCCESS);
         } catch (err: any) {
-            console.error(err);
             new Notice(`${t.NOTICE_ERR_SEND}${err.message}`);
         }
     }
@@ -181,29 +179,72 @@ class TelegramSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setHeading()
             .setName(t.SETTING_HEADER);
-        
-        containerEl.addClass("telegram-settings-container");
+
+        const channelContainer = containerEl.createDiv("telegram-settings-container");
+
+        this.plugin.settings.channels.forEach((channel, index) => {
+            const channelDiv = channelContainer.createDiv("telegram-channel-item");
+            
+            const header = channelDiv.createDiv("telegram-channel-header");
+            header.setText(`${channel.name || "Channel " + (index + 1)}`);
+
+            new Setting(channelDiv)
+                .setName(t.SETTING_CHANNEL_NAME)
+                .addText(text => text
+                    .setPlaceholder(t.SET_PLACE_NAME)
+                    .setValue(channel.name)
+                    .onChange(async (value) => {
+                        channel.name = value;
+                        header.setText(value || "Untitled Channel");
+                        await this.plugin.saveSettings();
+                    }));
+
+            new Setting(channelDiv)
+                .setName(t.SETTING_BOT_TOKEN_NAME)
+                .setDesc(t.SETTING_BOT_TOKEN_DESC)
+                .addText(text => text
+                    .setPlaceholder(t.SETTING_PLACEHOLDER_TOKEN)
+                    .setValue(channel.botToken)
+                    .onChange(async (value) => {
+                        channel.botToken = value;
+                        await this.plugin.saveSettings();
+                    }));
+
+            new Setting(channelDiv)
+                .setName(t.SETTING_CHAT_ID_NAME)
+                .setDesc(t.SETTING_CHAT_ID_DESC)
+                .addText(text => text
+                    .setPlaceholder(t.SETTING_PLACEHOLDER_CHAT)
+                    .setValue(channel.chatId)
+                    .onChange(async (value) => {
+                        channel.chatId = value;
+                        await this.plugin.saveSettings();
+                    }));
+
+            new Setting(channelDiv)
+                .addButton(btn => btn
+                    .setButtonText(t.SETTING_DELETE_CHANNEL)
+                    .setWarning()
+                    .onClick(async () => {
+                        this.plugin.settings.channels.splice(index, 1);
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }));
+        });
 
         new Setting(containerEl)
-            .setName(t.SETTING_BOT_TOKEN_NAME)
-            .setDesc(t.SETTING_BOT_TOKEN_DESC)
-            .addText(text => text
-                .setPlaceholder(t.SETTING_PLACEHOLDER_TOKEN)
-                .setValue(this.plugin.settings.botToken)
-                .onChange(async (value) => {
-                    this.plugin.settings.botToken = value;
+            .addButton(btn => btn
+                .setButtonText(t.SETTING_ADD_CHANNEL)
+                .setCta()
+                .onClick(async () => {
+                    this.plugin.settings.channels.push({
+                        id: Date.now().toString(),
+                        name: "",
+                        botToken: "",
+                        chatId: ""
+                    });
                     await this.plugin.saveSettings();
-                }));
-
-        new Setting(containerEl)
-            .setName(t.SETTING_CHAT_ID_NAME)
-            .setDesc(t.SETTING_CHAT_ID_DESC)
-            .addText(text => text
-                .setPlaceholder(t.SETTING_PLACEHOLDER_CHAT)
-                .setValue(this.plugin.settings.chatId)
-                .onChange(async (value) => {
-                    this.plugin.settings.chatId = value;
-                    await this.plugin.saveSettings();
+                    this.display();
                 }));
     }
 }
