@@ -15,5 +15,8 @@
     "esbuild": "^0.27.3",
     "obsidian": "latest",
     "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "telegram-markdown-v2": "^0.0.4"
   }
 }

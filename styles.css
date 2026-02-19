@@ -1,13 +1,13 @@
-.telegram-settings-container .setting-item-heading {
+.telegram-settings-container {
     color: var(--text-accent);
     border-top: none;
     padding-top: 0;
 }
 
-.telegram-settings-container {
-    padding-top: 10px;
+.setting-item.setting-item-heading {
+    margin-top: 32px;
 }
 
-.settings-item-control {
-    width: 100%;
+.telegram-settings-container {
+    padding-top: 10px;
 }

@@ -1,5 +1,6 @@
 import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, TFolder, Menu } from "obsidian";
 import { t } from "./lang/helpers";
+import { convert } from "telegram-markdown-v2";
 
 interface TelegramSettings {
     botToken: string;
@@ -42,10 +43,14 @@ export default class SendToTelegramPlugin extends Plugin {
 
         try {
             const content: string = await this.app.vault.read(file);
+            
+            // Format standard Obsidian Markdown to Telegram's MarkdownV2
+            const formattedContent = convert(content);
+
             const payload = {
                 chat_id: this.settings.chatId,
-                text: content,
-                parse_mode: "Markdown"
+                text: formattedContent,
+                parse_mode: "MarkdownV2" 
             };
 
             const response = await fetch(`https://api.telegram.org/bot${this.settings.botToken}/sendMessage`, {
@@ -57,7 +62,7 @@ export default class SendToTelegramPlugin extends Plugin {
             if (!response.ok) throw new Error(`Status: ${response.status}`);
 
             new Notice(t.NOTICE_SUCCESS);
-        } catch (err) {
+        } catch (err: any) {
             new Notice(`${t.NOTICE_ERR_SEND}${err.message}`);
         }
     }
