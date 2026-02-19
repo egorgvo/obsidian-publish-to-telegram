@@ -1,0 +1,9 @@
+{
+  "id": "publish-to-telegram",
+  "name": "Publish to Telegram",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Allows to publish notes to Telegram.",
+  "author": "Egor Gvo",
+  "isDesktopOnly": false
+}

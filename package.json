@@ -1,0 +1,19 @@
+{
+  "name": "obsidian-publish-to-telegram",
+  "version": "1.0.0",
+  "description": "Allows publishing notes to Telegram.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "esbuild main.ts --bundle --external:obsidian --format=cjs --outfile=main.js --watch",
+    "build": "esbuild main.ts --bundle --external:obsidian --format=cjs --outfile=main.js --minify"
+  },
+  "keywords": [],
+  "author": "Egor Gvo",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "esbuild": "^0.27.3",
+    "obsidian": "latest",
+    "typescript": "^5.4.5"
+  }
+}
