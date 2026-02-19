@@ -7,6 +7,7 @@ interface TelegramChannel {
     name: string;
     botToken: string;
     chatId: string;
+    isDefault: boolean;
 }
 
 interface TelegramSettings {
@@ -30,7 +31,6 @@ export default class SendToTelegramPlugin extends Plugin {
                 if (this.settings.channels.length === 0) return;
 
                 if (this.settings.channels.length === 1) {
-                    // Single channel: direct item
                     menu.addItem((item) => {
                         item
                             .setTitle(t.MENU_TITLE)
@@ -40,7 +40,6 @@ export default class SendToTelegramPlugin extends Plugin {
                             });
                     });
                 } else {
-                    // Multiple channels: Submenu
                     menu.addItem((item) => {
                         item
                             .setTitle(t.MENU_TITLE)
@@ -48,9 +47,13 @@ export default class SendToTelegramPlugin extends Plugin {
                         
                         const subMenu = (item as any).setSubmenu();
                         this.settings.channels.forEach((channel) => {
+                            const displayName = channel.isDefault 
+                                ? `⭐ ${channel.name || "Untitled"}` 
+                                : channel.name || "Untitled";
+
                             subMenu.addItem((subItem: any) => {
                                 subItem
-                                    .setTitle(channel.name || "Untitled Channel")
+                                    .setTitle(displayName)
                                     .onClick(async () => {
                                         await this.sendNoteToTelegram(file, channel);
                                     });
@@ -78,7 +81,6 @@ export default class SendToTelegramPlugin extends Plugin {
 
         try {
             let content: string = await this.app.vault.read(file);
-            
             const cache = this.app.metadataCache.getFileCache(file);
             const embeds = cache?.embeds || [];
             const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
@@ -184,14 +186,13 @@ class TelegramSettingTab extends PluginSettingTab {
 
         this.plugin.settings.channels.forEach((channel, index) => {
             const channelDiv = channelContainer.createDiv("telegram-channel-item");
-            
             const header = channelDiv.createDiv("telegram-channel-header");
             header.setText(`${channel.name || "Channel " + (index + 1)}`);
 
             new Setting(channelDiv)
                 .setName(t.SETTING_CHANNEL_NAME)
                 .addText(text => text
-                    .setPlaceholder(t.SET_PLACE_NAME)
+                    .setPlaceholder(t.SETTING_PLACE_NAME)
                     .setValue(channel.name)
                     .onChange(async (value) => {
                         channel.name = value;
@@ -221,6 +222,24 @@ class TelegramSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     }));
 
+            // Toggle and Description grouped together
+            new Setting(channelDiv)
+                .setName(t.SETTING_DEFAULT_CHANNEL)
+                .setDesc(t.SETTING_DEFAULT_DESC)
+                .addToggle(toggle => toggle
+                    .setValue(channel.isDefault || false)
+                    .onChange(async (value) => {
+                        if (value) {
+                            this.plugin.settings.channels.forEach(c => c.isDefault = false);
+                            channel.isDefault = true;
+                        } else {
+                            channel.isDefault = false;
+                        }
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }));
+
+            // Delete button separate from toggle
             new Setting(channelDiv)
                 .addButton(btn => btn
                     .setButtonText(t.SETTING_DELETE_CHANNEL)
@@ -241,7 +260,8 @@ class TelegramSettingTab extends PluginSettingTab {
                         id: Date.now().toString(),
                         name: "",
                         botToken: "",
-                        chatId: ""
+                        chatId: "",
+                        isDefault: false
                     });
                     await this.plugin.saveSettings();
                     this.display();

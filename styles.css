@@ -14,7 +14,7 @@
     background-color: var(--setting-items-background);
     display: flex;
     flex-direction: column;
-    gap: 0px;
+    gap: 8px;
 }
 
 .setting-item-control.input {
