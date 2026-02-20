@@ -30,5 +30,9 @@ export default {
     CONFIRM_DELETE_MSG: "Вы уверены, что хотите удалить пресет \"{name}\"? Это действие нельзя отменить.",
     CONFIRM_DELETE_BTN: "Удалить",
     CONFIRM_CANCEL_BTN: "Отмена",
-    COMMAND_SEND_DEFAULT: "Опубликовать в Telegram (пресет по умолчанию)"
+    COMMAND_SEND_DEFAULT: "Опубликовать с помощью пресета по умолчанию",
+    COMMAND_SEND_MULTIPLE: "Опубликовать с помощью нескольких пресетов",
+    MULTI_PRESET_TITLE: "Выберите каналы/группы для публикации",
+    MULTI_PRESET_POST_BTN: "Опубликовать",
+    MULTI_PRESET_NO_SELECTION: "Выберите хотя бы один пресет"
 };

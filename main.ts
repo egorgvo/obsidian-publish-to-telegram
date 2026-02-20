@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, TFolder, Menu, TextComponent, ButtonComponent, Modal } from "obsidian";
+import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, TFolder, Menu, TextComponent, ButtonComponent, Modal, ToggleComponent } from "obsidian";
 import { t } from "./lang/helpers";
 import { convert } from "telegram-markdown-v2";
 
@@ -43,6 +43,73 @@ class ConfirmationModal extends Modal {
     onClose() { this.contentEl.empty(); }
 }
 
+class MultiPresetModal extends Modal {
+    plugin: SendToTelegramPlugin;
+    selectedChannels: Set<string>;
+    file: TFile;
+
+    constructor(app: App, plugin: SendToTelegramPlugin, file: TFile) {
+        super(app);
+        this.plugin = plugin;
+        this.file = file;
+        this.selectedChannels = new Set();
+    }
+
+    onOpen() {
+        const { contentEl, titleEl } = this;
+        titleEl.setText(t.MULTI_PRESET_TITLE);
+
+        if (this.plugin.settings.channels.length === 0) {
+            contentEl.createEl("p", { text: t.NOTICE_ERR_CONFIG });
+            return;
+        }
+
+        const listContainer = contentEl.createDiv("telegram-multi-preset-list");
+
+        this.plugin.settings.channels.forEach(channel => {
+            const itemEl = listContainer.createDiv("telegram-multi-preset-item");
+            
+            const nameEl = itemEl.createDiv("telegram-multi-preset-name");
+            nameEl.setText(channel.isDefault 
+                ? `${channel.name || t.UNTITLED_CHANNEL}` 
+                : channel.name || t.UNTITLED_CHANNEL);
+
+            const controlEl = itemEl.createDiv("telegram-multi-preset-control");
+            new ToggleComponent(controlEl)
+                .setValue(false)
+                .onChange(value => {
+                    if (value) {
+                        this.selectedChannels.add(channel.id);
+                    } else {
+                        this.selectedChannels.delete(channel.id);
+                    }
+                });
+        });
+
+        const btnContainer = contentEl.createDiv("telegram-modal-buttons");
+        new ButtonComponent(btnContainer)
+            .setButtonText(t.MULTI_PRESET_POST_BTN)
+            .setCta()
+            .onClick(async () => {
+                if (this.selectedChannels.size === 0) {
+                    new Notice(t.MULTI_PRESET_NO_SELECTION);
+                    return;
+                }
+                
+                const channelsToPost = this.plugin.settings.channels.filter(c => this.selectedChannels.has(c.id));
+                this.close();
+                
+                for (const channel of channelsToPost) {
+                    await this.plugin.sendNoteToTelegram(this.file, channel);
+                }
+            });
+    }
+
+    onClose() {
+        this.contentEl.empty();
+    }
+}
+
 export default class SendToTelegramPlugin extends Plugin {
     settings: TelegramSettings;
 
@@ -61,7 +128,7 @@ export default class SendToTelegramPlugin extends Plugin {
                     const subMenu = (item as any).setSubmenu();
                     this.settings.channels.forEach((channel) => {
                         const displayName = channel.isDefault 
-                            ? `⭐ ${channel.name || t.UNTITLED_CHANNEL}` 
+                            ? `${channel.name || t.UNTITLED_CHANNEL}` 
                             : channel.name || t.UNTITLED_CHANNEL;
 
                         subMenu.addItem((subItem: any) => {
@@ -87,6 +154,21 @@ export default class SendToTelegramPlugin extends Plugin {
                     return true;
                 }
                 if (!checking && activeFile && !defaultChannel) new Notice(t.NOTICE_ERR_NO_DEFAULT);
+                return false;
+            }
+        });
+
+        this.addCommand({
+            id: 'send-to-telegram-multiple',
+            name: t.COMMAND_SEND_MULTIPLE,
+            checkCallback: (checking: boolean) => {
+                const activeFile = this.app.workspace.getActiveFile();
+                if (activeFile && this.settings.channels.length > 0) {
+                    if (!checking) {
+                        new MultiPresetModal(this.app, this, activeFile).open();
+                    }
+                    return true;
+                }
                 return false;
             }
         });
