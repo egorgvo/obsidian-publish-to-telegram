@@ -36,5 +36,7 @@ export default {
     MULTI_PRESET_POST_BTN: "Опубликовать",
     MULTI_PRESET_NO_SELECTION: "Выберите хотя бы один пресет",
     MULTI_PRESET_SILENT_POST_NAME: "Опубликовать без звука",
-    MULTI_PRESET_SILENT_POST_DESC: "Подписчики получат уведомление без звукового сигнала."
+    MULTI_PRESET_SILENT_POST_DESC: "Подписчики получат уведомление без звукового сигнала.",
+    MULTI_PRESET_ATTACHMENTS_NAME: "Вложения под текстом",
+    MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикрепленными медиафайлами."
 };

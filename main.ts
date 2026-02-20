@@ -47,14 +47,14 @@ class MultiPresetModal extends Modal {
     plugin: SendToTelegramPlugin;
     selectedChannels: Set<string>;
     file: TFile;
-    disableNotification: boolean;
+    disableNotification: boolean = false;
+    attachmentsUnderText: boolean = false;
 
     constructor(app: App, plugin: SendToTelegramPlugin, file: TFile) {
         super(app);
         this.plugin = plugin;
         this.file = file;
         this.selectedChannels = new Set();
-        this.disableNotification = false;
     }
 
     onOpen() {
@@ -88,17 +88,23 @@ class MultiPresetModal extends Modal {
                 });
         });
 
-        const silentOptionEl = contentEl.createDiv("telegram-silent-post-option");
-        const silentTextEl = silentOptionEl.createDiv("telegram-silent-post-text");
-        silentTextEl.createDiv({ text: t.MULTI_PRESET_SILENT_POST_NAME, cls: "telegram-silent-post-name" });
-        silentTextEl.createDiv({ text: t.MULTI_PRESET_SILENT_POST_DESC, cls: "telegram-silent-post-desc" });
-
-        const silentControlEl = silentOptionEl.createDiv("telegram-silent-post-control");
-        new ToggleComponent(silentControlEl)
+        // Silent Post Option
+        const silentOptionEl = contentEl.createDiv("telegram-option-item");
+        const silentTextEl = silentOptionEl.createDiv("telegram-option-text");
+        silentTextEl.createDiv({ text: t.MULTI_PRESET_SILENT_POST_NAME, cls: "telegram-option-name" });
+        silentTextEl.createDiv({ text: t.MULTI_PRESET_SILENT_POST_DESC, cls: "telegram-option-desc" });
+        new ToggleComponent(silentOptionEl.createDiv("telegram-option-control"))
             .setValue(this.disableNotification)
-            .onChange(value => {
-                this.disableNotification = value;
-            });
+            .onChange(value => this.disableNotification = value);
+
+        // Attachments Under Text Option
+        const attachOptionEl = contentEl.createDiv("telegram-option-item");
+        const attachTextEl = attachOptionEl.createDiv("telegram-option-text");
+        attachTextEl.createDiv({ text: t.MULTI_PRESET_ATTACHMENTS_NAME, cls: "telegram-option-name" });
+        attachTextEl.createDiv({ text: t.MULTI_PRESET_ATTACHMENTS_DESC, cls: "telegram-option-desc" });
+        new ToggleComponent(attachOptionEl.createDiv("telegram-option-control"))
+            .setValue(this.attachmentsUnderText)
+            .onChange(value => this.attachmentsUnderText = value);
 
         const btnContainer = contentEl.createDiv("telegram-modal-buttons");
         new ButtonComponent(btnContainer)
@@ -114,7 +120,7 @@ class MultiPresetModal extends Modal {
                 this.close();
                 
                 for (const channel of channelsToPost) {
-                    await this.plugin.sendNoteToTelegram(this.file, channel, this.disableNotification);
+                    await this.plugin.sendNoteToTelegram(this.file, channel, this.disableNotification, this.attachmentsUnderText);
                 }
             });
     }
@@ -203,7 +209,7 @@ export default class SendToTelegramPlugin extends Plugin {
         });
     }
 
-    async sendNoteToTelegram(file: TFile, channel: TelegramChannel, disableNotification: boolean = false): Promise<void> {
+    async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean = false, attachUnderText: boolean = false): Promise<void> {
         if (!channel.botToken || !channel.chatId) {
             new Notice(t.NOTICE_ERR_CONFIG);
             return;
@@ -244,13 +250,15 @@ export default class SendToTelegramPlugin extends Plugin {
                     formData.append("photo", blob, imgFile.name);
                     formData.append("caption", formattedContent);
                     formData.append("parse_mode", "MarkdownV2");
-                    formData.append("disable_notification", String(disableNotification));
+                    formData.append("disable_notification", String(silent));
+                    if (attachUnderText) formData.append("show_caption_above_media", "true");
+
                     const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendPhoto`, { method: "POST", body: formData });
                     if (!response.ok) throw new Error((await response.json()).description);
                 } else {
                     const formData = new FormData();
                     formData.append("chat_id", channel.chatId);
-                    formData.append("disable_notification", String(disableNotification));
+                    formData.append("disable_notification", String(silent));
                     const mediaArray = [];
                     for (let j = 0; j < Math.min(imageFiles.length, 10); j++) {
                         const imgFile = imageFiles[j];
@@ -259,7 +267,9 @@ export default class SendToTelegramPlugin extends Plugin {
                             type: "photo",
                             media: `attach://${attachName}`,
                             caption: j === 0 ? formattedContent : "",
-                            parse_mode: j === 0 ? "MarkdownV2" : undefined
+                            parse_mode: j === 0 ? "MarkdownV2" : undefined,
+                            // FIX: This must be the same for all messages in the album
+                            show_caption_above_media: attachUnderText
                         });
                         const arrayBuffer = await this.app.vault.readBinary(imgFile);
                         formData.append(attachName, new Blob([arrayBuffer], { type: getMimeType(imgFile.extension) }), imgFile.name);
@@ -276,7 +286,7 @@ export default class SendToTelegramPlugin extends Plugin {
                         chat_id: channel.chatId, 
                         text: formattedContent, 
                         parse_mode: "MarkdownV2",
-                        disable_notification: disableNotification 
+                        disable_notification: silent
                     })
                 });
                 if (!response.ok) throw new Error((await response.json()).description);
@@ -303,18 +313,14 @@ class TelegramSettingTab extends PluginSettingTab {
         const { containerEl } = this;
         containerEl.empty();
 
-        // 1. Header
         new Setting(containerEl).setHeading().setName(t.SETTING_HEADER);
 
-        // 2. Multiline Plugin Description (Custom Class)
         containerEl.createEl("p", { 
             text: t.SETTING_DESCRIPTION,
             cls: "telegram-plugin-description" 
         });
 
-        // 3. Add Preset Section (Custom Divs to avoid .setting-item class)
         const addSection = containerEl.createDiv("telegram-add-preset-section");
-        
         const infoDiv = addSection.createDiv("telegram-add-preset-info");
         infoDiv.createEl("div", { text: t.SETTING_ADD_CHANNEL_NAME, cls: "telegram-add-preset-title" });
         infoDiv.createEl("div", { text: t.SETTING_ADD_CHANNEL_DESC, cls: "telegram-add-preset-description" });
@@ -330,7 +336,6 @@ class TelegramSettingTab extends PluginSettingTab {
                 this.display();
             }).buttonEl.addClass("telegram-add-button");
 
-        // 4. Presets List
         const channelContainer = containerEl.createDiv("telegram-settings-container");
 
         this.plugin.settings.channels.forEach((channel, index) => {

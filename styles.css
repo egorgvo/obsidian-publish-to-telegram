@@ -5,6 +5,7 @@
     margin-bottom: 20px;
 }
 
+
 /* Custom Add Preset Section (Replaces .setting-item) */
 .telegram-add-preset-section {
     background-color: var(--setting-items-background);
@@ -162,7 +163,6 @@
     align-items: center;
     padding: 16px 0px;
     border-top: 1px solid var(--background-modifier-border);
-    margin-bottom: 10px;
 }
 
 .telegram-silent-post-text {
@@ -176,6 +176,59 @@
 }
 
 .telegram-silent-post-desc {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* Attachments Under Text Option */
+.telegram-attachments-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0px;
+    border-top: 1px solid var(--background-modifier-border);
+    margin-bottom: 10px;
+}
+
+.telegram-attachments-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.telegram-attachments-name {
+    font-size: var(--font-ui-medium);
+    color: var(--text-normal);
+}
+
+.telegram-attachments-desc {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* ... existing styles ... */
+
+/* Modal Options Styling */
+.telegram-option-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0px;
+    border-top: 1px solid var(--background-modifier-border);
+}
+
+.telegram-option-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.telegram-option-name {
+    font-size: var(--font-ui-medium);
+    color: var(--text-normal);
+}
+
+.telegram-option-desc {
     font-size: var(--font-ui-smaller);
     color: var(--text-muted);
     margin-top: 4px;
