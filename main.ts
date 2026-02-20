@@ -70,7 +70,6 @@ class MultiPresetModal extends Modal {
 
         this.plugin.settings.channels.forEach(channel => {
             const itemEl = listContainer.createDiv("telegram-multi-preset-item");
-            
             const nameEl = itemEl.createDiv("telegram-multi-preset-name");
             nameEl.setText(channel.isDefault 
                 ? `${channel.name || t.UNTITLED_CHANNEL}` 
@@ -80,11 +79,8 @@ class MultiPresetModal extends Modal {
             new ToggleComponent(controlEl)
                 .setValue(false)
                 .onChange(value => {
-                    if (value) {
-                        this.selectedChannels.add(channel.id);
-                    } else {
-                        this.selectedChannels.delete(channel.id);
-                    }
+                    if (value) this.selectedChannels.add(channel.id);
+                    else this.selectedChannels.delete(channel.id);
                 });
         });
 
@@ -115,19 +111,15 @@ class MultiPresetModal extends Modal {
                     new Notice(t.MULTI_PRESET_NO_SELECTION);
                     return;
                 }
-                
                 const channelsToPost = this.plugin.settings.channels.filter(c => this.selectedChannels.has(c.id));
                 this.close();
-                
                 for (const channel of channelsToPost) {
                     await this.plugin.sendNoteToTelegram(this.file, channel, this.disableNotification, this.attachmentsUnderText);
                 }
             });
     }
 
-    onClose() {
-        this.contentEl.empty();
-    }
+    onClose() { this.contentEl.empty(); }
 }
 
 export default class SendToTelegramPlugin extends Plugin {
@@ -173,7 +165,6 @@ export default class SendToTelegramPlugin extends Plugin {
                     if (!checking) this.sendNoteToTelegram(activeFile, defaultChannel);
                     return true;
                 }
-                if (!checking && activeFile && !defaultChannel) new Notice(t.NOTICE_ERR_NO_DEFAULT);
                 return false;
             }
         });
@@ -184,28 +175,11 @@ export default class SendToTelegramPlugin extends Plugin {
             checkCallback: (checking: boolean) => {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (activeFile && this.settings.channels.length > 0) {
-                    if (!checking) {
-                        new MultiPresetModal(this.app, this, activeFile).open();
-                    }
+                    if (!checking) new MultiPresetModal(this.app, this, activeFile).open();
                     return true;
                 }
                 return false;
             }
-        });
-
-        this.settings.channels.forEach((channel) => {
-            this.addCommand({
-                id: `send-to-tg-preset-${channel.id}`,
-                name: `${t.MENU_TITLE}: ${channel.name || t.UNTITLED_CHANNEL}`,
-                checkCallback: (checking: boolean) => {
-                    const activeFile = this.app.workspace.getActiveFile();
-                    if (activeFile) {
-                        if (!checking) this.sendNoteToTelegram(activeFile, channel);
-                        return true;
-                    }
-                    return false;
-                }
-            });
         });
     }
 
@@ -215,90 +189,115 @@ export default class SendToTelegramPlugin extends Plugin {
             return;
         }
 
-        const getMimeType = (ext: string) => {
-            const map: Record<string, string> = {
-                'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-                'gif': 'image/gif', 'webp': 'image/webp'
-            };
-            return map[ext.toLowerCase()] || 'application/octet-stream';
-        };
-
         try {
-            let content: string = await this.app.vault.read(file);
+            let content = await this.app.vault.read(file);
             const cache = this.app.metadataCache.getFileCache(file);
             const embeds = cache?.embeds || [];
-            const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+            
+            const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
             const imageFiles: TFile[] = [];
+            const docFiles: TFile[] = [];
 
             for (const embed of embeds) {
                 const targetFile = this.app.metadataCache.getFirstLinkpathDest(embed.link, file.path);
-                if (targetFile instanceof TFile && imageExtensions.includes(targetFile.extension.toLowerCase())) {
-                    if (!imageFiles.some(f => f.path === targetFile.path)) imageFiles.push(targetFile);
+                if (targetFile instanceof TFile) {
+                    if (imageExts.includes(targetFile.extension.toLowerCase())) {
+                        if (!imageFiles.some(f => f.path === targetFile.path)) imageFiles.push(targetFile);
+                    } else {
+                        if (!docFiles.some(f => f.path === targetFile.path)) docFiles.push(targetFile);
+                    }
                 }
             }
 
             content = content.replace(/!\[.*?\]\(.*?\)/g, '').replace(/!\[\[.*?\]\]/g, '').trim();
             const formattedContent = convert(content);
 
+            // LOGIC: Attach text to the first group/file sent.
             if (imageFiles.length > 0) {
+                // Send images with text as caption
                 if (imageFiles.length === 1) {
-                    const imgFile = imageFiles[0];
-                    const arrayBuffer = await this.app.vault.readBinary(imgFile);
-                    const blob = new Blob([arrayBuffer], { type: getMimeType(imgFile.extension) });
-                    const formData = new FormData();
-                    formData.append("chat_id", channel.chatId);
-                    formData.append("photo", blob, imgFile.name);
-                    formData.append("caption", formattedContent);
-                    formData.append("parse_mode", "MarkdownV2");
-                    formData.append("disable_notification", String(silent));
-                    if (attachUnderText) formData.append("show_caption_above_media", "true");
-
-                    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendPhoto`, { method: "POST", body: formData });
-                    if (!response.ok) throw new Error((await response.json()).description);
+                    await this.sendSingleMedia(channel, imageFiles[0], "photo", formattedContent, silent, attachUnderText);
                 } else {
-                    const formData = new FormData();
-                    formData.append("chat_id", channel.chatId);
-                    formData.append("disable_notification", String(silent));
-                    const mediaArray = [];
-                    for (let j = 0; j < Math.min(imageFiles.length, 10); j++) {
-                        const imgFile = imageFiles[j];
-                        const attachName = `photo${j}`;
-                        mediaArray.push({
-                            type: "photo",
-                            media: `attach://${attachName}`,
-                            caption: j === 0 ? formattedContent : "",
-                            parse_mode: j === 0 ? "MarkdownV2" : undefined,
-                            // FIX: This must be the same for all messages in the album
-                            show_caption_above_media: attachUnderText
-                        });
-                        const arrayBuffer = await this.app.vault.readBinary(imgFile);
-                        formData.append(attachName, new Blob([arrayBuffer], { type: getMimeType(imgFile.extension) }), imgFile.name);
-                    }
-                    formData.append("media", JSON.stringify(mediaArray));
-                    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMediaGroup`, { method: "POST", body: formData });
-                    if (!response.ok) throw new Error((await response.json()).description);
+                    await this.sendMediaGroup(channel, imageFiles.slice(0, 10), "photo", formattedContent, silent, attachUnderText);
                 }
-            } else if (formattedContent.length > 0) {
-                const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMessage`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
-                        chat_id: channel.chatId, 
-                        text: formattedContent, 
-                        parse_mode: "MarkdownV2",
-                        disable_notification: silent
-                    })
-                });
-                if (!response.ok) throw new Error((await response.json()).description);
+                // Send docs afterward (no caption)
+                for (const doc of docFiles) await this.sendSingleMedia(channel, doc, "document", "", silent, false);
+            } 
+            else if (docFiles.length > 0) {
+                // No images. Send first batch of documents with the text as caption
+                const firstBatch = docFiles.slice(0, 10);
+                const remainingDocs = docFiles.slice(10);
+
+                if (firstBatch.length === 1) {
+                    await this.sendSingleMedia(channel, firstBatch[0], "document", formattedContent, silent, attachUnderText);
+                } else {
+                    await this.sendMediaGroup(channel, firstBatch, "document", formattedContent, silent, attachUnderText);
+                }
+                // Send any remaining documents
+                for (const doc of remainingDocs) await this.sendSingleMedia(channel, doc, "document", "", silent, false);
+            } 
+            else if (formattedContent.length > 0) {
+                // Just text
+                await this.sendTextMessage(channel, formattedContent, silent);
             }
+
             new Notice(t.NOTICE_SUCCESS);
         } catch (err: any) {
             new Notice(`${t.NOTICE_ERR_SEND}${err.message}`);
         }
     }
 
-    async loadSettings() { this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()); }
+    async sendTextMessage(channel: TelegramChannel, text: string, silent: boolean) {
+        const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                chat_id: channel.chatId, text, parse_mode: "MarkdownV2", disable_notification: silent 
+            })
+        });
+        if (!response.ok) throw new Error((await response.json()).description);
+    }
 
+    async sendSingleMedia(channel: TelegramChannel, file: TFile, type: "photo" | "document", caption: string, silent: boolean, attachUnderText: boolean) {
+        const method = type === "photo" ? "sendPhoto" : "sendDocument";
+        const formData = new FormData();
+        formData.append("chat_id", channel.chatId);
+        formData.append(type, new Blob([await this.app.vault.readBinary(file)]), file.name);
+        if (caption) {
+            formData.append("caption", caption);
+            formData.append("parse_mode", "MarkdownV2");
+        }
+        formData.append("disable_notification", String(silent));
+        // Use show_caption_above_media if requested
+        if (attachUnderText) formData.append("show_caption_above_media", "true");
+
+        const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/${method}`, { method: "POST", body: formData });
+        if (!response.ok) throw new Error((await response.json()).description);
+    }
+
+    async sendMediaGroup(channel: TelegramChannel, files: TFile[], type: "photo" | "document", caption: string, silent: boolean, attachUnderText: boolean) {
+        const formData = new FormData();
+        formData.append("chat_id", channel.chatId);
+        formData.append("disable_notification", String(silent));
+
+        const mediaArray = await Promise.all(files.map(async (file, idx) => {
+            const attachName = `file${idx}`;
+            formData.append(attachName, new Blob([await this.app.vault.readBinary(file)]), file.name);
+            return {
+                type: type,
+                media: `attach://${attachName}`,
+                caption: idx === 0 ? caption : "",
+                parse_mode: idx === 0 && caption ? "MarkdownV2" : undefined,
+                show_caption_above_media: attachUnderText
+            };
+        }));
+
+        formData.append("media", JSON.stringify(mediaArray));
+        const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMediaGroup`, { method: "POST", body: formData });
+        if (!response.ok) throw new Error((await response.json()).description);
+    }
+
+    async loadSettings() { this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()); }
     async saveSettings() { 
         await this.saveData(this.settings);
         this.registerChannelCommands();
@@ -312,41 +311,31 @@ class TelegramSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-
         new Setting(containerEl).setHeading().setName(t.SETTING_HEADER);
 
-        containerEl.createEl("p", { 
-            text: t.SETTING_DESCRIPTION,
-            cls: "telegram-plugin-description" 
-        });
+        containerEl.createEl("p", { text: t.SETTING_DESCRIPTION, cls: "telegram-plugin-description" });
 
         const addSection = containerEl.createDiv("telegram-add-preset-section");
         const infoDiv = addSection.createDiv("telegram-add-preset-info");
         infoDiv.createEl("div", { text: t.SETTING_ADD_CHANNEL_NAME, cls: "telegram-add-preset-title" });
         infoDiv.createEl("div", { text: t.SETTING_ADD_CHANNEL_DESC, cls: "telegram-add-preset-description" });
 
-        const buttonDiv = addSection.createDiv("telegram-add-preset-button-container");
-        new ButtonComponent(buttonDiv)
+        new ButtonComponent(addSection.createDiv("telegram-add-preset-button-container"))
             .setButtonText(t.SETTING_ADD_CHANNEL)
             .onClick(async () => {
-                this.plugin.settings.channels.push({
-                    id: Date.now().toString(), name: "", botToken: "", chatId: "", isDefault: false
-                });
+                this.plugin.settings.channels.push({ id: Date.now().toString(), name: "", botToken: "", chatId: "", isDefault: false });
                 await this.plugin.saveSettings();
                 this.display();
             }).buttonEl.addClass("telegram-add-button");
 
-        const channelContainer = containerEl.createDiv("telegram-settings-container");
-
         this.plugin.settings.channels.forEach((channel, index) => {
-            const channelDiv = channelContainer.createDiv("telegram-channel-item");
+            const channelDiv = containerEl.createDiv("telegram-channel-item");
             const header = channelDiv.createDiv("telegram-channel-header");
             const titleContainer = header.createDiv("telegram-header-title-container");
             titleContainer.createEl("span", { text: channel.name || `${t.CHANNEL_DEFAULT_NAME} ${index + 1}`, cls: "telegram-header-name" });
 
             new ButtonComponent(titleContainer.createDiv("telegram-edit-container"))
-                .setIcon("pencil").setTooltip(t.TOOLTIP_EDIT)
-                .onClick(() => {
+                .setIcon("pencil").onClick(() => {
                     titleContainer.empty();
                     const input = new TextComponent(titleContainer).setValue(channel.name).setPlaceholder(t.SETTING_PLACE_HOLDER_NAME);
                     input.inputEl.focus();
@@ -355,12 +344,10 @@ class TelegramSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                         this.display();
                     });
-                    input.inputEl.addEventListener("keypress", async (e) => { if (e.key === "Enter") input.inputEl.blur(); });
                 }).buttonEl.addClass("telegram-edit-button");
 
             new ButtonComponent(header.createDiv("telegram-delete-container"))
-                .setIcon("trash").setTooltip(t.SETTING_DELETE_CHANNEL)
-                .onClick(async () => {
+                .setIcon("trash").onClick(async () => {
                     new ConfirmationModal(this.app, channel.name, async () => {
                         this.plugin.settings.channels.splice(index, 1);
                         await this.plugin.saveSettings();
@@ -370,17 +357,17 @@ class TelegramSettingTab extends PluginSettingTab {
 
             new Setting(channelDiv).setName(t.SETTING_BOT_TOKEN_NAME).setDesc(t.SETTING_BOT_TOKEN_DESC)
                 .addText(text => text.setPlaceholder(t.SETTING_PLACEHOLDER_TOKEN).setValue(channel.botToken)
-                    .onChange(async (value) => { channel.botToken = value; await this.plugin.saveSettings(); }));
+                    .onChange(async (v) => { channel.botToken = v; await this.plugin.saveSettings(); }));
 
             new Setting(channelDiv).setName(t.SETTING_CHAT_ID_NAME).setDesc(t.SETTING_CHAT_ID_DESC)
                 .addText(text => text.setPlaceholder(t.SETTING_PLACEHOLDER_CHAT).setValue(channel.chatId)
-                    .onChange(async (value) => { channel.chatId = value; await this.plugin.saveSettings(); }));
+                    .onChange(async (v) => { channel.chatId = v; await this.plugin.saveSettings(); }));
 
             new Setting(channelDiv).setName(t.SETTING_DEFAULT_CHANNEL).setDesc(t.SETTING_DEFAULT_DESC)
                 .addToggle(toggle => toggle.setValue(channel.isDefault || false)
-                    .onChange(async (value) => {
-                        if (value) this.plugin.settings.channels.forEach(c => c.isDefault = false);
-                        channel.isDefault = value;
+                    .onChange(async (v) => {
+                        if (v) this.plugin.settings.channels.forEach(c => c.isDefault = false);
+                        channel.isDefault = v;
                         await this.plugin.saveSettings();
                         this.display();
                     }));
