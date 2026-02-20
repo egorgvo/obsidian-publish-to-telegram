@@ -1,11 +1,9 @@
+/* Container for the whole settings tab */
 .telegram-settings-container {
     padding-top: 10px;
 }
 
-.setting-item.setting-item-heading {
-    margin-top: 32px;
-}
-
+/* Individual Channel Card */
 .telegram-channel-item {
     border: 1px solid var(--background-modifier-border);
     border-radius: 8px;
@@ -14,22 +12,66 @@
     background-color: var(--setting-items-background);
     display: flex;
     flex-direction: column;
-    gap: 8px;
 }
 
-.setting-item-control.input {
-    width: 100%;
-}
-
+/* Header within the card */
 .telegram-channel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.telegram-header-title-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-grow: 1;
+}
+
+.telegram-channel-header {
     margin-left: 16px;
     margin-right: 16px;
+    margin-top: 8px;
+    padding-bottom: 8px;
+}
+
+.telegram-header-name {
     font-weight: bold;
-    padding-top: 12px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--background-modifier-border);
+    font-size: 1.1em;
+}
+
+/* --- Action Containers (Divs) --- */
+
+.telegram-edit-container {
+    /* Style the div wrapping the pencil icon */
+}
+
+.telegram-delete-container {
+    /* Style the div wrapping the trash icon */
+}
+
+/* --- Custom Button Styling --- */
+
+/* Edit Button */
+.telegram-edit-button {
+    background-color: var(--setting-items-background) !important;
+    box-shadow: none !important;
+}
+
+.telegram-edit-button:hover {
+    color: var(--interactive-accent);
+}
+
+/* Delete Button */
+.telegram-delete-button {
+    background-color: var(--setting-items-background) !important;
+    box-shadow: none !important;
+}
+
+.telegram-delete-button:hover {
+    color: white !important;
+    background-color: var(--text-error) !important;
 }

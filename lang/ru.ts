@@ -10,10 +10,10 @@ export default {
     SETTING_BOT_TOKEN_NAME: "Токен бота",
     SETTING_BOT_TOKEN_DESC: "Получите его у бота @BotFather",
     SETTING_CHAT_ID_NAME: "ID канала/группы",
-    SETTING_CHAT_ID_DESC: "Получите его у бота @userinfobot, отправив сообщение из канала/группы",
+    SETTING_CHAT_ID_DESC: "Получите его у бота @userinfobot",
     SETTING_DELETE_CHANNEL: "Удалить пресет",
-    SETTING_DEFAULT_CHANNEL: "Пресет по умолчанию",
-    SETTING_DEFAULT_DESC: "Этот пресет будет отмечен звездочкой в меню выбора.",
+    SETTING_DEFAULT_CHANNEL: "Установить как пресет по умолчанию",
+    SETTING_DEFAULT_DESC: "Можно вызвать из палитры команд или по сочетанию клавиш.",
     SETTING_PLACE_NAME: "Например: Мой Блог",
     SETTING_PLACEHOLDER_TOKEN: "Введите токен...",
     SETTING_PLACEHOLDER_CHAT: "Введите ID..."

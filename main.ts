@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, TFolder, Menu } from "obsidian";
+import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, TFolder, Menu, TextComponent, ButtonComponent } from "obsidian";
 import { t } from "./lang/helpers";
 import { convert } from "telegram-markdown-v2";
 
@@ -30,37 +30,26 @@ export default class SendToTelegramPlugin extends Plugin {
                 if (!(file instanceof TFile)) return;
                 if (this.settings.channels.length === 0) return;
 
-                if (this.settings.channels.length === 1) {
-                    menu.addItem((item) => {
-                        item
-                            .setTitle(t.MENU_TITLE)
-                            .setIcon("paper-plane")
-                            .onClick(async () => {
-                                await this.sendNoteToTelegram(file, this.settings.channels[0]);
-                            });
-                    });
-                } else {
-                    menu.addItem((item) => {
-                        item
-                            .setTitle(t.MENU_TITLE)
-                            .setIcon("paper-plane");
-                        
-                        const subMenu = (item as any).setSubmenu();
-                        this.settings.channels.forEach((channel) => {
-                            const displayName = channel.isDefault 
-                                ? `⭐ ${channel.name || "Untitled"}` 
-                                : channel.name || "Untitled";
+                menu.addItem((item) => {
+                    item
+                        .setTitle(t.MENU_TITLE)
+                        .setIcon("paper-plane");
+                    
+                    const subMenu = (item as any).setSubmenu();
+                    this.settings.channels.forEach((channel) => {
+                        const displayName = channel.isDefault 
+                            ? `⭐ ${channel.name || "Untitled"}` 
+                            : channel.name || "Untitled";
 
-                            subMenu.addItem((subItem: any) => {
-                                subItem
-                                    .setTitle(displayName)
-                                    .onClick(async () => {
-                                        await this.sendNoteToTelegram(file, channel);
-                                    });
-                            });
+                        subMenu.addItem((subItem: any) => {
+                            subItem
+                                .setTitle(displayName)
+                                .onClick(async () => {
+                                    await this.sendNoteToTelegram(file, channel);
+                                });
                         });
                     });
-                }
+                });
             })
         );
     }
@@ -182,24 +171,72 @@ class TelegramSettingTab extends PluginSettingTab {
             .setHeading()
             .setName(t.SETTING_HEADER);
 
+        new Setting(containerEl)
+            .addButton(btn => btn
+                .setButtonText(t.SETTING_ADD_CHANNEL)
+                .setCta()
+                .onClick(async () => {
+                    this.plugin.settings.channels.push({
+                        id: Date.now().toString(),
+                        name: "",
+                        botToken: "",
+                        chatId: "",
+                        isDefault: false
+                    });
+                    await this.plugin.saveSettings();
+                    this.display();
+                }));
+
         const channelContainer = containerEl.createDiv("telegram-settings-container");
 
         this.plugin.settings.channels.forEach((channel, index) => {
             const channelDiv = channelContainer.createDiv("telegram-channel-item");
             const header = channelDiv.createDiv("telegram-channel-header");
-            header.setText(`${channel.name || "Channel " + (index + 1)}`);
+            
+            // Left Side: Name and Edit Icon
+            const titleContainer = header.createDiv("telegram-header-title-container");
+            const headerTitle = titleContainer.createEl("span", { 
+                text: channel.name || "Channel " + (index + 1),
+                cls: "telegram-header-name"
+            });
 
-            new Setting(channelDiv)
-                .setName(t.SETTING_CHANNEL_NAME)
-                .addText(text => text
-                    .setPlaceholder(t.SETTING_PLACE_NAME)
-                    .setValue(channel.name)
-                    .onChange(async (value) => {
-                        channel.name = value;
-                        header.setText(value || "Untitled Channel");
+            // Direct DOM creation for Edit Button (no Setting class)
+            const editBtnContainer = titleContainer.createDiv("telegram-edit-container");
+            const editBtn = new ButtonComponent(editBtnContainer)
+                .setIcon("pencil")
+                .setTooltip("Edit Name")
+                .onClick(() => {
+                    titleContainer.empty();
+                    const input = new TextComponent(titleContainer)
+                        .setValue(channel.name)
+                        .setPlaceholder("Enter preset name...");
+                    
+                    input.inputEl.focus();
+                    input.inputEl.addEventListener("blur", async () => {
+                        channel.name = input.getValue();
                         await this.plugin.saveSettings();
-                    }));
+                        this.display();
+                    });
 
+                    input.inputEl.addEventListener("keypress", async (e) => {
+                        if (e.key === "Enter") input.inputEl.blur();
+                    });
+                });
+            editBtn.buttonEl.addClass("telegram-edit-button");
+
+            // Right Side: Delete Icon
+            const deleteBtnContainer = header.createDiv("telegram-delete-container");
+            const deleteBtn = new ButtonComponent(deleteBtnContainer)
+                .setIcon("trash")
+                .setTooltip(t.SETTING_DELETE_CHANNEL)
+                .onClick(async () => {
+                    this.plugin.settings.channels.splice(index, 1);
+                    await this.plugin.saveSettings();
+                    this.display();
+                });
+            deleteBtn.buttonEl.addClass("telegram-delete-button");
+
+            // Regular settings (using Setting class is fine here)
             new Setting(channelDiv)
                 .setName(t.SETTING_BOT_TOKEN_NAME)
                 .setDesc(t.SETTING_BOT_TOKEN_DESC)
@@ -222,7 +259,6 @@ class TelegramSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     }));
 
-            // Toggle and Description grouped together
             new Setting(channelDiv)
                 .setName(t.SETTING_DEFAULT_CHANNEL)
                 .setDesc(t.SETTING_DEFAULT_DESC)
@@ -238,33 +274,8 @@ class TelegramSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                         this.display();
                     }));
-
-            // Delete button separate from toggle
-            new Setting(channelDiv)
-                .addButton(btn => btn
-                    .setButtonText(t.SETTING_DELETE_CHANNEL)
-                    .setWarning()
-                    .onClick(async () => {
-                        this.plugin.settings.channels.splice(index, 1);
-                        await this.plugin.saveSettings();
-                        this.display();
-                    }));
         });
 
-        new Setting(containerEl)
-            .addButton(btn => btn
-                .setButtonText(t.SETTING_ADD_CHANNEL)
-                .setCta()
-                .onClick(async () => {
-                    this.plugin.settings.channels.push({
-                        id: Date.now().toString(),
-                        name: "",
-                        botToken: "",
-                        chatId: "",
-                        isDefault: false
-                    });
-                    await this.plugin.saveSettings();
-                    this.display();
-                }));
+
     }
 }
