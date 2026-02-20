@@ -136,14 +136,17 @@
 
 /* Modal Multi-Preset Custom Items */
 .telegram-multi-preset-list {
-    margin-bottom: 10px;
+    margin-bottom: 16px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--setting-items-radius);
+    margin-top: 12px;
 }
 
 .telegram-multi-preset-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 0px;
+    padding: 16px 16px;
     border-bottom: 1px solid var(--background-modifier-border);
 }
 
@@ -156,66 +159,16 @@
     color: var(--text-normal);
 }
 
-/* Silent Post Option */
-.telegram-silent-post-option {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 0px;
-    border-top: 1px solid var(--background-modifier-border);
-}
-
-.telegram-silent-post-text {
-    display: flex;
-    flex-direction: column;
-}
-
-.telegram-silent-post-name {
-    font-size: var(--font-ui-medium);
-    color: var(--text-normal);
-}
-
-.telegram-silent-post-desc {
-    font-size: var(--font-ui-smaller);
-    color: var(--text-muted);
-    margin-top: 4px;
-}
-
-/* Attachments Under Text Option */
-.telegram-attachments-option {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 0px;
-    border-top: 1px solid var(--background-modifier-border);
-    margin-bottom: 10px;
-}
-
-.telegram-attachments-text {
-    display: flex;
-    flex-direction: column;
-}
-
-.telegram-attachments-name {
-    font-size: var(--font-ui-medium);
-    color: var(--text-normal);
-}
-
-.telegram-attachments-desc {
-    font-size: var(--font-ui-smaller);
-    color: var(--text-muted);
-    margin-top: 4px;
-}
-
-/* ... existing styles ... */
-
 /* Modal Options Styling */
+
 .telegram-option-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 0px;
-    border-top: 1px solid var(--background-modifier-border);
+    padding: 16px 16px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--setting-items-radius);
+    margin-bottom: 16px;
 }
 
 .telegram-option-text {
