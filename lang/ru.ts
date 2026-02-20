@@ -34,5 +34,7 @@ export default {
     COMMAND_SEND_MULTIPLE: "Опубликовать с помощью нескольких пресетов",
     MULTI_PRESET_TITLE: "Выберите каналы/группы для публикации",
     MULTI_PRESET_POST_BTN: "Опубликовать",
-    MULTI_PRESET_NO_SELECTION: "Выберите хотя бы один пресет"
+    MULTI_PRESET_NO_SELECTION: "Выберите хотя бы один пресет",
+    MULTI_PRESET_SILENT_POST_NAME: "Опубликовать без звука",
+    MULTI_PRESET_SILENT_POST_DESC: "Подписчики получат уведомление без звукового сигнала."
 };

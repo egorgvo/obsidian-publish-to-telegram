@@ -47,12 +47,14 @@ class MultiPresetModal extends Modal {
     plugin: SendToTelegramPlugin;
     selectedChannels: Set<string>;
     file: TFile;
+    disableNotification: boolean;
 
     constructor(app: App, plugin: SendToTelegramPlugin, file: TFile) {
         super(app);
         this.plugin = plugin;
         this.file = file;
         this.selectedChannels = new Set();
+        this.disableNotification = false;
     }
 
     onOpen() {
@@ -86,6 +88,18 @@ class MultiPresetModal extends Modal {
                 });
         });
 
+        const silentOptionEl = contentEl.createDiv("telegram-silent-post-option");
+        const silentTextEl = silentOptionEl.createDiv("telegram-silent-post-text");
+        silentTextEl.createDiv({ text: t.MULTI_PRESET_SILENT_POST_NAME, cls: "telegram-silent-post-name" });
+        silentTextEl.createDiv({ text: t.MULTI_PRESET_SILENT_POST_DESC, cls: "telegram-silent-post-desc" });
+
+        const silentControlEl = silentOptionEl.createDiv("telegram-silent-post-control");
+        new ToggleComponent(silentControlEl)
+            .setValue(this.disableNotification)
+            .onChange(value => {
+                this.disableNotification = value;
+            });
+
         const btnContainer = contentEl.createDiv("telegram-modal-buttons");
         new ButtonComponent(btnContainer)
             .setButtonText(t.MULTI_PRESET_POST_BTN)
@@ -100,7 +114,7 @@ class MultiPresetModal extends Modal {
                 this.close();
                 
                 for (const channel of channelsToPost) {
-                    await this.plugin.sendNoteToTelegram(this.file, channel);
+                    await this.plugin.sendNoteToTelegram(this.file, channel, this.disableNotification);
                 }
             });
     }
@@ -189,7 +203,7 @@ export default class SendToTelegramPlugin extends Plugin {
         });
     }
 
-    async sendNoteToTelegram(file: TFile, channel: TelegramChannel): Promise<void> {
+    async sendNoteToTelegram(file: TFile, channel: TelegramChannel, disableNotification: boolean = false): Promise<void> {
         if (!channel.botToken || !channel.chatId) {
             new Notice(t.NOTICE_ERR_CONFIG);
             return;
@@ -230,11 +244,13 @@ export default class SendToTelegramPlugin extends Plugin {
                     formData.append("photo", blob, imgFile.name);
                     formData.append("caption", formattedContent);
                     formData.append("parse_mode", "MarkdownV2");
+                    formData.append("disable_notification", String(disableNotification));
                     const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendPhoto`, { method: "POST", body: formData });
                     if (!response.ok) throw new Error((await response.json()).description);
                 } else {
                     const formData = new FormData();
                     formData.append("chat_id", channel.chatId);
+                    formData.append("disable_notification", String(disableNotification));
                     const mediaArray = [];
                     for (let j = 0; j < Math.min(imageFiles.length, 10); j++) {
                         const imgFile = imageFiles[j];
@@ -256,7 +272,12 @@ export default class SendToTelegramPlugin extends Plugin {
                 const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMessage`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ chat_id: channel.chatId, text: formattedContent, parse_mode: "MarkdownV2" })
+                    body: JSON.stringify({ 
+                        chat_id: channel.chatId, 
+                        text: formattedContent, 
+                        parse_mode: "MarkdownV2",
+                        disable_notification: disableNotification 
+                    })
                 });
                 if (!response.ok) throw new Error((await response.json()).description);
             }
