@@ -75,3 +75,10 @@
     color: white !important;
     background-color: var(--text-error) !important;
 }
+
+.telegram-modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}

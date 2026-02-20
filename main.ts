@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, TFolder, Menu, TextComponent, ButtonComponent } from "obsidian";
+import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, TFolder, Menu, TextComponent, ButtonComponent, Modal } from "obsidian";
 import { t } from "./lang/helpers";
 import { convert } from "telegram-markdown-v2";
 
@@ -18,6 +18,48 @@ const DEFAULT_SETTINGS: TelegramSettings = {
     channels: []
 }
 
+/**
+ * Modal dialog to confirm deletion of a channel preset
+ */
+class ConfirmationModal extends Modal {
+    onSubmit: () => void;
+    channelName: string;
+
+    constructor(app: App, channelName: string, onSubmit: () => void) {
+        super(app);
+        this.channelName = channelName || t.UNTITLED_CHANNEL;
+        this.onSubmit = onSubmit;
+    }
+
+    onOpen() {
+        const { contentEl, titleEl } = this;
+        titleEl.setText(t.CONFIRM_DELETE_TITLE);
+
+        contentEl.createEl("p", { 
+            text: t.CONFIRM_DELETE_MSG.replace("{name}", this.channelName) 
+        });
+
+        const btnContainer = contentEl.createDiv("telegram-modal-buttons");
+        
+        new ButtonComponent(btnContainer)
+            .setButtonText(t.CONFIRM_CANCEL_BTN)
+            .onClick(() => this.close());
+
+        new ButtonComponent(btnContainer)
+            .setButtonText(t.CONFIRM_DELETE_BTN)
+            .setWarning()
+            .onClick(() => {
+                this.onSubmit();
+                this.close();
+            });
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
 export default class SendToTelegramPlugin extends Plugin {
     settings: TelegramSettings;
 
@@ -25,6 +67,30 @@ export default class SendToTelegramPlugin extends Plugin {
         await this.loadSettings();
         this.addSettingTab(new TelegramSettingTab(this.app, this));
 
+        // Add Command for Hotkeys
+        this.addCommand({
+            id: 'send-to-telegram-default',
+            name: t.COMMAND_SEND_DEFAULT,
+            checkCallback: (checking: boolean) => {
+                const activeFile = this.app.workspace.getActiveFile();
+                const defaultChannel = this.settings.channels.find(c => c.isDefault);
+
+                if (activeFile && defaultChannel) {
+                    if (!checking) {
+                        this.sendNoteToTelegram(activeFile, defaultChannel);
+                    }
+                    return true;
+                }
+
+                if (!checking && activeFile && !defaultChannel) {
+                    new Notice(t.NOTICE_ERR_NO_DEFAULT);
+                }
+                
+                return false;
+            }
+        });
+
+        // Register File Menu Event (Right-click)
         this.registerEvent(
             this.app.workspace.on("file-menu", (menu: Menu, file: TFile | TFolder) => {
                 if (!(file instanceof TFile)) return;
@@ -38,8 +104,8 @@ export default class SendToTelegramPlugin extends Plugin {
                     const subMenu = (item as any).setSubmenu();
                     this.settings.channels.forEach((channel) => {
                         const displayName = channel.isDefault 
-                            ? `⭐ ${channel.name || "Untitled"}` 
-                            : channel.name || "Untitled";
+                            ? `⭐ ${channel.name || t.UNTITLED_CHANNEL}` 
+                            : channel.name || t.UNTITLED_CHANNEL;
 
                         subMenu.addItem((subItem: any) => {
                             subItem
@@ -187,29 +253,28 @@ class TelegramSettingTab extends PluginSettingTab {
                     this.display();
                 }));
 
+        // FIXED: Using containerEl instead of the non-existent channelEl
         const channelContainer = containerEl.createDiv("telegram-settings-container");
 
         this.plugin.settings.channels.forEach((channel, index) => {
             const channelDiv = channelContainer.createDiv("telegram-channel-item");
             const header = channelDiv.createDiv("telegram-channel-header");
             
-            // Left Side: Name and Edit Icon
             const titleContainer = header.createDiv("telegram-header-title-container");
             const headerTitle = titleContainer.createEl("span", { 
-                text: channel.name || "Channel " + (index + 1),
+                text: channel.name || `${t.CHANNEL_DEFAULT_NAME} ${index + 1}`,
                 cls: "telegram-header-name"
             });
 
-            // Direct DOM creation for Edit Button (no Setting class)
             const editBtnContainer = titleContainer.createDiv("telegram-edit-container");
             const editBtn = new ButtonComponent(editBtnContainer)
                 .setIcon("pencil")
-                .setTooltip("Edit Name")
+                .setTooltip(t.TOOLTIP_EDIT)
                 .onClick(() => {
                     titleContainer.empty();
                     const input = new TextComponent(titleContainer)
                         .setValue(channel.name)
-                        .setPlaceholder("Enter preset name...");
+                        .setPlaceholder(t.SETTING_PLACE_HOLDER_NAME);
                     
                     input.inputEl.focus();
                     input.inputEl.addEventListener("blur", async () => {
@@ -224,19 +289,19 @@ class TelegramSettingTab extends PluginSettingTab {
                 });
             editBtn.buttonEl.addClass("telegram-edit-button");
 
-            // Right Side: Delete Icon
             const deleteBtnContainer = header.createDiv("telegram-delete-container");
             const deleteBtn = new ButtonComponent(deleteBtnContainer)
                 .setIcon("trash")
                 .setTooltip(t.SETTING_DELETE_CHANNEL)
                 .onClick(async () => {
-                    this.plugin.settings.channels.splice(index, 1);
-                    await this.plugin.saveSettings();
-                    this.display();
+                    new ConfirmationModal(this.app, channel.name, async () => {
+                        this.plugin.settings.channels.splice(index, 1);
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }).open();
                 });
             deleteBtn.buttonEl.addClass("telegram-delete-button");
 
-            // Regular settings (using Setting class is fine here)
             new Setting(channelDiv)
                 .setName(t.SETTING_BOT_TOKEN_NAME)
                 .setDesc(t.SETTING_BOT_TOKEN_DESC)
@@ -275,7 +340,5 @@ class TelegramSettingTab extends PluginSettingTab {
                         this.display();
                     }));
         });
-
-
     }
 }

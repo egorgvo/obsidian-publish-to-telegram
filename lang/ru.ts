@@ -3,6 +3,7 @@ export default {
     NOTICE_SUCCESS: "Успешно опубликовано ✅",
     NOTICE_ERR_CONFIG: "Ошибка: Настройте хотя бы один канал в параметрах.",
     NOTICE_ERR_SEND: "Ошибка отправки: ",
+    NOTICE_ERR_NO_DEFAULT: "Ошибка: Пресет по умолчанию не установлен.", // New
     SETTING_HEADER: "Настройки Publish to Telegram",
     SETTING_ADD_CHANNEL: "Добавить пресет публикации",
     SETTING_BOT_TOKEN_NAME: "Токен бота",
@@ -12,6 +13,15 @@ export default {
     SETTING_DELETE_CHANNEL: "Удалить пресет",
     SETTING_DEFAULT_CHANNEL: "Установить как пресет по умолчанию",
     SETTING_DEFAULT_DESC: "Пресет будет использоваться для публикации с помощью сочетания клавиш.",
+    SETTING_PLACE_HOLDER_NAME: "Введите название пресета...",
     SETTING_PLACEHOLDER_TOKEN: "Введите токен...",
-    SETTING_PLACEHOLDER_CHAT: "Введите ID..."
+    SETTING_PLACEHOLDER_CHAT: "Введите ID...",
+    CHANNEL_DEFAULT_NAME: "Канал",
+    UNTITLED_CHANNEL: "Без названия",
+    TOOLTIP_EDIT: "Изменить название",
+    CONFIRM_DELETE_TITLE: "Удалить пресет?",
+    CONFIRM_DELETE_MSG: "Вы уверены, что хотите удалить пресет \"{name}\"? Это действие нельзя отменить.",
+    CONFIRM_DELETE_BTN: "Удалить",
+    CONFIRM_CANCEL_BTN: "Отмена",
+    COMMAND_SEND_DEFAULT: "Опубликовать в Telegram (пресет по умолчанию)" // New
 };
