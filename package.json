@@ -1,15 +1,15 @@
 {
   "name": "obsidian-publish-to-telegram",
   "version": "1.0.0",
-  "description": "Allows publishing notes to Telegram.",
+  "description": "Allows to publish notes to Telegram. An Obsidian plugin that allows you to post notes directly to Telegram channels and groups with different presets.",
   "main": "main.js",
   "scripts": {
     "dev": "esbuild main.ts --bundle --external:obsidian --format=cjs --outfile=main.js --watch",
     "build": "esbuild main.ts --bundle --external:obsidian --format=cjs --outfile=main.js --minify"
   },
   "keywords": [],
-  "author": "Egor Gvo",
-  "license": "ISC",
+  "author": "pan4ratte",
+  "license": "AGPL-3.0",
   "type": "commonjs",
   "devDependencies": {
     "esbuild": "^0.27.3",
