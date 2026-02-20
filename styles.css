@@ -1,6 +1,66 @@
-/* Container for the whole settings tab */
-.telegram-settings-container {
-    padding-top: 10px;
+.telegram-plugin-description {
+    font-size: var(--font-smallest);
+    margin-left: 16px;
+    margin-right: 16px;
+    margin-bottom: 20px;
+}
+
+
+/* Custom Add Preset Section (Replaces .setting-item) */
+.telegram-add-preset-section {
+    background-color: var(--setting-items-background);
+    border-radius: var(--setting-items-radius);
+    border: 1px solid var(--background-modifier-border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 16px 16px 16px;
+    margin-bottom: 20px;
+}
+
+.telegram-add-preset-title {
+    font-weight: var(--font-bold);
+    padding-left: 16px;
+    padding-right: 16px;
+    color: var(--text-normal);
+    font-size: var(--font-ui-medium);
+    line-height: var(--line-height-tight);
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.telegram-add-preset-description {
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    line-height: var(--line-height-tight);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: 12px;
+    padding-top: 8px;
+    white-space: pre-wrap;
+}
+
+.telegram-add-preset-button-container {
+    align-items: center;
+    padding-left: 16px;
+    padding-right: 16px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+/* Custom Add Button Styling (No mod-cta) */
+.telegram-add-button {
+    margin-top: 12px;
+    margin-bottom: 8px;
+    background-color: var(--interactive-accent) !important;
+    color: var(--text-on-accent) !important;
+    font-weight: var(--font-semibold);
+    width: 100%;
+}
+
+.telegram-add-button:hover {
+    background-color: var(--interactive-accent-hover) !important;
 }
 
 /* Individual Channel Card */
@@ -39,21 +99,9 @@
 }
 
 .telegram-header-name {
-    font-weight: bold;
-    font-size: 1.1em;
+    font-weight: var(--font-bold);
+    font-size: var(--font-ui-medium);
 }
-
-/* --- Action Containers (Divs) --- */
-
-.telegram-edit-container {
-    /* Style the div wrapping the pencil icon */
-}
-
-.telegram-delete-container {
-    /* Style the div wrapping the trash icon */
-}
-
-/* --- Custom Button Styling --- */
 
 /* Edit Button */
 .telegram-edit-button {
