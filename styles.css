@@ -107,6 +107,8 @@
 .telegram-edit-button {
     background-color: var(--setting-items-background) !important;
     box-shadow: none !important;
+    height: 44px;
+    width: 44px;
 }
 
 .telegram-edit-button:hover {
@@ -117,11 +119,12 @@
 .telegram-delete-button {
     background-color: var(--setting-items-background) !important;
     box-shadow: none !important;
+    height: 44px;
+    width: 44px;
 }
 
 .telegram-delete-button:hover {
-    color: white !important;
-    background-color: var(--text-error) !important;
+    color: var(--text-error) !important;
 }
 
 .telegram-modal-buttons {
