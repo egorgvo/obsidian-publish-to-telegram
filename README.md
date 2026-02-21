@@ -43,19 +43,19 @@ Done! The plugin will automatically install and will be ready to use.
 
 All standard Telegram formatting options are supported:
 
-| Element                                                                     | Input                                  | Telegram Output                   |
-| --------------------------------------------------------------------------- | -------------------------------------- | --------------------------------- |
-| **Bold**                                                                    | `**text**`                             | `*text*`                          |
-| _Italic_                                                                    | `*text*`                               | `_text_`                          |
-| **Underline**                                                               | `<u>text</u>`                          | `__text__`                        |
-| ~~Strikethrough~~                                                           | `~~text~~`                             | `~text~`                          |
-| Spoiler                                                                     | `<span class="tg-spoiler">text</span>` | `                                 |
-| `Inline Code`                                                               | `` `code` ``                           | `` `code` ``                      |
-| [Links](https://github.com/andyrightnow/telegram-markdown-v2/blob/HEAD/url) | `[text](url)`                          | `[text](url)`                     |
-| Block Quotes                                                                | `> quote`                              | Configurable (keep/escape/remove) |
-| Code Blocks                                                                 | lang code                              | code                              |
-| Lists                                                                       | `- item`                               | `• item`                          |
-| Headings                                                                    | `# Title`                              | `*Title*`                         |
+| Element                     | Input                                  | Telegram Output    |
+| ----------------------------| -------------------------------------- | -------------------|
+| **Bold**                    | `**text**`                             | `*text*`           |
+| _Italic_                    | `*text*`                               | `_text_`           |
+| **Underline**               | `<u>text</u>`                          | `__text__`         |
+| ~~Strikethrough~~           | `~~text~~`                             | `~text~`           |
+| Spoiler                     | `<span class="tg-spoiler">text</span>` | `                  |
+| `Inline Code`               | `` `code` ``                           | `` `code` ``       |
+| [Links](https://obsdian.md) | `[text](url)`                          | `[text](url)`      |
+| Block Quotes                | `> quote`                              | > quote 			|
+| Code Blocks                 | lang code                              | code               |
+| Lists                       | `- item`                               | `• item`           |
+| Headings                    | `# Title`                              | `*Title*`          |
 
 ### Attachments
 
