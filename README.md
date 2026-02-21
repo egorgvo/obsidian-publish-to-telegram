@@ -43,7 +43,7 @@ Done! The plugin will automatically install and will be ready to use.
 
 All standard Telegram formatting options are supported:
 
-| Element                     | Input                                  | Telegram Output    |
+| Formatting element          | Input in Obsidian                      | Telegram Output    |
 | ----------------------------| -------------------------------------- | -------------------|
 | **Bold**                    | `**text**`                             | `*text*`           |
 | _Italic_                    | `*text*`                               | `_text_`           |
