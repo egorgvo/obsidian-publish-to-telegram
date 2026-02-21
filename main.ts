@@ -48,14 +48,26 @@ class MultiPresetModal extends Modal {
     plugin: SendToTelegramPlugin;
     selectedChannels: Set<string>;
     file: TFile;
-    disableNotification: boolean = false;
-    attachmentsUnderText: boolean = false;
+
+    // Stored toggle references — values are read directly via getValue() at post time
+    // to avoid any onChange sync/timing issues with Obsidian's ToggleComponent.
+    private silentToggle: ToggleComponent;
+    private attachToggle: ToggleComponent;
 
     constructor(app: App, plugin: SendToTelegramPlugin, file: TFile) {
         super(app);
         this.plugin = plugin;
         this.file = file;
         this.selectedChannels = new Set();
+    }
+
+    /** Resets advanced post settings back to their visual and logical defaults. */
+    private resetAdvancedSettings() {
+        // setValue(false) resets the visual state of the toggle.
+        // We do NOT rely on this to fire onChange — values are always
+        // read via getValue() at post time, so this is purely cosmetic.
+        this.silentToggle?.setValue(false);
+        this.attachToggle?.setValue(false);
     }
 
     onOpen() {
@@ -102,18 +114,16 @@ class MultiPresetModal extends Modal {
         const silentTextEl = silentOptionEl.createDiv("telegram-option-text");
         silentTextEl.createDiv({ text: t.MULTI_PRESET_SILENT_POST_NAME, cls: "telegram-option-name" });
         silentTextEl.createDiv({ text: t.MULTI_PRESET_SILENT_POST_DESC, cls: "telegram-option-desc" });
-        new ToggleComponent(silentOptionEl.createDiv("telegram-option-control"))
-            .setValue(this.disableNotification)
-            .onChange(value => this.disableNotification = value);
+        this.silentToggle = new ToggleComponent(silentOptionEl.createDiv("telegram-option-control"))
+            .setValue(false);
 
         // Attachments Under Text Option
         const attachOptionEl = contentEl.createDiv("telegram-option-item");
         const attachTextEl = attachOptionEl.createDiv("telegram-option-text");
         attachTextEl.createDiv({ text: t.MULTI_PRESET_ATTACHMENTS_NAME, cls: "telegram-option-name" });
         attachTextEl.createDiv({ text: t.MULTI_PRESET_ATTACHMENTS_DESC, cls: "telegram-option-desc" });
-        new ToggleComponent(attachOptionEl.createDiv("telegram-option-control"))
-            .setValue(this.attachmentsUnderText)
-            .onChange(value => this.attachmentsUnderText = value);
+        this.attachToggle = new ToggleComponent(attachOptionEl.createDiv("telegram-option-control"))
+            .setValue(false);
 
         const btnContainer = contentEl.createDiv("telegram-modal-buttons");
         new ButtonComponent(btnContainer)
@@ -125,9 +135,19 @@ class MultiPresetModal extends Modal {
                     return;
                 }
                 const channelsToPost = this.plugin.settings.channels.filter(c => this.selectedChannels.has(c.id));
+
+                // Read actual toggle state directly at post time — never rely on onChange
+                // to have synced the value into a class property, as Obsidian's
+                // ToggleComponent can fire onChange inconsistently across versions.
+                const silent = this.silentToggle?.getValue() ?? false;
+                const attachUnderText = this.attachToggle?.getValue() ?? false;
+
+                // Reset toggle visuals back to defaults before closing
+                this.resetAdvancedSettings();
+
                 this.close();
                 for (const channel of channelsToPost) {
-                    await this.plugin.sendNoteToTelegram(this.file, channel, this.disableNotification, this.attachmentsUnderText);
+                    await this.plugin.sendNoteToTelegram(this.file, channel, silent, attachUnderText);
                 }
             });
     }
@@ -226,19 +246,16 @@ export default class SendToTelegramPlugin extends Plugin {
             content = content.replace(/!\[.*?\]\(.*?\)/g, '').replace(/!\[\[.*?\]\]/g, '').trim();
             const formattedContent = convert(content);
 
-            // LOGIC: Attach text to the first group/file sent.
             if (imageFiles.length > 0) {
-                // Send images with text as caption
                 if (imageFiles.length === 1) {
                     await this.sendSingleMedia(channel, imageFiles[0], "photo", formattedContent, silent, attachUnderText);
                 } else {
                     await this.sendMediaGroup(channel, imageFiles.slice(0, 10), "photo", formattedContent, silent, attachUnderText);
                 }
-                // Send docs afterward (no caption)
+                // Extra docs sent alongside images — silent flag preserved
                 for (const doc of docFiles) await this.sendSingleMedia(channel, doc, "document", "", silent, false);
             } 
             else if (docFiles.length > 0) {
-                // No images. Send first batch of documents with the text as caption
                 const firstBatch = docFiles.slice(0, 10);
                 const remainingDocs = docFiles.slice(10);
 
@@ -247,11 +264,11 @@ export default class SendToTelegramPlugin extends Plugin {
                 } else {
                     await this.sendMediaGroup(channel, firstBatch, "document", formattedContent, silent, attachUnderText);
                 }
-                // Send any remaining documents
+                // Overflow docs — silent flag preserved
                 for (const doc of remainingDocs) await this.sendSingleMedia(channel, doc, "document", "", silent, false);
             } 
             else if (formattedContent.length > 0) {
-                // Just text
+                // Text-only message — silent flag preserved
                 await this.sendTextMessage(channel, formattedContent, silent);
             }
 
@@ -262,12 +279,17 @@ export default class SendToTelegramPlugin extends Plugin {
     }
 
     async sendTextMessage(channel: TelegramChannel, text: string, silent: boolean) {
+        const body: Record<string, unknown> = {
+            chat_id: channel.chatId,
+            text,
+            parse_mode: "MarkdownV2",
+        };
+        if (silent) body.disable_notification = true;
+
         const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                chat_id: channel.chatId, text, parse_mode: "MarkdownV2", disable_notification: silent 
-            })
+            body: JSON.stringify(body)
         });
         if (!response.ok) throw new Error((await response.json()).description);
     }
@@ -281,8 +303,7 @@ export default class SendToTelegramPlugin extends Plugin {
             formData.append("caption", caption);
             formData.append("parse_mode", "MarkdownV2");
         }
-        formData.append("disable_notification", String(silent));
-        // Use show_caption_above_media if requested
+        if (silent) formData.append("disable_notification", "true");
         if (attachUnderText) formData.append("show_caption_above_media", "true");
 
         const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/${method}`, { method: "POST", body: formData });
@@ -292,7 +313,7 @@ export default class SendToTelegramPlugin extends Plugin {
     async sendMediaGroup(channel: TelegramChannel, files: TFile[], type: "photo" | "document", caption: string, silent: boolean, attachUnderText: boolean) {
         const formData = new FormData();
         formData.append("chat_id", channel.chatId);
-        formData.append("disable_notification", String(silent));
+        if (silent) formData.append("disable_notification", "true");
 
         const mediaArray = await Promise.all(files.map(async (file, idx) => {
             const attachName = `file${idx}`;
@@ -300,9 +321,11 @@ export default class SendToTelegramPlugin extends Plugin {
             return {
                 type: type,
                 media: `attach://${attachName}`,
-                caption: idx === 0 ? caption : "",
-                parse_mode: idx === 0 && caption ? "MarkdownV2" : undefined,
-                show_caption_above_media: attachUnderText
+                ...(idx === 0 && caption ? {
+                    caption,
+                    parse_mode: "MarkdownV2",
+                    show_caption_above_media: attachUnderText
+                } : {})
             };
         }));
 
