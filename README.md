@@ -59,13 +59,13 @@ All standard Telegram formatting options are supported:
 
 ### Attachments
 
-Media, album (groups of media) and document attachments are supported. To do that, use standard Obsidian embed function:
+Media, album (groups of media) and document attachments are supported. Note that every attached file must be inside the same folder as current note. To attach a file to your post, use standard Obsidian embed function:
 
 \`![[some-book-file.pdf]]\`
 
 \`![[some-media-file.jpg]]\`
 
-Note that every attached file must be inside the same folder as current note. Currently supported formats:
+Currently supported formats:
 
 | Extension                                          | Attachment type |
 | -------------------------------------------------- | --------------- |
@@ -74,11 +74,11 @@ Note that every attached file must be inside the same folder as current note. Cu
 
 ### Limits
 
-Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
+Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post, etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
 
 ### Advanced publishing settings
 
-You can call an advanced publishing settings window with command palette (`Ctrl + P`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
+You can call an advanced publishing settings window with command palette (\`Ctrl + P\`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
 
 * Post to multiple channels/groups at once.
 * Post without sound.

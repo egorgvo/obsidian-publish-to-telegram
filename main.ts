@@ -44,13 +44,13 @@ All standard Telegram formatting options are supported:
 
 ### Attachments
 
-Media, album (groups of media) and document attachments are supported. To do that, use standard Obsidian embed function:
+Media, album (groups of media) and document attachments are supported. Note that every attached file must be inside the same folder as current note. To attach a file to your post, use standard Obsidian embed function:
 
 \`![[some-book-file.pdf]]\`
 
 \`![[some-media-file.jpg]]\`
 
-Note that every attached file must be inside the same folder as current note. Currently supported formats:
+Currently supported formats:
 
 | Extension                                          | Attachment type |
 | -------------------------------------------------- | --------------- |
@@ -59,7 +59,7 @@ Note that every attached file must be inside the same folder as current note. Cu
 
 ### Limits
 
-Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
+Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post, etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
 
 ### Advanced publishing settings
 
@@ -432,12 +432,6 @@ class TelegramSettingTab extends PluginSettingTab {
         const buttonContainer = addSection.createDiv("telegram-add-preset-button-container");
 
         new ButtonComponent(buttonContainer)
-            .setButtonText(t.SETTING_FORMATTING_HELP)
-            .onClick(() => {
-                new FormattingHelpModal(this.app).open();
-            }).buttonEl.addClass("telegram-link-button");
-
-        new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_OPEN_BOTFATHER)
             .onClick(() => {
                 window.open("https://t.me/BotFather", "_blank");
@@ -447,6 +441,12 @@ class TelegramSettingTab extends PluginSettingTab {
             .setButtonText(t.SETTING_OPEN_USERINFOBOT)
             .onClick(() => {
                 window.open("https://t.me/userinfobot", "_blank");
+            }).buttonEl.addClass("telegram-link-button");
+
+        new ButtonComponent(buttonContainer)
+            .setButtonText(t.SETTING_FORMATTING_HELP)
+            .onClick(() => {
+                new FormattingHelpModal(this.app).open();
             }).buttonEl.addClass("telegram-link-button");
 
         new ButtonComponent(buttonContainer)
