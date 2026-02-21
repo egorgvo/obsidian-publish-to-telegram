@@ -1,9 +1,9 @@
 {
   "id": "publish-to-telegram",
   "name": "Publish to Telegram",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "minAppVersion": "1.0.0",
-  "description": "Allows to publish notes to Telegram. An Obsidian plugin that allows you to post notes directly to Telegram channels and groups with different presets.",
+  "description": "Allows to post notes directly to Telegram channels and groups with different presets.",
   "author": "pan4ratte",
   "isDesktopOnly": false
 }
