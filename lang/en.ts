@@ -34,6 +34,7 @@ export default {
     CONFIRM_CANCEL_BTN: "Cancel",
     COMMAND_SEND_DEFAULT: "Publish with default preset",
     COMMAND_SEND_MULTIPLE: "Publish with advanced settings",
+    COMMAND_SEND_TO_PRESET: "Publish to",
     MULTI_PRESET_TITLE: "Advanced publishing settings",
     MULTI_PRESET_CHANNEL_SELECTION: "Choose channels/groups to post to",
     MULTI_PRESET_ADVANCED_FORMATTING: "Advanced formatting",

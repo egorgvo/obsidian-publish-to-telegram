@@ -34,6 +34,7 @@ export default {
     CONFIRM_CANCEL_BTN: "Отмена",
     COMMAND_SEND_DEFAULT: "Опубликовать с помощью пресета по умолчанию",
     COMMAND_SEND_MULTIPLE: "Опубликовать с расширенными настройками",
+    COMMAND_SEND_TO_PRESET: "Опубликовать в",
     MULTI_PRESET_TITLE: "Расширенные настройки публикации",
     MULTI_PRESET_CHANNEL_SELECTION: "Выберите каналы/группы для публикации",
     MULTI_PRESET_ADVANCED_FORMATTING: "Расширенное форматирование",

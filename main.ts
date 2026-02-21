@@ -49,8 +49,6 @@ class MultiPresetModal extends Modal {
     selectedChannels: Set<string>;
     file: TFile;
 
-    // Stored toggle references — values are read directly via getValue() at post time
-    // to avoid any onChange sync/timing issues with Obsidian's ToggleComponent.
     private silentToggle: ToggleComponent;
     private attachToggle: ToggleComponent;
 
@@ -61,11 +59,7 @@ class MultiPresetModal extends Modal {
         this.selectedChannels = new Set();
     }
 
-    /** Resets advanced post settings back to their visual and logical defaults. */
     private resetAdvancedSettings() {
-        // setValue(false) resets the visual state of the toggle.
-        // We do NOT rely on this to fire onChange — values are always
-        // read via getValue() at post time, so this is purely cosmetic.
         this.silentToggle?.setValue(false);
         this.attachToggle?.setValue(false);
     }
@@ -79,7 +73,6 @@ class MultiPresetModal extends Modal {
             return;
         }
 
-        // --- Heading 1: Channel Selection ---
         contentEl.createDiv({ 
             text: t.MULTI_PRESET_CHANNEL_SELECTION, 
             cls: "telegram-modal-heading" 
@@ -103,13 +96,11 @@ class MultiPresetModal extends Modal {
                 });
         });
 
-        // --- Heading 2: Advanced Formatting ---
         contentEl.createDiv({ 
             text: t.MULTI_PRESET_ADVANCED_FORMATTING, 
             cls: "telegram-modal-heading" 
         });
 
-        // Silent Post Option
         const silentOptionEl = contentEl.createDiv("telegram-option-item");
         const silentTextEl = silentOptionEl.createDiv("telegram-option-text");
         silentTextEl.createDiv({ text: t.MULTI_PRESET_SILENT_POST_NAME, cls: "telegram-option-name" });
@@ -117,7 +108,6 @@ class MultiPresetModal extends Modal {
         this.silentToggle = new ToggleComponent(silentOptionEl.createDiv("telegram-option-control"))
             .setValue(false);
 
-        // Attachments Under Text Option
         const attachOptionEl = contentEl.createDiv("telegram-option-item");
         const attachTextEl = attachOptionEl.createDiv("telegram-option-text");
         attachTextEl.createDiv({ text: t.MULTI_PRESET_ATTACHMENTS_NAME, cls: "telegram-option-name" });
@@ -135,16 +125,9 @@ class MultiPresetModal extends Modal {
                     return;
                 }
                 const channelsToPost = this.plugin.settings.channels.filter(c => this.selectedChannels.has(c.id));
-
-                // Read actual toggle state directly at post time — never rely on onChange
-                // to have synced the value into a class property, as Obsidian's
-                // ToggleComponent can fire onChange inconsistently across versions.
                 const silent = this.silentToggle?.getValue() ?? false;
                 const attachUnderText = this.attachToggle?.getValue() ?? false;
-
-                // Reset toggle visuals back to defaults before closing
                 this.resetAdvancedSettings();
-
                 this.close();
                 for (const channel of channelsToPost) {
                     await this.plugin.sendNoteToTelegram(this.file, channel, silent, attachUnderText);
@@ -159,10 +142,22 @@ class MultiPresetModal extends Modal {
 export default class SendToTelegramPlugin extends Plugin {
     settings: TelegramSettings;
 
+    // Tracks the fully-qualified command IDs (manifest.id + ":" + command.id) of all
+    // currently registered per-channel commands so they can be torn down before
+    // re-registration. Obsidian does not expose removeCommand() in its public TS types
+    // but the method exists at runtime on app.commands and is the standard approach
+    // used by community plugins to manage dynamically registered commands.
+    private channelCommandIds: string[] = [];
+
     async onload(): Promise<void> {
         await this.loadSettings();
         this.addSettingTab(new TelegramSettingTab(this.app, this));
-        this.registerChannelCommands();
+
+        // Static utility commands — registered once on load, never torn down.
+        this.registerStaticCommands();
+
+        // Per-preset commands — registered now and refreshed after every settings change.
+        this.syncChannelCommands();
 
         this.registerEvent(
             this.app.workspace.on("file-menu", (menu: Menu, file: TFile | TFolder) => {
@@ -184,7 +179,11 @@ export default class SendToTelegramPlugin extends Plugin {
         );
     }
 
-    registerChannelCommands() {
+    // Registers the two commands that are independent of preset configuration.
+    // Must only be called once — calling addCommand() with the same id a second
+    // time silently replaces the first registration in most Obsidian versions,
+    // but separating it here avoids any ambiguity.
+    private registerStaticCommands() {
         this.addCommand({
             id: "send-default",
             name: t.COMMAND_SEND_DEFAULT,
@@ -209,6 +208,29 @@ export default class SendToTelegramPlugin extends Plugin {
         });
     }
 
+    // Removes every previously registered per-channel command from the palette,
+    // then creates a fresh command for each channel that exists in current settings.
+    // This keeps the palette perfectly in sync after any preset add / rename / delete.
+    syncChannelCommands() {
+        const commands = (this.app as any).commands;
+        this.channelCommandIds.forEach(id => commands.removeCommand(id));
+        this.channelCommandIds = [];
+
+        this.settings.channels.forEach(channel => {
+            const commandId = `send-channel-${channel.id}`;
+            this.addCommand({
+                id: commandId,
+                name: `${t.COMMAND_SEND_TO_PRESET} ${channel.name || t.UNTITLED_CHANNEL}`,
+                callback: async () => {
+                    const file = this.app.workspace.getActiveFile();
+                    if (!file) return;
+                    await this.sendNoteToTelegram(file, channel, false, false);
+                }
+            });
+            this.channelCommandIds.push(`${this.manifest.id}:${commandId}`);
+        });
+    }
+
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
         try {
             const content = await this.app.vault.read(file);
@@ -225,29 +247,24 @@ export default class SendToTelegramPlugin extends Plugin {
             if (photoFiles.length > 0) {
                 const firstBatch = photoFiles.slice(0, 10);
                 const remainingPhotos = photoFiles.slice(10);
-
                 if (firstBatch.length === 1) {
                     await this.sendSingleMedia(channel, firstBatch[0], "photo", formattedContent, silent, attachUnderText);
                 } else {
                     await this.sendMediaGroup(channel, firstBatch, "photo", formattedContent, silent, attachUnderText);
                 }
-                // Overflow photos — silent flag preserved
                 for (const photo of remainingPhotos) await this.sendSingleMedia(channel, photo, "photo", "", silent, false);
             }
             else if (docFiles.length > 0) {
                 const firstBatch = docFiles.slice(0, 10);
                 const remainingDocs = docFiles.slice(10);
-
                 if (firstBatch.length === 1) {
                     await this.sendSingleMedia(channel, firstBatch[0], "document", formattedContent, silent, attachUnderText);
                 } else {
                     await this.sendMediaGroup(channel, firstBatch, "document", formattedContent, silent, attachUnderText);
                 }
-                // Overflow docs — silent flag preserved
                 for (const doc of remainingDocs) await this.sendSingleMedia(channel, doc, "document", "", silent, false);
             } 
             else if (formattedContent.length > 0) {
-                // Text-only message — silent flag preserved
                 await this.sendTextMessage(channel, formattedContent, silent);
             }
 
@@ -314,9 +331,10 @@ export default class SendToTelegramPlugin extends Plugin {
     }
 
     async loadSettings() { this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()); }
-    async saveSettings() { 
+    async saveSettings() {
         await this.saveData(this.settings);
-        this.registerChannelCommands();
+        // Rebuild per-channel commands to reflect any additions, deletions, or renames.
+        this.syncChannelCommands();
     }
 }
 
@@ -341,7 +359,6 @@ class TelegramSettingTab extends PluginSettingTab {
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_ADD_CHANNEL)
             .onClick(async () => {
-                // unshift() inserts at index 0 so the new preset appears at the top of the list
                 this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: "", botToken: "", chatId: "", isDefault: false });
                 await this.plugin.saveSettings();
                 this.display();
@@ -373,8 +390,6 @@ class TelegramSettingTab extends PluginSettingTab {
                         .setPlaceholder(t.SETTING_PLACE_HOLDER_NAME);
                     input.inputEl.focus();
 
-                    // Shared save logic. A `saved` flag prevents the blur event that
-                    // fires after Enter from triggering a redundant second save+redraw.
                     let saved = false;
                     const save = async () => {
                         if (saved) return;
