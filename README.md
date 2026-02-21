@@ -2,7 +2,7 @@
 
 English | Русский
 
-This plugin allows you to post notes directly to Telegram channels and groups with different presets. The plugin works through your personal bot, sending to it contents of active note and information about the channel/group to post to. Standard Telegram text formatting is supported, as well as photo, album and documents uploads, plus some advanced publishing settings are available.
+This plugin allows you to post notes directly to Telegram channels and groups with different presets. The plugin works through your personal bot, sending to it contents of an active note and information about the channel/group to post to. Every standard Telegram formatting options are supported, as well as photo, album and document uploads, plus some advanced publishing settings are available.
 
 
 ## Features
@@ -59,7 +59,7 @@ All standard Telegram formatting options are supported:
 
 ### Attachments
 
-Media, albums (multiple media) and document attachments are supported. To post with media attached, just use standard Obsidian embed function:
+Media, album (groups of media) and document attachments are supported. To do that, use standard Obsidian embed function:
 
 `![[some-book-file.pdf]]`
 
@@ -69,11 +69,11 @@ Note that every attached file must be inside the current vault.
 
 ### Limits
 
-Standard Telegram posting limits apply both to limits of characters per post and limits of attached media size per post.
+Standard Telegram posting limits apply both to limits of characters per post and limits of attached media size per post. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
 
 ### Advanced publishing settings
 
-You can call an advanced publishing settings window with command palette (`Ctrl + P`) by typing "Publish to Telegram: Publish with advanced settings". In that dialog window you can choose to:
+You can call an advanced publishing settings window with command palette (`Ctrl + P`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
 
 * Post to multiple channels/groups at once.
 * Post without sound.
