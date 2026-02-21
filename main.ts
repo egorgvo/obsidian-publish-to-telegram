@@ -360,7 +360,8 @@ class TelegramSettingTab extends PluginSettingTab {
         new ButtonComponent(addSection.createDiv("telegram-add-preset-button-container"))
             .setButtonText(t.SETTING_ADD_CHANNEL)
             .onClick(async () => {
-                this.plugin.settings.channels.push({ id: Date.now().toString(), name: "", botToken: "", chatId: "", isDefault: false });
+                // unshift() inserts at index 0 so the new preset appears at the top of the list
+                this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: "", botToken: "", chatId: "", isDefault: false });
                 await this.plugin.saveSettings();
                 this.display();
             }).buttonEl.addClass("telegram-add-button");
@@ -374,13 +375,29 @@ class TelegramSettingTab extends PluginSettingTab {
             new ButtonComponent(titleContainer.createDiv("telegram-edit-container"))
                 .setIcon("pencil").onClick(() => {
                     titleContainer.empty();
-                    const input = new TextComponent(titleContainer).setValue(channel.name).setPlaceholder(t.SETTING_PLACE_HOLDER_NAME);
+                    const input = new TextComponent(titleContainer)
+                        .setValue(channel.name)
+                        .setPlaceholder(t.SETTING_PLACE_HOLDER_NAME);
                     input.inputEl.focus();
-                    input.inputEl.addEventListener("blur", async () => {
+
+                    // Shared save logic. A `saved` flag prevents the blur event that
+                    // fires after Enter from triggering a redundant second save+redraw.
+                    let saved = false;
+                    const save = async () => {
+                        if (saved) return;
+                        saved = true;
                         channel.name = input.getValue();
                         await this.plugin.saveSettings();
                         this.display();
+                    };
+
+                    input.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
+                        if (e.key === "Enter") {
+                            e.preventDefault();
+                            save();
+                        }
                     });
+                    input.inputEl.addEventListener("blur", save);
                 }).buttonEl.addClass("telegram-edit-button");
 
             new ButtonComponent(header.createDiv("telegram-delete-container"))
