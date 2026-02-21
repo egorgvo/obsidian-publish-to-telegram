@@ -51,17 +51,19 @@ Standard Telegram formatting supported, so if you use Obsidian markdown syntax, 
 
 4. `~~Strikethrough~~` becomes ~~Strikethrough~~
 
-5. `> Quote` becomes
+5. `<u>Underline</u>` becomes <u>Underline</u>
+
+6. `> Quote` becomes
 
 	> Quote
 
-8. ``Code block`` becomes `Code block`
+7. ``Code block`` becomes `Code block`
 
-9. `[A link](https://obsidian.md)` becomes [A link](https://obsidian.md)
+8. `[A link](https://obsidian.md)` becomes [A link](https://obsidian.md)
 
-10. `#tag` becomes #tag
+9. `#tag` becomes #tag
 
-11. `@mention` becomes @mention
+10. `@mention` becomes @mention
 
 ### Attachments
 
