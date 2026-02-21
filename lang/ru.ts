@@ -12,7 +12,8 @@ export default {
 1. Cоздайте бота с помощью @BotFather и вставьте его токен в соответствующее поле.
 2. Узнайте ID вашего канала/группы у @userinfobot и вставьте его в соответствующее поле.
 3. Добавьте вашего бота в канал/группу и выдайте ему права на отправку сообщениий.`,
-    SETTING_ADD_CHANNEL: "Создать новый пресет",
+    SETTING_ADD_CHANNEL: "Создать новый пресет публикации",
+    SETTING_FORMATTING_HELP: "Справка по форматированию",
     SETTING_OPEN_BOTFATHER: "Открыть @BotFather",
     SETTING_OPEN_USERINFOBOT: "Открыть @userinfobot",
     SETTING_BOT_TOKEN_NAME: "Токен вашего бота",
@@ -43,5 +44,5 @@ export default {
     MULTI_PRESET_SILENT_POST_NAME: "Опубликовать без звука",
     MULTI_PRESET_SILENT_POST_DESC: "Подписчики получат уведомление без звука",
     MULTI_PRESET_ATTACHMENTS_NAME: "Вложения под текстом",
-    MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикрепленными медиафайлами"
+    MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикреплёнными медиафайлами"
 };

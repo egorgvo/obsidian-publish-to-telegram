@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, TFolder, Menu, TextComponent, ButtonComponent, Modal, ToggleComponent } from "obsidian";
+import { App, Plugin, PluginSettingTab, Setting, Notice, TFile, TFolder, Menu, TextComponent, ButtonComponent, Modal, ToggleComponent, MarkdownRenderer } from "obsidian";
 import { t } from "./lang/helpers";
 import { convert } from "telegram-markdown-v2";
 
@@ -17,6 +17,81 @@ interface TelegramSettings {
 const DEFAULT_SETTINGS: TelegramSettings = {
     channels: []
 }
+
+// ─── Formatting Help Modal ────────────────────────────────────────────────────
+// Edit FORMATTING_HELP_CONTENT below to update the instructions shown in the
+// modal. Full Obsidian-flavoured Markdown is supported, including tables.
+
+const FORMATTING_HELP_CONTENT = `
+
+### Formatting elements
+
+All standard Telegram formatting options are supported:
+
+| Formatting element          | Input in Obsidian                      | Telegram Output    |
+| ----------------------------| -------------------------------------- | -------------------|
+| **Bold**                    | \`**text**\`                           | \`*text*\`         |
+| _Italic_                    | \`*text*\`                             | \`_text_\`         |
+| **Underline**               | \`<u>text</u>\`                        | \`__text__\`       |
+| ~~Strikethrough~~           | \`~~text~~\`                           | \`~text~\`         |
+| Spoiler                     | \`<span class="tg-spoiler">text</span>\`| \`                |
+| \`Inline Code\`             | \`\` \`code\` \`\`                     | \`\` \`code\` \`\` |
+| [Links](https://obsdian.md) | \`[text](url)\`                        | \`[text](url)\`    |
+| Block Quotes                | \`> quote\`                            | > quote            |
+| Code Blocks                 | lang code                              | code               |
+| Lists                       | \`- item\`                             | \`• item\`         |
+| Headings                    | \`# Title\`                            | \`*Title*\`        |
+
+### Attachments
+
+Media, album (groups of media) and document attachments are supported. To do that, use standard Obsidian embed function:
+
+\`![[some-book-file.pdf]]\`
+
+\`![[some-media-file.jpg]]\`
+
+Note that every attached file must be inside the same folder as current note. Currently supported formats:
+
+| Extension                                          | Attachment type |
+| -------------------------------------------------- | --------------- |
+| \`.jpg\`, \`.jpeg\`, \`.png\`, \`.gif\`, \`.webp\` | Photo / Album   |
+| \`.pdf\`                                           | Document        |
+
+### Limits
+
+Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
+
+### Advanced publishing settings
+
+You can call an advanced publishing settings window with command palette (\`Ctrl + P\`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
+
+* Post to multiple channels/groups at once.
+* Post without sound.
+* Post with attached media under the text.
+`;
+
+class FormattingHelpModal extends Modal {
+    constructor(app: App) {
+        super(app);
+    }
+
+    onOpen() {
+        const { contentEl, titleEl } = this;
+        titleEl.setText(t.SETTING_FORMATTING_HELP);
+        contentEl.addClass("telegram-formatting-help-modal");
+        MarkdownRenderer.render(
+            this.app,
+            FORMATTING_HELP_CONTENT,
+            contentEl,
+            "",
+            this
+        );
+    }
+
+    onClose() { this.contentEl.empty(); }
+}
+
+// ─── Confirmation Modal ───────────────────────────────────────────────────────
 
 class ConfirmationModal extends Modal {
     onSubmit: () => void;
@@ -357,12 +432,10 @@ class TelegramSettingTab extends PluginSettingTab {
         const buttonContainer = addSection.createDiv("telegram-add-preset-button-container");
 
         new ButtonComponent(buttonContainer)
-            .setButtonText(t.SETTING_ADD_CHANNEL)
-            .onClick(async () => {
-                this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: "", botToken: "", chatId: "", isDefault: false });
-                await this.plugin.saveSettings();
-                this.display();
-            }).buttonEl.addClass("telegram-add-button");
+            .setButtonText(t.SETTING_FORMATTING_HELP)
+            .onClick(() => {
+                new FormattingHelpModal(this.app).open();
+            }).buttonEl.addClass("telegram-link-button");
 
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_OPEN_BOTFATHER)
@@ -375,6 +448,14 @@ class TelegramSettingTab extends PluginSettingTab {
             .onClick(() => {
                 window.open("https://t.me/userinfobot", "_blank");
             }).buttonEl.addClass("telegram-link-button");
+
+        new ButtonComponent(buttonContainer)
+            .setButtonText(t.SETTING_ADD_CHANNEL)
+            .onClick(async () => {
+                this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: "", botToken: "", chatId: "", isDefault: false });
+                await this.plugin.saveSettings();
+                this.display();
+            }).buttonEl.addClass("telegram-add-button");
 
         this.plugin.settings.channels.forEach((channel, index) => {
             const channelDiv = containerEl.createDiv("telegram-channel-item");

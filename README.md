@@ -61,15 +61,20 @@ All standard Telegram formatting options are supported:
 
 Media, album (groups of media) and document attachments are supported. To do that, use standard Obsidian embed function:
 
-`![[some-book-file.pdf]]`
+\`![[some-book-file.pdf]]\`
 
-`![[some-media-file.jpg]]`
+\`![[some-media-file.jpg]]\`
 
-Note that every attached file must be inside the current vault.
+Note that every attached file must be inside the same folder as current note. Currently supported formats:
+
+| Extension                                          | Attachment type |
+| -------------------------------------------------- | --------------- |
+| \`.jpg\`, \`.jpeg\`, \`.png\`, \`.gif\`, \`.webp\` | Photo / Album   |
+| \`.pdf\`                                           | Document        |
 
 ### Limits
 
-Standard Telegram posting limits apply both to limits of characters per post and limits of attached media size per post. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
+Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
 
 ### Advanced publishing settings
 

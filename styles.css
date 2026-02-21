@@ -49,6 +49,7 @@
     margin-top: 12px;
     margin-bottom: 12px;
     justify-content: space-between;
+    flex-wrap: wrap;
 }
 
 .telegram-add-button {
@@ -72,6 +73,7 @@
     background-color: transparent !important;
     box-shadow: none !important;
     border: 1px solid var(--setting-items-border-color);
+    flex-grow: 1;
 }
 
 .telegram-channel-item {
@@ -194,4 +196,71 @@
 
 .telegram-modal-heading:first-of-type {
     margin-top: 16px;
+}
+
+/* Formatting Help Modal */
+
+.telegram-formatting-help-modal {
+    max-width: 680px;
+}
+
+.telegram-formatting-help-modal table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    margin-bottom: 16px;
+    font-size: var(--font-ui-smaller);
+}
+
+.telegram-formatting-help-modal th,
+.telegram-formatting-help-modal td {
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid var(--background-modifier-border);
+    vertical-align: top;
+    line-height: var(--line-height-normal);
+}
+
+.telegram-formatting-help-modal th {
+    background-color: var(--background-secondary);
+    font-weight: var(--font-semibold);
+    color: var(--text-normal);
+}
+
+.telegram-formatting-help-modal tr:nth-child(even) td {
+    background-color: var(--background-primary-alt);
+}
+
+.telegram-formatting-help-modal h2 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: var(--font-ui-large);
+}
+
+.telegram-formatting-help-modal h3 {
+    margin-top: 20px;
+    margin-bottom: 8px;
+    font-size: var(--font-ui-medium);
+    color: var(--text-normal);
+}
+
+.telegram-formatting-help-modal p {
+    font-size: var(--font-ui-small);
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.telegram-formatting-help-modal ul,
+.telegram-formatting-help-modal ol {
+    padding-left: 20px;
+    font-size: var(--font-ui-small);
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.telegram-formatting-help-modal code {
+    background-color: var(--code-background);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: var(--font-smaller);
 }
