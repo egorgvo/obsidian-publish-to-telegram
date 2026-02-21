@@ -51,15 +51,17 @@ Standard Telegram formatting supported, so if you use Obsidian markdown syntax, 
 
 4. `~~Strikethrough~~` becomes ~~Strikethrough~~
 
-5. `> Quote` becomes > Quote
+5. `> Quote` becomes
 
-6. ``Code block`` becomes `Code block`
+	> Quote
 
-7. `[A link](https://obsidian.md)` becomes [A link](https://obsidian.md)
+8. ``Code block`` becomes `Code block`
 
-8. `#tag` becomes #tag
+9. `[A link](https://obsidian.md)` becomes [A link](https://obsidian.md)
 
-9. `@mention` becomes @mention
+10. `#tag` becomes #tag
+
+11. `@mention` becomes @mention
 
 ### Attachments
 
@@ -89,4 +91,4 @@ My name is Mark Ingram (Ingrem), I am a Religious Studies scholar. Apart from my
 
 Hello to every student that came across this page!
 
-Huge thanks to [Egor Gvozdikov](https://github.com/egorgvo), who wrote first lines of code for this project.
+Huge thanks to [Egor Gvozdikov](https://github.com/egorgvo), who wrote the first lines of code for this project.
