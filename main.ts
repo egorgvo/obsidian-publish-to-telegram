@@ -81,7 +81,7 @@ class MultiPresetModal extends Modal {
 
         // --- Heading 1: Channel Selection ---
         contentEl.createDiv({ 
-            text: "Choose channels/groups to post to", 
+            text: t.MULTI_PRESET_CHANNEL_SELECTION, 
             cls: "telegram-modal-heading" 
         });
 
@@ -105,7 +105,7 @@ class MultiPresetModal extends Modal {
 
         // --- Heading 2: Advanced Formatting ---
         contentEl.createDiv({ 
-            text: "Advanced formatting", 
+            text: t.MULTI_PRESET_ADVANCED_FORMATTING, 
             cls: "telegram-modal-heading" 
         });
 

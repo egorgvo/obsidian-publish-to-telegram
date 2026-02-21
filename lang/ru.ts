@@ -33,6 +33,8 @@ export default {
     COMMAND_SEND_DEFAULT: "Опубликовать с помощью пресета по умолчанию",
     COMMAND_SEND_MULTIPLE: "Опубликовать с расширенными настройками",
     MULTI_PRESET_TITLE: "Расширенные настройки публикации",
+    MULTI_PRESET_CHANNEL_SELECTION: "Выберите каналы/группы для публикации",
+    MULTI_PRESET_ADVANCED_FORMATTING: "Расширенное форматирование",
     MULTI_PRESET_POST_BTN: "Опубликовать",
     MULTI_PRESET_NO_SELECTION: "Выберите хотя бы один пресет",
     MULTI_PRESET_SILENT_POST_NAME: "Опубликовать без звука",
