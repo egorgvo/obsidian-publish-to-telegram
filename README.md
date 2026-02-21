@@ -41,29 +41,21 @@ Done! The plugin will automatically install and will be ready to use.
 
 ### Formatting
 
-Standard Telegram formatting supported, so if you use Obsidian markdown syntax, it will automatically convert to Telegram syntax. Formatting examples, that were successfully tested:
+All standard Telegram formatting options are supported:
 
-1. `Regular text` becomes Regular text 
-
-2. `**Bold text**` becomes **Bold text** 
-
-3. `*Italics*` becomes *Italics*
-
-4. `~~Strikethrough~~` becomes ~~Strikethrough~~
-
-5. `<u>Underline</u>` becomes <ins>Underline</ins>
-
-6. `> Quote` becomes
-
-	> Quote
-
-7. ``Code block`` becomes `Code block`
-
-8. `[A link](https://obsidian.md)` becomes [A link](https://obsidian.md)
-
-9. `#tag` becomes #tag
-
-10. `@mention` becomes @mention
+| Element                                                                     | Input                                  | Telegram Output                   |
+| --------------------------------------------------------------------------- | -------------------------------------- | --------------------------------- |
+| **Bold**                                                                    | `**text**`                             | `*text*`                          |
+| _Italic_                                                                    | `*text*`                               | `_text_`                          |
+| **Underline**                                                               | `<u>text</u>`                          | `__text__`                        |
+| ~~Strikethrough~~                                                           | `~~text~~`                             | `~text~`                          |
+| Spoiler                                                                     | `<span class="tg-spoiler">text</span>` | `                                 |
+| `Inline Code`                                                               | `` `code` ``                           | `` `code` ``                      |
+| [Links](https://github.com/andyrightnow/telegram-markdown-v2/blob/HEAD/url) | `[text](url)`                          | `[text](url)`                     |
+| Block Quotes                                                                | `> quote`                              | Configurable (keep/escape/remove) |
+| Code Blocks                                                                 | lang code                              | code                              |
+| Lists                                                                       | `- item`                               | `• item`                          |
+| Headings                                                                    | `# Title`                              | `*Title*`                         |
 
 ### Attachments
 
