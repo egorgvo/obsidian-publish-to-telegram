@@ -13,6 +13,7 @@ export default {
 2. Find out your channel/group ID using @userinfobot and paste it into the corresponding field in the plugin.
 3. Add your bot to the channel/group and give it permission to send messages.`,
     SETTING_ADD_CHANNEL: "Create new preset",
+    SETTING_FORMATTING_HELP: "Formatting instructions",
     SETTING_OPEN_BOTFATHER: "Open @BotFather",
     SETTING_OPEN_USERINFOBOT: "Open @userinfobot",
     SETTING_BOT_TOKEN_NAME: "You bot token",
@@ -35,6 +36,7 @@ export default {
     COMMAND_SEND_DEFAULT: "Publish with default preset",
     COMMAND_SEND_MULTIPLE: "Publish with advanced settings",
     COMMAND_SEND_TO_PRESET: "Publish to",
+    COMMAND_SHOW_FORMATTING_HELP: "Open formatting instructions",
     MULTI_PRESET_TITLE: "Advanced publishing settings",
     MULTI_PRESET_CHANNEL_SELECTION: "Choose channels/groups to post to",
     MULTI_PRESET_ADVANCED_FORMATTING: "Advanced formatting",
@@ -43,5 +45,54 @@ export default {
     MULTI_PRESET_SILENT_POST_NAME: "Publish silently",
     MULTI_PRESET_SILENT_POST_DESC: "Subscribers will receive a notification without sound",
     MULTI_PRESET_ATTACHMENTS_NAME: "Attachments below the text",
-    MULTI_PRESET_ATTACHMENTS_DESC: "Display post text above the attached media files"
+    MULTI_PRESET_ATTACHMENTS_DESC: "Display post text above the attached media files",
+   
+    FORMATTING_HELP_CONTENT: `
+You can show open these formatting instructions from the command palette by typing "Publish to Telegram: Open formatting instructions".
+
+### Formatting elements
+
+All standard Telegram formatting options are supported:
+
+| Formatting element          | Input in Obsidian                       | Telegram Output    |
+| --------------------------- | --------------------------------------- | ------------------ |
+| **Bold**                    | \`**text**\`                            | \`*text*\`         |
+| _Italic_                    | \`*text*\`                              | \`_text_\`         |
+| **Underline**               | \`<u>text</u>\`                         | \`__text__\`       |
+| ~~Strikethrough~~           | \`~~text~~\`                            | \`~text~\`         |
+| Spoiler                     | \`<span class="tg-spoiler">text</span>\`| \`||text||\`       |
+| \`Inline Code\`             | \`\` \`code\` \`\`                      | \`\` \`code\` \`\` |
+| [Links](https://obsdian.md) | \`[text](url)\`                         | \`[text](url)\`    |
+| Block Quotes                | \`> quote\`                             | \`> quote\`        |
+| Code Blocks                 | \`\`\`lang\\ncode\`\`\`                 | code block         |
+| Lists                       | \`- item\`                              | \`• item\`         |
+| Headings                    | \`# Title\`                             | \`*Title*\`        |
+
+### Attachments
+
+Media, album (groups of media) and document attachments are supported. Note that every attached file must be inside the same folder as current note. To attach a file to your post, use standard Obsidian embed function:
+
+\`![[some-book-file.pdf]]\`
+
+\`![[some-media-file.jpg]]\`
+
+Currently supported formats:
+
+| Extension                                          | Attachment type |
+| -------------------------------------------------- | --------------- |
+| \`.jpg\`, \`.jpeg\`, \`.png\`, \`.gif\`, \`.webp\` | Photo / Album   |
+| \`.pdf\`                                           | Document        |
+
+### Limits
+
+Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post, etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
+
+### Advanced publishing settings
+
+You can call an advanced publishing settings window with command palette (\`Ctrl + P\`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
+
+* Post to multiple channels/groups at once.
+* Post without sound.
+* Post with attached media under the text.
+`,
 };

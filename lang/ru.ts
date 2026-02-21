@@ -46,54 +46,53 @@ export default {
     MULTI_PRESET_SILENT_POST_DESC: "Подписчики получат уведомление без звука",
     MULTI_PRESET_ATTACHMENTS_NAME: "Вложения под текстом",
     MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикреплёнными медиафайлами",
-
-    // ─── Formatting Help Modal content ────────────────────────────────────────
-    // Edit the markdown below to update what is shown in the formatting help
-    // modal. Full Obsidian-flavoured Markdown is supported, including tables.
+    
     FORMATTING_HELP_CONTENT: `
-### Formatting elements
+Данную справку можно вызвать из палитры команд, введя "Publish to Telegram: Открыть справку по форматированию".
 
-All standard Telegram formatting options are supported:
+### Элементы форматирования
 
-| Formatting element          | Input in Obsidian                       | Telegram Output    |
+Поддерживаются все стандартные опции форматирования Telegram:
+
+| Элемент форматирования      | Ввод в Obsdiian                         | Вывод в Telegram   |
 | --------------------------- | --------------------------------------- | ------------------ |
-| **Bold**                    | \`**text**\`                            | \`*text*\`         |
-| _Italic_                    | \`*text*\`                              | \`_text_\`         |
-| **Underline**               | \`<u>text</u>\`                         | \`__text__\`       |
-| ~~Strikethrough~~           | \`~~text~~\`                            | \`~text~\`         |
-| Spoiler                     | \`<span class="tg-spoiler">text</span>\`| \`||text||\`       |
-| \`Inline Code\`             | \`\` \`code\` \`\`                      | \`\` \`code\` \`\` |
-| [Links](https://obsdian.md) | \`[text](url)\`                         | \`[text](url)\`    |
-| Block Quotes                | \`> quote\`                             | \`> quote\`        |
-| Code Blocks                 | \`\`\`lang\\ncode\`\`\`                 | code block         |
-| Lists                       | \`- item\`                              | \`• item\`         |
-| Headings                    | \`# Title\`                             | \`*Title*\`        |
+| **Полужирный**              | \`**текст**\`                           | \`*текст*\`        |
+| _Italic_                    | \`*текст*\`                             | \`_текст_\`        |
+| **Underline**               | \`<u>текст</u>\`                        | \`__текст__\`      |
+| ~~Strikethrough~~           | \`~~текст~~\`                           | \`~текст~\`        |
+| Spoiler                     | \`<span class="tg-spoiler">текст</span>\`| \`||текст||\`     |
+| \`Inline Code\`             | \`\` \`код\` \`\`                       | \`\` \`код\` \`\`  |
+| [Links](https://obsdian.md) | \`[текст](url)\`                        | \`[текст](url)\`   |
+| Block Quotes                | \`> цитата\`                            | \`> цитата\`       |
+| Code Blocks                 | \`\`\`lang\\ncode\`\`\`                 | блок кода          |
+| Lists                       | \`- элемент\`                           | \`• элемент\`      |
+| Headings                    | \`# Заголовок\`                         | \`*Заголовок*\`    |
 
-### Attachments
+### Вложения
 
-Media, album (groups of media) and document attachments are supported. Note that every attached file must be inside the same folder as current note. To attach a file to your post, use standard Obsidian embed function:
+Поддерживаются вложения в виде медиа, альбомов (групп медиа) и документов. Обратите внимание на то, что каждый вложенный файл должен находится внутри той же папки, что и активная заметка, которую вы публикуете. Чтобы прикрепить файл к посту, используйте стандартную функцию встраивания в Obsidian:
 
-\`![[some-book-file.pdf]]\`
+\`![[файл-какой-то-книги.pdf]]\`
 
-\`![[some-media-file.jpg]]\`
+\`![[файл-какой-то-картинки.jpg]]\`
 
-Currently supported formats:
+Форматы, поддерживаемые на данный момент:
 
-| Extension                                          | Attachment type |
+| Расширение                                         | Тип вложения    |
 | -------------------------------------------------- | --------------- |
-| \`.jpg\`, \`.jpeg\`, \`.png\`, \`.gif\`, \`.webp\` | Photo / Album   |
-| \`.pdf\`                                           | Document        |
+| \`.jpg\`, \`.jpeg\`, \`.png\`, \`.gif\`, \`.webp\` | Фото / Альбом   |
+| \`.pdf\`                                           | Документ        |
 
-### Limits
+### Лимиты
 
-Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post, etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
+Стандартные лимиты для постов в Telegram применяются к лимитам на количество символов на пост, лимитам по размерам прикреплённых файлов на пост, и т.д. Больше об этом: [https://limits.tginfo.me/](https://limits.tginfo.me/)
 
-### Advanced publishing settings
+### Расширенные настройки публикации
 
-You can call an advanced publishing settings window with command palette (\`Ctrl + P\`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
+Вы можете вызывать окно расширенных настроек публикации через палитру команд (\`Ctrl + P\`), введя "Publish to Telegram: Опубликовать с расширенными настройками". В этом окне настроек вы можете:
 
-* Post to multiple channels/groups at once.
-* Post without sound.
-* Post with attached media under the text.
+* Сделать пост сразу в несколько каналов/групп.
+* Сдлеать пост с уведомлением без звука.
+* Сделать пост с прикреплёнными медиа под текстом сообщения.
 `,
 };
