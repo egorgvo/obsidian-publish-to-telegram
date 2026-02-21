@@ -171,17 +171,13 @@ export default class SendToTelegramPlugin extends Plugin {
 
                 menu.addItem((item) => {
                     item.setTitle(t.MENU_TITLE).setIcon("paper-plane");
-                    const subMenu = (item as any).setSubmenu();
-                    this.settings.channels.forEach((channel) => {
-                        const displayName = channel.isDefault 
-                            ? `${channel.name || t.UNTITLED_CHANNEL}` 
-                            : channel.name || t.UNTITLED_CHANNEL;
-
-                        subMenu.addItem((subItem: any) => {
-                            subItem.setTitle(displayName).onClick(async () => {
-                                await this.sendNoteToTelegram(file, channel);
-                            });
-                        });
+                    item.onClick(() => {
+                        const defaultChannel = this.settings.channels.find(c => c.isDefault);
+                        if (!defaultChannel) {
+                            new Notice(t.NOTICE_ERR_NO_DEFAULT);
+                            return;
+                        }
+                        this.sendNoteToTelegram(file, defaultChannel, false, false);
                     });
                 });
             })
@@ -190,71 +186,54 @@ export default class SendToTelegramPlugin extends Plugin {
 
     registerChannelCommands() {
         this.addCommand({
-            id: 'send-to-telegram-default',
+            id: "send-default",
             name: t.COMMAND_SEND_DEFAULT,
-            checkCallback: (checking: boolean) => {
-                const activeFile = this.app.workspace.getActiveFile();
+            callback: async () => {
+                const file = this.app.workspace.getActiveFile();
+                if (!file) return;
                 const defaultChannel = this.settings.channels.find(c => c.isDefault);
-                if (activeFile && defaultChannel) {
-                    if (!checking) this.sendNoteToTelegram(activeFile, defaultChannel);
-                    return true;
-                }
-                return false;
+                if (!defaultChannel) { new Notice(t.NOTICE_ERR_NO_DEFAULT); return; }
+                await this.sendNoteToTelegram(file, defaultChannel, false, false);
             }
         });
 
         this.addCommand({
-            id: 'send-to-telegram-multiple',
+            id: "send-multiple",
             name: t.COMMAND_SEND_MULTIPLE,
-            checkCallback: (checking: boolean) => {
-                const activeFile = this.app.workspace.getActiveFile();
-                if (activeFile && this.settings.channels.length > 0) {
-                    if (!checking) new MultiPresetModal(this.app, this, activeFile).open();
-                    return true;
-                }
-                return false;
+            callback: () => {
+                const file = this.app.workspace.getActiveFile();
+                if (!file) return;
+                if (this.settings.channels.length === 0) { new Notice(t.NOTICE_ERR_CONFIG); return; }
+                new MultiPresetModal(this.app, this, file).open();
             }
         });
     }
 
-    async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean = false, attachUnderText: boolean = false): Promise<void> {
-        if (!channel.botToken || !channel.chatId) {
-            new Notice(t.NOTICE_ERR_CONFIG);
-            return;
-        }
-
+    async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
         try {
-            let content = await this.app.vault.read(file);
-            const cache = this.app.metadataCache.getFileCache(file);
-            const embeds = cache?.embeds || [];
-            
-            const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
-            const imageFiles: TFile[] = [];
-            const docFiles: TFile[] = [];
-
-            for (const embed of embeds) {
-                const targetFile = this.app.metadataCache.getFirstLinkpathDest(embed.link, file.path);
-                if (targetFile instanceof TFile) {
-                    if (imageExts.includes(targetFile.extension.toLowerCase())) {
-                        if (!imageFiles.some(f => f.path === targetFile.path)) imageFiles.push(targetFile);
-                    } else {
-                        if (!docFiles.some(f => f.path === targetFile.path)) docFiles.push(targetFile);
-                    }
-                }
-            }
-
-            content = content.replace(/!\[.*?\]\(.*?\)/g, '').replace(/!\[\[.*?\]\]/g, '').trim();
+            const content = await this.app.vault.read(file);
             const formattedContent = convert(content);
+            const attachments = file.parent ? this.app.vault.getFiles().filter(f =>
+                f.parent?.path === file.parent?.path &&
+                f.name !== file.name &&
+                (f.extension === "jpg" || f.extension === "jpeg" || f.extension === "png" || f.extension === "gif" || f.extension === "webp" || f.extension === "pdf")
+            ) : [];
 
-            if (imageFiles.length > 0) {
-                if (imageFiles.length === 1) {
-                    await this.sendSingleMedia(channel, imageFiles[0], "photo", formattedContent, silent, attachUnderText);
+            const photoFiles = attachments.filter(f => ["jpg", "jpeg", "png", "gif", "webp"].includes(f.extension));
+            const docFiles = attachments.filter(f => f.extension === "pdf");
+
+            if (photoFiles.length > 0) {
+                const firstBatch = photoFiles.slice(0, 10);
+                const remainingPhotos = photoFiles.slice(10);
+
+                if (firstBatch.length === 1) {
+                    await this.sendSingleMedia(channel, firstBatch[0], "photo", formattedContent, silent, attachUnderText);
                 } else {
-                    await this.sendMediaGroup(channel, imageFiles.slice(0, 10), "photo", formattedContent, silent, attachUnderText);
+                    await this.sendMediaGroup(channel, firstBatch, "photo", formattedContent, silent, attachUnderText);
                 }
-                // Extra docs sent alongside images — silent flag preserved
-                for (const doc of docFiles) await this.sendSingleMedia(channel, doc, "document", "", silent, false);
-            } 
+                // Overflow photos — silent flag preserved
+                for (const photo of remainingPhotos) await this.sendSingleMedia(channel, photo, "photo", "", silent, false);
+            }
             else if (docFiles.length > 0) {
                 const firstBatch = docFiles.slice(0, 10);
                 const remainingDocs = docFiles.slice(10);
@@ -357,7 +336,9 @@ class TelegramSettingTab extends PluginSettingTab {
         infoDiv.createEl("div", { text: t.SETTING_ADD_CHANNEL_NAME, cls: "telegram-add-preset-title" });
         infoDiv.createEl("div", { text: t.SETTING_ADD_CHANNEL_DESC, cls: "telegram-add-preset-description" });
 
-        new ButtonComponent(addSection.createDiv("telegram-add-preset-button-container"))
+        const buttonContainer = addSection.createDiv("telegram-add-preset-button-container");
+
+        new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_ADD_CHANNEL)
             .onClick(async () => {
                 // unshift() inserts at index 0 so the new preset appears at the top of the list
@@ -365,6 +346,18 @@ class TelegramSettingTab extends PluginSettingTab {
                 await this.plugin.saveSettings();
                 this.display();
             }).buttonEl.addClass("telegram-add-button");
+
+        new ButtonComponent(buttonContainer)
+            .setButtonText(t.SETTING_OPEN_BOTFATHER)
+            .onClick(() => {
+                window.open("https://t.me/BotFather", "_blank");
+            }).buttonEl.addClass("telegram-link-button");
+
+        new ButtonComponent(buttonContainer)
+            .setButtonText(t.SETTING_OPEN_USERINFOBOT)
+            .onClick(() => {
+                window.open("https://t.me/userinfobot", "_blank");
+            }).buttonEl.addClass("telegram-link-button");
 
         this.plugin.settings.channels.forEach((channel, index) => {
             const channelDiv = containerEl.createDiv("telegram-channel-item");

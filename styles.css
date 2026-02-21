@@ -44,12 +44,14 @@
     padding-left: 16px;
     padding-right: 16px;
     display: flex;
-    justify-content: flex-start;
+    gap: 8px;
+    flex-direction: row-reverse;
+    margin-top: 12px;
+    margin-bottom: 12px;
+    justify-content: space-between;
 }
 
 .telegram-add-button {
-    margin-top: 12px;
-    margin-bottom: 8px;
     background-color: var(--interactive-accent) !important;
     color: var(--text-on-accent) !important;
     font-weight: var(--font-semibold);
@@ -58,6 +60,18 @@
 
 .telegram-add-button:hover {
     background-color: var(--interactive-accent-hover) !important;
+}
+
+.telegram-link-button:hover {
+    background-color: var(--setting-items-border-color) !important;
+    box-shadow: none !important;
+    border: 1px solid var(--setting-items-border-color);
+}
+
+.telegram-link-button {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: 1px solid var(--setting-items-border-color);
 }
 
 .telegram-channel-item {

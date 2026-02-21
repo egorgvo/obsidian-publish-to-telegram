@@ -12,7 +12,9 @@ export default {
 1. Cоздайте бота с помощью @BotFather и вставьте его токен в соответствующее поле.
 2. Узнайте ID вашего канала/группы у @userinfobot и вставьте его в соответствующее поле.
 3. Добавьте вашего бота в канал/группу и выдайте ему права на отправку сообщениий.`,
-    SETTING_ADD_CHANNEL: "Создать новый пресет публикации",
+    SETTING_ADD_CHANNEL: "Создать новый пресет",
+    SETTING_OPEN_BOTFATHER: "Открыть @BotFather",
+    SETTING_OPEN_USERINFOBOT: "Открыть @userinfobot",
     SETTING_BOT_TOKEN_NAME: "Токен вашего бота",
     SETTING_BOT_TOKEN_DESC: "Получите его у @BotFather",
     SETTING_CHAT_ID_NAME: "ID целевого канала/группы",

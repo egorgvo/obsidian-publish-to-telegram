@@ -13,6 +13,8 @@ export default {
 2. Find out your channel/group ID using @userinfobot and paste it into the corresponding field in the plugin.
 3. Add your bot to the channel/group and give it permission to send messages.`,
     SETTING_ADD_CHANNEL: "Create new publishing preset",
+    SETTING_OPEN_BOTFATHER: "Open @BotFather",
+    SETTING_OPEN_USERINFOBOT: "Open @userinfobot",
     SETTING_BOT_TOKEN_NAME: "You bot token",
     SETTING_BOT_TOKEN_DESC: "Get it from @BotFather",
     SETTING_CHAT_ID_NAME: "Target channel/group ID",
