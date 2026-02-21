@@ -36,6 +36,7 @@ export default {
     COMMAND_SEND_DEFAULT: "Опубликовать с помощью пресета по умолчанию",
     COMMAND_SEND_MULTIPLE: "Опубликовать с расширенными настройками",
     COMMAND_SEND_TO_PRESET: "Опубликовать в",
+    COMMAND_SHOW_FORMATTING_HELP: "Открыть справку по форматированию",
     MULTI_PRESET_TITLE: "Расширенные настройки публикации",
     MULTI_PRESET_CHANNEL_SELECTION: "Выберите каналы/группы для публикации",
     MULTI_PRESET_ADVANCED_FORMATTING: "Расширенное форматирование",
@@ -44,5 +45,55 @@ export default {
     MULTI_PRESET_SILENT_POST_NAME: "Опубликовать без звука",
     MULTI_PRESET_SILENT_POST_DESC: "Подписчики получат уведомление без звука",
     MULTI_PRESET_ATTACHMENTS_NAME: "Вложения под текстом",
-    MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикреплёнными медиафайлами"
+    MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикреплёнными медиафайлами",
+
+    // ─── Formatting Help Modal content ────────────────────────────────────────
+    // Edit the markdown below to update what is shown in the formatting help
+    // modal. Full Obsidian-flavoured Markdown is supported, including tables.
+    FORMATTING_HELP_CONTENT: `
+### Formatting elements
+
+All standard Telegram formatting options are supported:
+
+| Formatting element          | Input in Obsidian                       | Telegram Output    |
+| --------------------------- | --------------------------------------- | ------------------ |
+| **Bold**                    | \`**text**\`                            | \`*text*\`         |
+| _Italic_                    | \`*text*\`                              | \`_text_\`         |
+| **Underline**               | \`<u>text</u>\`                         | \`__text__\`       |
+| ~~Strikethrough~~           | \`~~text~~\`                            | \`~text~\`         |
+| Spoiler                     | \`<span class="tg-spoiler">text</span>\`| \`||text||\`       |
+| \`Inline Code\`             | \`\` \`code\` \`\`                      | \`\` \`code\` \`\` |
+| [Links](https://obsdian.md) | \`[text](url)\`                         | \`[text](url)\`    |
+| Block Quotes                | \`> quote\`                             | \`> quote\`        |
+| Code Blocks                 | \`\`\`lang\\ncode\`\`\`                 | code block         |
+| Lists                       | \`- item\`                              | \`• item\`         |
+| Headings                    | \`# Title\`                             | \`*Title*\`        |
+
+### Attachments
+
+Media, album (groups of media) and document attachments are supported. Note that every attached file must be inside the same folder as current note. To attach a file to your post, use standard Obsidian embed function:
+
+\`![[some-book-file.pdf]]\`
+
+\`![[some-media-file.jpg]]\`
+
+Currently supported formats:
+
+| Extension                                          | Attachment type |
+| -------------------------------------------------- | --------------- |
+| \`.jpg\`, \`.jpeg\`, \`.png\`, \`.gif\`, \`.webp\` | Photo / Album   |
+| \`.pdf\`                                           | Document        |
+
+### Limits
+
+Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post, etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
+
+### Advanced publishing settings
+
+You can call an advanced publishing settings window with command palette (\`Ctrl + P\`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
+
+* Post to multiple channels/groups at once.
+* Post without sound.
+* Post with attached media under the text.
+`,
 };

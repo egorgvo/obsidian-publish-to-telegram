@@ -19,56 +19,9 @@ const DEFAULT_SETTINGS: TelegramSettings = {
 }
 
 // ─── Formatting Help Modal ────────────────────────────────────────────────────
-// Edit FORMATTING_HELP_CONTENT below to update the instructions shown in the
-// modal. Full Obsidian-flavoured Markdown is supported, including tables.
-
-const FORMATTING_HELP_CONTENT = `
-
-### Formatting elements
-
-All standard Telegram formatting options are supported:
-
-| Formatting element          | Input in Obsidian                      | Telegram Output    |
-| ----------------------------| -------------------------------------- | -------------------|
-| **Bold**                    | \`**text**\`                           | \`*text*\`         |
-| _Italic_                    | \`*text*\`                             | \`_text_\`         |
-| **Underline**               | \`<u>text</u>\`                        | \`__text__\`       |
-| ~~Strikethrough~~           | \`~~text~~\`                           | \`~text~\`         |
-| Spoiler                     | \`<span class="tg-spoiler">text</span>\`| \`                |
-| \`Inline Code\`             | \`\` \`code\` \`\`                     | \`\` \`code\` \`\` |
-| [Links](https://obsdian.md) | \`[text](url)\`                        | \`[text](url)\`    |
-| Block Quotes                | \`> quote\`                            | > quote            |
-| Code Blocks                 | lang code                              | code               |
-| Lists                       | \`- item\`                             | \`• item\`         |
-| Headings                    | \`# Title\`                            | \`*Title*\`        |
-
-### Attachments
-
-Media, album (groups of media) and document attachments are supported. Note that every attached file must be inside the same folder as current note. To attach a file to your post, use standard Obsidian embed function:
-
-\`![[some-book-file.pdf]]\`
-
-\`![[some-media-file.jpg]]\`
-
-Currently supported formats:
-
-| Extension                                          | Attachment type |
-| -------------------------------------------------- | --------------- |
-| \`.jpg\`, \`.jpeg\`, \`.png\`, \`.gif\`, \`.webp\` | Photo / Album   |
-| \`.pdf\`                                           | Document        |
-
-### Limits
-
-Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post, etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
-
-### Advanced publishing settings
-
-You can call an advanced publishing settings window with command palette (\`Ctrl + P\`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
-
-* Post to multiple channels/groups at once.
-* Post without sound.
-* Post with attached media under the text.
-`;
+// To update the instructions shown in the modal, edit FORMATTING_HELP_CONTENT
+// in lang/ru.ts (or the relevant locale file). Full Obsidian-flavoured Markdown
+// is supported, including tables.
 
 class FormattingHelpModal extends Modal {
     constructor(app: App) {
@@ -81,7 +34,7 @@ class FormattingHelpModal extends Modal {
         contentEl.addClass("telegram-formatting-help-modal");
         MarkdownRenderer.render(
             this.app,
-            FORMATTING_HELP_CONTENT,
+            t.FORMATTING_HELP_CONTENT,
             contentEl,
             "",
             this
@@ -254,7 +207,7 @@ export default class SendToTelegramPlugin extends Plugin {
         );
     }
 
-    // Registers the two commands that are independent of preset configuration.
+    // Registers the commands that are independent of preset configuration.
     // Must only be called once — calling addCommand() with the same id a second
     // time silently replaces the first registration in most Obsidian versions,
     // but separating it here avoids any ambiguity.
@@ -279,6 +232,14 @@ export default class SendToTelegramPlugin extends Plugin {
                 if (!file) return;
                 if (this.settings.channels.length === 0) { new Notice(t.NOTICE_ERR_CONFIG); return; }
                 new MultiPresetModal(this.app, this, file).open();
+            }
+        });
+
+        this.addCommand({
+            id: "show-formatting-help",
+            name: t.COMMAND_SHOW_FORMATTING_HELP,
+            callback: () => {
+                new FormattingHelpModal(this.app).open();
             }
         });
     }
