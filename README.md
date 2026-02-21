@@ -51,7 +51,7 @@ Standard Telegram formatting supported, so if you use Obsidian markdown syntax, 
 
 4. `~~Strikethrough~~` becomes ~~Strikethrough~~
 
-5. `<u>Underline</u>` becomes <u>Underline</u>
+5. `<u>Underline</u>` becomes <ins>Underline</ins>
 
 6. `> Quote` becomes
 
