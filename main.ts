@@ -43,6 +43,7 @@ class ConfirmationModal extends Modal {
     onClose() { this.contentEl.empty(); }
 }
 
+
 class MultiPresetModal extends Modal {
     plugin: SendToTelegramPlugin;
     selectedChannels: Set<string>;
@@ -66,6 +67,12 @@ class MultiPresetModal extends Modal {
             return;
         }
 
+        // --- Heading 1: Channel Selection ---
+        contentEl.createDiv({ 
+            text: "Choose channels/groups to post to", 
+            cls: "telegram-modal-heading" 
+        });
+
         const listContainer = contentEl.createDiv("telegram-multi-preset-list");
 
         this.plugin.settings.channels.forEach(channel => {
@@ -82,6 +89,12 @@ class MultiPresetModal extends Modal {
                     if (value) this.selectedChannels.add(channel.id);
                     else this.selectedChannels.delete(channel.id);
                 });
+        });
+
+        // --- Heading 2: Advanced Formatting ---
+        contentEl.createDiv({ 
+            text: "Advanced formatting", 
+            cls: "telegram-modal-heading" 
         });
 
         // Silent Post Option
@@ -121,6 +134,7 @@ class MultiPresetModal extends Modal {
 
     onClose() { this.contentEl.empty(); }
 }
+
 
 export default class SendToTelegramPlugin extends Plugin {
     settings: TelegramSettings;

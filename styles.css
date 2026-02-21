@@ -5,8 +5,6 @@
     margin-bottom: 20px;
 }
 
-
-/* Custom Add Preset Section (Replaces .setting-item) */
 .telegram-add-preset-section {
     background-color: var(--setting-items-background);
     border-radius: var(--setting-items-radius);
@@ -49,7 +47,6 @@
     justify-content: flex-start;
 }
 
-/* Custom Add Button Styling (No mod-cta) */
 .telegram-add-button {
     margin-top: 12px;
     margin-bottom: 8px;
@@ -63,7 +60,6 @@
     background-color: var(--interactive-accent-hover) !important;
 }
 
-/* Individual Channel Card */
 .telegram-channel-item {
     border: 1px solid var(--background-modifier-border);
     border-radius: 8px;
@@ -74,7 +70,6 @@
     flex-direction: column;
 }
 
-/* Header within the card */
 .telegram-channel-header {
     display: flex;
     justify-content: space-between;
@@ -103,7 +98,6 @@
     font-size: var(--font-ui-medium);
 }
 
-/* Edit Button */
 .telegram-edit-button {
     background-color: var(--setting-items-background) !important;
     box-shadow: none !important;
@@ -115,7 +109,6 @@
     color: var(--interactive-accent);
 }
 
-/* Delete Button */
 .telegram-delete-button {
     background-color: var(--setting-items-background) !important;
     box-shadow: none !important;
@@ -131,15 +124,7 @@
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    margin-top: 20px;
-}
-
-/* Modal Multi-Preset Custom Items */
-.telegram-multi-preset-list {
-    margin-bottom: 16px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--setting-items-radius);
-    margin-top: 12px;
+    margin-top: 16px;
 }
 
 .telegram-multi-preset-item {
@@ -147,11 +132,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 16px 16px;
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.telegram-multi-preset-item:last-of-type {
-    border-bottom: none;
+    border: 1px solid var(--background-modifier-border);
+    margin-bottom: 12px;
+    border-radius: var(--setting-items-radius);
 }
 
 .telegram-multi-preset-name {
@@ -168,7 +151,7 @@
     padding: 16px 16px;
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--setting-items-radius);
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 .telegram-option-text {
@@ -185,4 +168,16 @@
     font-size: var(--font-ui-smaller);
     color: var(--text-muted);
     margin-top: 4px;
+}
+
+.telegram-modal-heading {
+    font-size: var(--font-ui-medium);
+    font-weight: var(--font-medium);
+    margin-top: 24px;
+    margin-bottom: 16px;
+    padding-left: 8px;
+}
+
+.telegram-modal-heading:first-of-type {
+    margin-top: 16px;
 }
