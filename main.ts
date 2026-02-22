@@ -18,6 +18,15 @@ const DEFAULT_SETTINGS: TelegramSettings = {
     channels: []
 }
 
+// ─── Embedded wiki-link stripping ────────────────────────────────────────────
+// Obsidian embedded transclusions (![[file.jpg]], ![[note|alias]], etc.) have no
+// meaningful representation in Telegram and must be removed entirely — including
+// any display/alias text. Regular wiki-links ([[Page]] / [[Page|Display]]) are
+// left untouched so telegram-markdown-v2 can handle them as-is.
+function stripEmbeddedWikiLinks(text: string): string {
+    return text.replace(/!\[\[[^\]]*\]\]/g, "").replace(/[ \t]+\n/g, "\n").trim();
+}
+
 // ─── Formatting Help Modal ────────────────────────────────────────────────────
 // To update the instructions shown in the modal, edit FORMATTING_HELP_CONTENT
 // in lang/ru.ts (or the relevant locale file). Full Obsidian-flavoured Markdown
@@ -279,7 +288,7 @@ export default class SendToTelegramPlugin extends Plugin {
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
         try {
             const content = await this.app.vault.read(file);
-            const formattedContent = convert(content);
+            const formattedContent = convert(stripEmbeddedWikiLinks(content));
             const attachments = file.parent ? this.app.vault.getFiles().filter(f =>
                 f.parent?.path === file.parent?.path &&
                 f.name !== file.name &&
