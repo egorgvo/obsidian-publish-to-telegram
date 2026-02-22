@@ -78,7 +78,7 @@
 
 .telegram-channel-item {
     border: 1px solid var(--background-modifier-border);
-    border-radius: 8px;
+    border-radius: var(--setting-items-radius);
     padding: 15px;
     margin-bottom: 20px;
     background-color: var(--setting-items-background);
