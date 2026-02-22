@@ -50,23 +50,64 @@ export default {
     FORMATTING_HELP_CONTENT: `
 Данную справку можно вызвать из палитры команд, введя "Publish to Telegram: Открыть справку по форматированию".
 
-### Элементы форматирования
+### Форматирование
 
-Поддерживаются все стандартные опции форматирования Telegram:
+Поддерживаются все стандартные элементы форматирования Telegram:
 
-| Элемент форматирования      | Ввод в Obsdiian                         | Вывод в Telegram   |
-| --------------------------- | --------------------------------------- | ------------------ |
-| **Полужирный**              | \`**текст**\`                           | \`*текст*\`        |
-| _Italic_                    | \`*текст*\`                             | \`_текст_\`        |
-| **Underline**               | \`<u>текст</u>\`                        | \`__текст__\`      |
-| ~~Strikethrough~~           | \`~~текст~~\`                           | \`~текст~\`        |
-| Spoiler                     | \`<span class="tg-spoiler">текст</span>\`| \`||текст||\`     |
-| \`Inline Code\`             | \`\` \`код\` \`\`                       | \`\` \`код\` \`\`  |
-| [Links](https://obsdian.md) | \`[текст](url)\`                        | \`[текст](url)\`   |
-| Block Quotes                | \`> цитата\`                            | \`> цитата\`       |
-| Code Blocks                 | \`\`\`lang\\ncode\`\`\`                 | блок кода          |
-| Lists                       | \`- элемент\`                           | \`• элемент\`      |
-| Headings                    | \`# Заголовок\`                         | \`*Заголовок*\`    |
+<table>
+  <thead>
+    <tr>
+      <th>Ввод в Obsidian</th>
+      <th>Результат в Telegram</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>**Полужирный**</code></td>
+      <td><strong>Полужирный</strong></td>
+    </tr>
+    <tr>
+      <td><code>*Курсив*</code></td>
+      <td><em>Курсив</em></td>
+    </tr>
+    <tr>
+      <td><code>&lt;u&gt;Подчёркивание&lt;/u&gt;</code></td>
+      <td><u>Подчёркивание</u></td>
+    </tr>
+    <tr>
+      <td><code>~~Зачёркивание~~</code></td>
+      <td><s>Зачёркивание</s></td>
+    </tr>
+    <tr>
+      <td><code>&lt;span class="tg-spoiler"&gt;Спойлер&lt;/span&gt;</code></td>
+      <td>Спойлер</td>
+    </tr>
+    <tr>
+      <td><code>\`Код в строке\`</code></td>
+      <td><code>Код в строке</code></td>
+    </tr>
+    <tr>
+      <td><code>[Ссылка](url)</code></td>
+      <td><a href="https://obsdian.md">Ссылка</a></td>
+    </tr>
+    <tr>
+      <td><code>&gt; Цитата</code></td>
+      <td><blockquote>Цитата</blockquote></td>
+    </tr>
+    <tr>
+      <td><code>\`\`\`Блок кода\`\`\`</code></td>
+      <td><pre><code>Блок кода</code></pre></td>
+    </tr>
+    <tr>
+      <td><code>- Список</code></td>
+      <td><ul><li>Список</li></ul></td>
+    </tr>
+    <tr>
+      <td><code># Заголовок</code></td>
+      <td><h5>Заголовок</h5></td>
+    </tr>
+  </tbody>
+</table>
 
 ### Вложения
 

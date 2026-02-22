@@ -50,23 +50,64 @@ export default {
     FORMATTING_HELP_CONTENT: `
 You can show open these formatting instructions from the command palette by typing "Publish to Telegram: Open formatting instructions".
 
-### Formatting elements
+### Formatting
 
-All standard Telegram formatting options are supported:
+All standard Telegram formatting elements are supported:
 
-| Formatting element          | Input in Obsidian                       | Telegram Output    |
-| --------------------------- | --------------------------------------- | ------------------ |
-| **Bold**                    | \`**text**\`                            | \`*text*\`         |
-| _Italic_                    | \`*text*\`                              | \`_text_\`         |
-| **Underline**               | \`<u>text</u>\`                         | \`__text__\`       |
-| ~~Strikethrough~~           | \`~~text~~\`                            | \`~text~\`         |
-| Spoiler                     | \`<span class="tg-spoiler">text</span>\`| \`||text||\`       |
-| \`Inline Code\`             | \`\` \`code\` \`\`                      | \`\` \`code\` \`\` |
-| [Links](https://obsdian.md) | \`[text](url)\`                         | \`[text](url)\`    |
-| Block Quotes                | \`> quote\`                             | \`> quote\`        |
-| Code Blocks                 | \`\`\`lang\\ncode\`\`\`                 | code block         |
-| Lists                       | \`- item\`                              | \`• item\`         |
-| Headings                    | \`# Title\`                             | \`*Title*\`        |
+<table>
+  <thead>
+    <tr>
+      <th>Obsidian Input</th>
+      <th>Telegram Result</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>**Bold**</code></td>
+      <td><strong>Bold</strong></td>
+    </tr>
+    <tr>
+      <td><code>*Italic*</code></td>
+      <td><em>Italic</em></td>
+    </tr>
+    <tr>
+      <td><code>&lt;u&gt;Underline&lt;/u&gt;</code></td>
+      <td><u>Underline</u></td>
+    </tr>
+    <tr>
+      <td><code>~~Strikethrough~~</code></td>
+      <td><s>Strikethrough</s></td>
+    </tr>
+    <tr>
+      <td><code>&lt;span class="tg-spoiler"&gt;Spoiler&lt;/span&gt;</code></td>
+      <td>Spoiler</td>
+    </tr>
+    <tr>
+      <td><code>\`Inline code\`</code></td>
+      <td><code>Inline code</code></td>
+    </tr>
+    <tr>
+      <td><code>[Link](url)</code></td>
+      <td><a href="https://obsidian.md">Link</a></td>
+    </tr>
+    <tr>
+      <td><code>&gt; Quote</code></td>
+      <td><blockquote>Quote</blockquote></td>
+    </tr>
+    <tr>
+      <td><code>\`\`\`Code block\`\`\`</code></td>
+      <td><pre><code>Code block</code></pre></td>
+    </tr>
+    <tr>
+      <td><code>- List</code></td>
+      <td><ul><li>List</li></ul></td>
+    </tr>
+    <tr>
+      <td><code># Heading</code></td>
+      <td><h5>Heading</h5></td>
+    </tr>
+  </tbody>
+</table>
 
 ### Attachments
 

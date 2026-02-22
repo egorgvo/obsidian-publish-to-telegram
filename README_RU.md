@@ -95,7 +95,7 @@
     </tr>
     <tr>
       <td><code># Заголовок</code></td>
-      <td><h4>Заголовок</h4></td>
+      <td><h5>Заголовок</h5></td>
     </tr>
   </tbody>
 </table>

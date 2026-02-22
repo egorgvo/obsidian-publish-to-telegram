@@ -95,7 +95,7 @@ All standard Telegram formatting elements are supported:
     </tr>
     <tr>
       <td><code># Heading</code></td>
-      <td><h4>Heading</h4></td>
+      <td><h5>Heading</h5></td>
     </tr>
   </tbody>
 </table>
