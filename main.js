@@ -94,7 +94,7 @@ All standard Telegram formatting elements are supported:
       <td><blockquote>Quote</blockquote></td>
     </tr>
     <tr>
-      <td><code>\`\`\`Code block\`\`\`</code></td>
+      <td><codeblock>\`\`\`<br>Code block<br>\`\`\`</codeblock></td>
       <td><pre><code>Code block</code></pre></td>
     </tr>
     <tr>
@@ -186,7 +186,7 @@ You can call an advanced publishing settings window with command palette (\`Ctrl
       <td><blockquote>\u0426\u0438\u0442\u0430\u0442\u0430</blockquote></td>
     </tr>
     <tr>
-      <td><code>\`\`\`\u0411\u043B\u043E\u043A \u043A\u043E\u0434\u0430\`\`\`</code></td>
+      <td><codeblock>\`\`\`<br>\u0411\u043B\u043E\u043A \u043A\u043E\u0434\u0430<br>\`\`\`</codeblock></td>
       <td><pre><code>\u0411\u043B\u043E\u043A \u043A\u043E\u0434\u0430</code></pre></td>
     </tr>
     <tr>

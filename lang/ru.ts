@@ -95,7 +95,7 @@ export default {
       <td><blockquote>Цитата</blockquote></td>
     </tr>
     <tr>
-      <td><code>\`\`\`Блок кода\`\`\`</code></td>
+      <td><codeblock>\`\`\`<br>Блок кода<br>\`\`\`</codeblock></td>
       <td><pre><code>Блок кода</code></pre></td>
     </tr>
     <tr>

@@ -86,7 +86,7 @@ All standard Telegram formatting elements are supported:
       <td><blockquote>Quote</blockquote></td>
     </tr>
     <tr>
-      <td><code>```Code block```</code></td>
+      <td><codeblock>```<br>Code block<br>```</codeblock></td>
       <td><pre><code>Code block</code></pre></td>
     </tr>
     <tr>
