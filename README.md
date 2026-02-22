@@ -1,6 +1,6 @@
 # Publish to Telegram plugin
 
-English | Русский
+English | [Русский](https://github.com/pan4ratte/obsidian-publish-to-telegram/blob/main/README_RU.md)
 
 This plugin allows you to post notes directly to Telegram channels and groups with different presets. The plugin works through your personal bot, sending to it contents of an active note and information about the channel/group to post to. Every standard Telegram formatting options are supported, as well as photo, album and document uploads, plus some advanced publishing settings are available.
 
