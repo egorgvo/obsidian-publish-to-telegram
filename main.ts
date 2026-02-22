@@ -18,14 +18,31 @@ const DEFAULT_SETTINGS: TelegramSettings = {
     channels: []
 }
 
+// ─── Embedded wiki-link stripping ────────────────────────────────────────────
+// Obsidian embedded transclusions (![[file.jpg]], ![[note|alias]], etc.) have no
+// meaningful representation in Telegram and must be removed entirely — including
+// any display/alias text. Regular wiki-links ([[Page]] / [[Page|Display]]) are
+// left untouched so telegram-markdown-v2 can handle them as-is.
+function stripEmbeddedWikiLinks(text: string): string {
+    return text.replace(/!\[\[[^\]]*\]\]/g, "").replace(/[ \t]+\n/g, "\n").trim();
+}
+
 // ─── Formatting Help Modal ────────────────────────────────────────────────────
 // To update the instructions shown in the modal, edit FORMATTING_HELP_CONTENT
 // in lang/ru.ts (or the relevant locale file). Full Obsidian-flavoured Markdown
 // is supported, including tables.
 
 class FormattingHelpModal extends Modal {
-    constructor(app: App) {
+    // FIX: Hold a reference to the plugin (a fully-loaded Component) so we can
+    // pass it to MarkdownRenderer.render. Obsidian's runtime now validates that
+    // the fifth argument is a loaded Component; a Modal's own load state is not
+    // guaranteed to be true at the moment onOpen() fires, which triggers the
+    // "is not passing Component in renderMarkdown" console error.
+    private plugin: SendToTelegramPlugin;
+
+    constructor(app: App, plugin: SendToTelegramPlugin) {
         super(app);
+        this.plugin = plugin;
     }
 
     onOpen() {
@@ -37,7 +54,7 @@ class FormattingHelpModal extends Modal {
             t.FORMATTING_HELP_CONTENT,
             contentEl,
             "",
-            this
+            this.plugin   // FIX: pass the plugin (always loaded) instead of `this`
         );
     }
 
@@ -239,7 +256,8 @@ export default class SendToTelegramPlugin extends Plugin {
             id: "show-formatting-help",
             name: t.COMMAND_SHOW_FORMATTING_HELP,
             callback: () => {
-                new FormattingHelpModal(this.app).open();
+                // FIX: pass `this` (the plugin) so FormattingHelpModal has a loaded Component
+                new FormattingHelpModal(this.app, this).open();
             }
         });
     }
@@ -270,7 +288,8 @@ export default class SendToTelegramPlugin extends Plugin {
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
         try {
             const content = await this.app.vault.read(file);
-            let formattedContent = convert(content);
+            const strippedContent = stripEmbeddedWikiLinks(content);
+            let formattedContent = convert(strippedContent);
             // The telegram-markdown-v2 library automatically adds a space after the quote sign.
             // It looks ugly, so we remove that extra space
             formattedContent = formattedContent.replace(/^> /gm, '>');
@@ -410,7 +429,8 @@ class TelegramSettingTab extends PluginSettingTab {
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_FORMATTING_HELP)
             .onClick(() => {
-                new FormattingHelpModal(this.app).open();
+                // FIX: pass `this.plugin` so FormattingHelpModal has a loaded Component
+                new FormattingHelpModal(this.app, this.plugin).open();
             }).buttonEl.addClass("telegram-link-button");
 
         new ButtonComponent(buttonContainer)
