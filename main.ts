@@ -24,8 +24,16 @@ const DEFAULT_SETTINGS: TelegramSettings = {
 // is supported, including tables.
 
 class FormattingHelpModal extends Modal {
-    constructor(app: App) {
+    // FIX: Hold a reference to the plugin (a fully-loaded Component) so we can
+    // pass it to MarkdownRenderer.render. Obsidian's runtime now validates that
+    // the fifth argument is a loaded Component; a Modal's own load state is not
+    // guaranteed to be true at the moment onOpen() fires, which triggers the
+    // "is not passing Component in renderMarkdown" console error.
+    private plugin: SendToTelegramPlugin;
+
+    constructor(app: App, plugin: SendToTelegramPlugin) {
         super(app);
+        this.plugin = plugin;
     }
 
     onOpen() {
@@ -37,7 +45,7 @@ class FormattingHelpModal extends Modal {
             t.FORMATTING_HELP_CONTENT,
             contentEl,
             "",
-            this
+            this.plugin   // FIX: pass the plugin (always loaded) instead of `this`
         );
     }
 
@@ -239,7 +247,8 @@ export default class SendToTelegramPlugin extends Plugin {
             id: "show-formatting-help",
             name: t.COMMAND_SHOW_FORMATTING_HELP,
             callback: () => {
-                new FormattingHelpModal(this.app).open();
+                // FIX: pass `this` (the plugin) so FormattingHelpModal has a loaded Component
+                new FormattingHelpModal(this.app, this).open();
             }
         });
     }
@@ -407,7 +416,8 @@ class TelegramSettingTab extends PluginSettingTab {
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_FORMATTING_HELP)
             .onClick(() => {
-                new FormattingHelpModal(this.app).open();
+                // FIX: pass `this.plugin` so FormattingHelpModal has a loaded Component
+                new FormattingHelpModal(this.app, this.plugin).open();
             }).buttonEl.addClass("telegram-link-button");
 
         new ButtonComponent(buttonContainer)
