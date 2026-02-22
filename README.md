@@ -15,9 +15,9 @@ This plugin allows you to post notes directly to Telegram channels and groups wi
 
 4. Use advanced publishing settings to:
 
-	* Post to multiple channels/groups at once.
-	* Post without sound.
-	* Post with attached media under the text.
+  	* Post to multiple channels/groups at once.
+  	* Post without sound.
+  	* Post with attached media under the text.
 
 5. Set a default preset to post quickly with it from command palette or with hotkey.
 
