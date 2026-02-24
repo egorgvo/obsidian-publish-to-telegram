@@ -288,7 +288,11 @@ export default class SendToTelegramPlugin extends Plugin {
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
         try {
             const content = await this.app.vault.read(file);
-            const formattedContent = convert(stripEmbeddedWikiLinks(content));
+            const strippedContent = stripEmbeddedWikiLinks(content);
+            let formattedContent = convert(strippedContent);
+            // The telegram-markdown-v2 library automatically adds a space after the quote sign.
+            // It looks ugly, so we remove that extra space
+            formattedContent = formattedContent.replace(/^> /gm, '>');
             const attachments = file.parent ? this.app.vault.getFiles().filter(f =>
                 f.parent?.path === file.parent?.path &&
                 f.name !== file.name &&
