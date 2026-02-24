@@ -18,6 +18,16 @@ const DEFAULT_SETTINGS: TelegramSettings = {
     channels: []
 }
 
+// ─── Frontmatter extraction ───────────────────────────────────────────────────
+// Splits raw note content into a frontmatter block and the markdown body.
+// Returns { frontmatter, body } where frontmatter is the raw YAML text (without
+// the --- delimiters) or an empty string when no frontmatter is present.
+function extractFrontmatter(content: string): { frontmatter: string; body: string } {
+    const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+    if (!match) return { frontmatter: "", body: content };
+    return { frontmatter: match[1], body: content.slice(match[0].length) };
+}
+
 // ─── Embedded wiki-link stripping ────────────────────────────────────────────
 // Obsidian embedded transclusions (![[file.jpg]], ![[note|alias]], etc.) have no
 // meaningful representation in Telegram and must be removed entirely — including
@@ -288,7 +298,10 @@ export default class SendToTelegramPlugin extends Plugin {
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
         try {
             const content = await this.app.vault.read(file);
-            const strippedContent = stripEmbeddedWikiLinks(content);
+            // Strip frontmatter before converting — the YAML block has no meaningful
+            // representation in Telegram and should not appear in the posted message.
+            const { body } = extractFrontmatter(content);
+            const strippedContent = stripEmbeddedWikiLinks(body);
             let formattedContent = convert(strippedContent);
             // The telegram-markdown-v2 library automatically adds a space after the quote sign.
             // It looks ugly, so we remove that extra space
