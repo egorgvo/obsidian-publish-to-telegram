@@ -4,6 +4,7 @@ export default {
     NOTICE_ERR_CONFIG: "Error: Set up at least one preset.",
     NOTICE_ERR_SEND: "Publishing error: ",
     NOTICE_ERR_NO_DEFAULT: "Error: Default preset is not set up.",
+    NOTICE_ERR_INCOMPLETE_PRESET: "Error: Bot token and Chat ID must both be filled in before publishing.",
     SETTING_HEADER: "Publish to Telegram Settings",
     SETTING_DESCRIPTION: "Plugin allows you to post active note to Telegram with hotkeys, command palette and from context menus. Standard Telegram text formatting is supported, as well as photo, album and documents uploads. Advanced publishing settings are available: post to multiple channels/groups at once, silent post and posting media under the text.",
     SETTING_ADD_CHANNEL_NAME: "Set up instructions",

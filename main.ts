@@ -221,8 +221,8 @@ export default class SendToTelegramPlugin extends Plugin {
 
                 menu.addItem((item) => {
                     item.setTitle(t.MENU_TITLE).setIcon("paper-plane");
-                    item.onClick(() => {
-                        const defaultChannel = this.settings.channels.find(c => c.isDefault);
+                    item.onClick(async () => {
+                        const defaultChannel = await this.resolveDefaultChannel();
                         if (!defaultChannel) {
                             new Notice(t.NOTICE_ERR_NO_DEFAULT);
                             return;
@@ -245,7 +245,7 @@ export default class SendToTelegramPlugin extends Plugin {
             callback: async () => {
                 const file = this.app.workspace.getActiveFile();
                 if (!file) return;
-                const defaultChannel = this.settings.channels.find(c => c.isDefault);
+                const defaultChannel = await this.resolveDefaultChannel();
                 if (!defaultChannel) { new Notice(t.NOTICE_ERR_NO_DEFAULT); return; }
                 await this.sendNoteToTelegram(file, defaultChannel, false, false);
             }
@@ -270,6 +270,23 @@ export default class SendToTelegramPlugin extends Plugin {
                 new FormattingHelpModal(this.app, this).open();
             }
         });
+    }
+
+    // Returns the default channel, applying a fallback rule: if no preset is
+    // explicitly marked as default but exactly one preset exists, that preset is
+    // automatically promoted to default and the change is persisted so the user
+    // does not have to configure it manually in the common single-preset case.
+    async resolveDefaultChannel(): Promise<TelegramChannel | undefined> {
+        const explicit = this.settings.channels.find(c => c.isDefault);
+        if (explicit) return explicit;
+
+        if (this.settings.channels.length === 1) {
+            this.settings.channels[0].isDefault = true;
+            await this.saveSettings();
+            return this.settings.channels[0];
+        }
+
+        return undefined;
     }
 
     // Removes every previously registered per-channel command from the palette,
@@ -297,6 +314,10 @@ export default class SendToTelegramPlugin extends Plugin {
 
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
         try {
+            if (!channel.botToken.trim() || !channel.chatId.trim()) {
+                new Notice(t.NOTICE_ERR_INCOMPLETE_PRESET);
+                return;
+            }
             const content = await this.app.vault.read(file);
             // Strip frontmatter before converting — the YAML block has no meaningful
             // representation in Telegram and should not appear in the posted message.
