@@ -324,9 +324,16 @@ export default class SendToTelegramPlugin extends Plugin {
             const { body } = extractFrontmatter(content);
             const strippedContent = stripEmbeddedWikiLinks(body);
             let formattedContent = convert(strippedContent);
-            // The telegram-markdown-v2 library automatically adds a space after the quote sign.
-            // It looks ugly, so we remove that extra space
+            // The telegram-markdown-v2 library adds extra spaces after block markers
+            // (quote sign, list bullets, numbered list markers). It looks ugly, so we normalize them.
+            // Remove the extra space after the blockquote sign
             formattedContent = formattedContent.replace(/^> /gm, '>');
+            // Replace +/• list markers with a bullet and a single space
+            formattedContent = formattedContent.replace(/^(\s*)(?:\+|•)\s+/gm, '$1• ');
+            // Normalize spaces after dot-style numbered list markers (e.g. "1\.")
+            formattedContent = formattedContent.replace(/^(\s*\d+\\\.)\s+/gm, '$1 ');
+            // Escape parenthesis-style numbered list markers and normalize spaces (e.g. "1)" → "1\)")
+            formattedContent = formattedContent.replace(/^(\s*\d+)\)\s+/gm, '$1\\) ');
             const attachments = file.parent ? this.app.vault.getFiles().filter(f =>
                 f.parent?.path === file.parent?.path &&
                 f.name !== file.name &&
