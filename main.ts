@@ -18,36 +18,24 @@ const DEFAULT_SETTINGS: TelegramSettings = {
     channels: []
 }
 
-// ─── Frontmatter extraction ───────────────────────────────────────────────────
-// Splits raw note content into a frontmatter block and the markdown body.
-// Returns { frontmatter, body } where frontmatter is the raw YAML text (without
-// the --- delimiters) or an empty string when no frontmatter is present.
+// ─── Frontmatter deletion before publishing ───────────────────────────────────────────────────
+
 function extractFrontmatter(content: string): { frontmatter: string; body: string } {
     const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
     if (!match) return { frontmatter: "", body: content };
     return { frontmatter: match[1], body: content.slice(match[0].length) };
 }
 
-// ─── Embedded wiki-link stripping ────────────────────────────────────────────
-// Obsidian embedded transclusions (![[file.jpg]], ![[note|alias]], etc.) have no
-// meaningful representation in Telegram and must be removed entirely — including
-// any display/alias text. Regular wiki-links ([[Page]] / [[Page|Display]]) are
-// left untouched so telegram-markdown-v2 can handle them as-is.
+// ─── Embedded wiki-link ![[]] stripping before publishing ────────────────────────────────────────────
+
 function stripEmbeddedWikiLinks(text: string): string {
     return text.replace(/!\[\[[^\]]*\]\]/g, "").replace(/[ \t]+\n/g, "\n").trim();
 }
 
 // ─── Formatting Help Modal ────────────────────────────────────────────────────
-// To update the instructions shown in the modal, edit FORMATTING_HELP_CONTENT
-// in lang/ru.ts (or the relevant locale file). Full Obsidian-flavoured Markdown
-// is supported, including tables.
 
 class FormattingHelpModal extends Modal {
-    // FIX: Hold a reference to the plugin (a fully-loaded Component) so we can
-    // pass it to MarkdownRenderer.render. Obsidian's runtime now validates that
-    // the fifth argument is a loaded Component; a Modal's own load state is not
-    // guaranteed to be true at the moment onOpen() fires, which triggers the
-    // "is not passing Component in renderMarkdown" console error.
+
     private plugin: SendToTelegramPlugin;
 
     constructor(app: App, plugin: SendToTelegramPlugin) {
@@ -64,7 +52,7 @@ class FormattingHelpModal extends Modal {
             t.FORMATTING_HELP_CONTENT,
             contentEl,
             "",
-            this.plugin   // FIX: pass the plugin (always loaded) instead of `this`
+            this.plugin
         );
     }
 
@@ -128,9 +116,9 @@ class MultiPresetModal extends Modal {
             return;
         }
 
-        contentEl.createDiv({ 
-            text: t.MULTI_PRESET_CHANNEL_SELECTION, 
-            cls: "telegram-modal-heading" 
+        contentEl.createDiv({
+            text: t.MULTI_PRESET_CHANNEL_SELECTION,
+            cls: "telegram-modal-heading"
         });
 
         const listContainer = contentEl.createDiv("telegram-multi-preset-list");
@@ -138,8 +126,8 @@ class MultiPresetModal extends Modal {
         this.plugin.settings.channels.forEach(channel => {
             const itemEl = listContainer.createDiv("telegram-multi-preset-item");
             const nameEl = itemEl.createDiv("telegram-multi-preset-name");
-            nameEl.setText(channel.isDefault 
-                ? `${channel.name || t.UNTITLED_CHANNEL}` 
+            nameEl.setText(channel.isDefault
+                ? `${channel.name || t.UNTITLED_CHANNEL}`
                 : channel.name || t.UNTITLED_CHANNEL);
 
             const controlEl = itemEl.createDiv("telegram-multi-preset-control");
@@ -151,9 +139,9 @@ class MultiPresetModal extends Modal {
                 });
         });
 
-        contentEl.createDiv({ 
-            text: t.MULTI_PRESET_ADVANCED_FORMATTING, 
-            cls: "telegram-modal-heading" 
+        contentEl.createDiv({
+            text: t.MULTI_PRESET_ADVANCED_FORMATTING,
+            cls: "telegram-modal-heading"
         });
 
         const silentOptionEl = contentEl.createDiv("telegram-option-item");
@@ -197,21 +185,14 @@ class MultiPresetModal extends Modal {
 export default class SendToTelegramPlugin extends Plugin {
     settings: TelegramSettings;
 
-    // Tracks the fully-qualified command IDs (manifest.id + ":" + command.id) of all
-    // currently registered per-channel commands so they can be torn down before
-    // re-registration. Obsidian does not expose removeCommand() in its public TS types
-    // but the method exists at runtime on app.commands and is the standard approach
-    // used by community plugins to manage dynamically registered commands.
     private channelCommandIds: string[] = [];
 
     async onload(): Promise<void> {
         await this.loadSettings();
         this.addSettingTab(new TelegramSettingTab(this.app, this));
 
-        // Static utility commands — registered once on load, never torn down.
         this.registerStaticCommands();
 
-        // Per-preset commands — registered now and refreshed after every settings change.
         this.syncChannelCommands();
 
         this.registerEvent(
@@ -234,10 +215,6 @@ export default class SendToTelegramPlugin extends Plugin {
         );
     }
 
-    // Registers the commands that are independent of preset configuration.
-    // Must only be called once — calling addCommand() with the same id a second
-    // time silently replaces the first registration in most Obsidian versions,
-    // but separating it here avoids any ambiguity.
     private registerStaticCommands() {
         this.addCommand({
             id: "send-default",
@@ -266,16 +243,12 @@ export default class SendToTelegramPlugin extends Plugin {
             id: "show-formatting-help",
             name: t.COMMAND_SHOW_FORMATTING_HELP,
             callback: () => {
-                // FIX: pass `this` (the plugin) so FormattingHelpModal has a loaded Component
                 new FormattingHelpModal(this.app, this).open();
             }
         });
     }
 
-    // Returns the default channel, applying a fallback rule: if no preset is
-    // explicitly marked as default but exactly one preset exists, that preset is
-    // automatically promoted to default and the change is persisted so the user
-    // does not have to configure it manually in the common single-preset case.
+    // If no preset is set as default but only one exists, that preset is set as default
     async resolveDefaultChannel(): Promise<TelegramChannel | undefined> {
         const explicit = this.settings.channels.find(c => c.isDefault);
         if (explicit) return explicit;
@@ -289,9 +262,6 @@ export default class SendToTelegramPlugin extends Plugin {
         return undefined;
     }
 
-    // Removes every previously registered per-channel command from the palette,
-    // then creates a fresh command for each channel that exists in current settings.
-    // This keeps the palette perfectly in sync after any preset add / rename / delete.
     syncChannelCommands() {
         const commands = (this.app as any).commands;
         this.channelCommandIds.forEach(id => commands.removeCommand(id));
@@ -319,8 +289,7 @@ export default class SendToTelegramPlugin extends Plugin {
                 return;
             }
             const content = await this.app.vault.read(file);
-            // Strip frontmatter before converting — the YAML block has no meaningful
-            // representation in Telegram and should not appear in the posted message.
+            // Strip frontmatter before converting
             const { body } = extractFrontmatter(content);
             const strippedContent = stripEmbeddedWikiLinks(body);
             let formattedContent = convert(strippedContent);
@@ -334,11 +303,22 @@ export default class SendToTelegramPlugin extends Plugin {
             formattedContent = formattedContent.replace(/^(\s*\d+\\\.)\s+/gm, '$1 ');
             // Escape parenthesis-style numbered list markers and normalize spaces (e.g. "1)" → "1\)")
             formattedContent = formattedContent.replace(/^(\s*\d+)\)\s+/gm, '$1\\) ');
-            const attachments = file.parent ? this.app.vault.getFiles().filter(f =>
-                f.parent?.path === file.parent?.path &&
-                f.name !== file.name &&
-                (f.extension === "jpg" || f.extension === "jpeg" || f.extension === "png" || f.extension === "gif" || f.extension === "webp" || f.extension === "pdf")
-            ) : [];
+            // Collect only files that are actually embedded in the note via ![[...]] syntax.
+            // The link text may contain an alias or heading anchor (e.g. ![[image.png|caption]]
+            // or ![[note#section]]), so we capture only the part before the first | or #.
+            const embeddedLinkRegex = /!\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g;
+            const supportedExts = new Set(["jpg", "jpeg", "png", "gif", "webp", "pdf"]);
+            const seen = new Set<string>();
+            const attachments: TFile[] = [];
+            let m: RegExpExecArray | null;
+            while ((m = embeddedLinkRegex.exec(body)) !== null) {
+                const linkpath = m[1].trim();
+                const resolved = this.app.metadataCache.getFirstLinkpathDest(linkpath, file.path);
+                if (resolved instanceof TFile && supportedExts.has(resolved.extension) && !seen.has(resolved.path)) {
+                    seen.add(resolved.path);
+                    attachments.push(resolved);
+                }
+            }
 
             const photoFiles = attachments.filter(f => ["jpg", "jpeg", "png", "gif", "webp"].includes(f.extension));
             const docFiles = attachments.filter(f => f.extension === "pdf");
@@ -362,7 +342,7 @@ export default class SendToTelegramPlugin extends Plugin {
                     await this.sendMediaGroup(channel, firstBatch, "document", formattedContent, silent, attachUnderText);
                 }
                 for (const doc of remainingDocs) await this.sendSingleMedia(channel, doc, "document", "", silent, false);
-            } 
+            }
             else if (formattedContent.length > 0) {
                 await this.sendTextMessage(channel, formattedContent, silent);
             }
@@ -432,7 +412,6 @@ export default class SendToTelegramPlugin extends Plugin {
     async loadSettings() { this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()); }
     async saveSettings() {
         await this.saveData(this.settings);
-        // Rebuild per-channel commands to reflect any additions, deletions, or renames.
         this.syncChannelCommands();
     }
 }
@@ -470,7 +449,6 @@ class TelegramSettingTab extends PluginSettingTab {
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_FORMATTING_HELP)
             .onClick(() => {
-                // FIX: pass `this.plugin` so FormattingHelpModal has a loaded Component
                 new FormattingHelpModal(this.app, this.plugin).open();
             }).buttonEl.addClass("telegram-link-button");
 
