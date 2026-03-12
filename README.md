@@ -120,7 +120,7 @@ All standard Telegram formatting elements are supported:
 
 ### Attachments
 
-Media, album (groups of media) and document attachments are supported. Note that every attached file must be inside the same folder as current note. To attach a file to your post, use standard Obsidian embed function:
+Media, album (groups of media) and document attachments are supported. To attach a file to your post, use standard Obsidian embed function:
 
 `![[some-book-file.pdf]]`
 

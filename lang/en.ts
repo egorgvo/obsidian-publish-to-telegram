@@ -47,7 +47,7 @@ export default {
     MULTI_PRESET_SILENT_POST_DESC: "Subscribers will receive a notification without sound",
     MULTI_PRESET_ATTACHMENTS_NAME: "Attachments below the text",
     MULTI_PRESET_ATTACHMENTS_DESC: "Display post text above the attached media files",
-   
+
     FORMATTING_HELP_CONTENT: `
 You can show open these formatting instructions from the command palette by typing "Publish to Telegram: Open formatting instructions".
 
@@ -112,7 +112,7 @@ All standard Telegram formatting elements are supported:
 
 ### Attachments
 
-Media, album (groups of media) and document attachments are supported. Note that every attached file must be inside the same folder as current note. To attach a file to your post, use standard Obsidian embed function:
+Media, album (groups of media) and document attachments are supported. To attach a file to your post, use standard Obsidian embed function:
 
 \`![[some-book-file.pdf]]\`
 
