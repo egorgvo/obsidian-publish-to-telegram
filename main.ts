@@ -22,8 +22,10 @@ const DEFAULT_SETTINGS: TelegramSettings = {
 
 function extractFrontmatter(content: string): { frontmatter: string; body: string } {
     const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-    if (!match) return { frontmatter: "", body: content };
-    return { frontmatter: match[1], body: content.slice(match[0].length) };
+    const raw = match ? content.slice(match[0].length) : content;
+    const body = raw.replace(/^---$/gm, '\\-\\-\\-');
+    if (!match) return { frontmatter: "", body };
+    return { frontmatter: match[1], body };
 }
 
 // ─── Embedded wiki-link ![[]] stripping before publishing ────────────────────────────────────────────
