@@ -43,6 +43,22 @@ Done! The plugin will automatically install and will be ready to use.
 
 ## Usage
 
+### Presets
+
+To publish notes to Telegram, you need to configure a preset.
+
+1. Use the official Telegram tool [@BotFather](https://t.me/BotFather) to create your own bot, following the instructions in the app.
+
+2. Copy your bot's API key in the app and paste this token into the corresponding field in the plugin settings.
+
+3. Use the [@userinfobot](https://t.me/userinfobot) tool to get the ID of the channel/group where you plan to post.
+
+4. Copy the ID of the target channel/group and paste it into the corresponding field in the plugin settings.
+
+5. While in Telegram, add the bot you created to the target channel/group and assign it the role of administrator. Give the bot permission to only publish messages.
+
+Now you can publish notes in Telegram using your preset name via the command palette or the note's context menu.
+
 ### Formatting
 
 All standard Telegram formatting elements are supported:
