@@ -115,6 +115,10 @@ All standard Telegram formatting elements are supported:
       <td><code># Heading</code></td>
       <td><h5>Heading</h5></td>
     </tr>
+    <tr>
+      <td><code>---</code> or <code>***</code> or <code>___</code></td>
+      <td>───</td>
+    </tr>
   </tbody>
 </table>
 

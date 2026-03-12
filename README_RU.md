@@ -115,6 +115,10 @@
       <td><code># Заголовок</code></td>
       <td><h5>Заголовок</h5></td>
     </tr>
+    <tr>
+      <td><code>---</code> or <code>***</code> or <code>___</code></td>
+      <td>───</td>
+    </tr>
   </tbody>
 </table>
 
