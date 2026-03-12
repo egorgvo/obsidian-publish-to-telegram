@@ -61,7 +61,7 @@ Now you can publish notes in Telegram using your preset name via the command pal
 
 ### Formatting
 
-All standard Telegram formatting elements are supported:
+All standard Telegram formatting elements are supported as well as some additional:
 
 <table>
   <thead>

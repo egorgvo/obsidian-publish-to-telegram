@@ -23,7 +23,7 @@ const DEFAULT_SETTINGS: TelegramSettings = {
 function extractFrontmatter(content: string): { frontmatter: string; body: string } {
     const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
     const raw = match ? content.slice(match[0].length) : content;
-    const body = raw.replace(/^---$/gm, '\\-\\-\\-');
+    const body = raw.replace(/^(-{3,}|\*{3,}|_{3,})$/gm, (hr) => '\u2500'.repeat(hr.length));
     if (!match) return { frontmatter: "", body };
     return { frontmatter: match[1], body };
 }
