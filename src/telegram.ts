@@ -2,20 +2,37 @@ import { App, TFile } from "obsidian";
 import { convert } from "telegram-markdown-v2";
 import { TelegramChannel } from "./types";
 
-// ─── Frontmatter deletion before publishing ───────────────────────────────────
+// ─── Frontmatter extraction ───────────────────────────────────────────────────
 
 function extractFrontmatter(content: string): { frontmatter: string; body: string } {
     const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-    const raw = match ? content.slice(match[0].length) : content;
-    const body = raw.replace(/^(-{3,}|\*{3,}|_{3,})$/gm, (hr) => '\u2500'.repeat(hr.length));
+    const body = match ? content.slice(match[0].length) : content;
     if (!match) return { frontmatter: "", body };
     return { frontmatter: match[1], body };
 }
 
-// ─── Embedded wiki-link ![[]] stripping before publishing ────────────────────
+// ─── Content preparation ──────────────────────────────────────────────────────
 
-function stripEmbeddedWikiLinks(text: string): string {
-    return text.replace(/!\[\[[^\]]*\]\]/g, "").replace(/[ \t]+\n/g, "\n").trim();
+function prepareContent(body: string): string {
+    // Replace markdown HR rules (--- *** ___) with Unicode box-drawing characters
+    const withHr = body.replace(/^(-{3,}|\*{3,}|_{3,})$/gm, (hr) => '\u2500'.repeat(hr.length));
+    // Strip embedded wiki-links ![[]] before converting
+    const stripped = withHr.replace(/!\[\[[^\]]*\]\]/g, "").replace(/[ \t]+\n/g, "\n").trim();
+
+    // Convert via telegram-markdown-v2 library
+    let result = convert(stripped);
+
+    // The telegram-markdown-v2 library adds extra spaces after block markers
+    // (quote sign, list bullets, numbered list markers). It looks ugly, so we normalize them.
+    // Remove the extra space after the blockquote sign
+    result = result.replace(/^> /gm, '>');
+    // Replace +/• list markers with a bullet and a single space
+    result = result.replace(/^(\s*)(?:\+|•)\s+/gm, '$1• ');
+    // Normalize spaces after dot-style numbered list markers (e.g. "1\.")
+    result = result.replace(/^(\s*\d+\\\.)\s+/gm, '$1 ');
+    // Escape parenthesis-style numbered list markers and normalize spaces (e.g. "1)" → "1\)")
+    result = result.replace(/^(\s*\d+)\)\s+/gm, '$1\\) ');
+    return result;
 }
 
 // ─── Telegram API calls ───────────────────────────────────────────────────────
@@ -79,18 +96,7 @@ async function sendMediaGroup(app: App, channel: TelegramChannel, files: TFile[]
 export async function sendNoteToTelegram(app: App, file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
     const content = await app.vault.read(file);
     const { body } = extractFrontmatter(content);
-    const strippedContent = stripEmbeddedWikiLinks(body);
-    let formattedContent = convert(strippedContent);
-    // The telegram-markdown-v2 library adds extra spaces after block markers
-    // (quote sign, list bullets, numbered list markers). It looks ugly, so we normalize them.
-    // Remove the extra space after the blockquote sign
-    formattedContent = formattedContent.replace(/^> /gm, '>');
-    // Replace +/• list markers with a bullet and a single space
-    formattedContent = formattedContent.replace(/^(\s*)(?:\+|•)\s+/gm, '$1• ');
-    // Normalize spaces after dot-style numbered list markers (e.g. "1\.")
-    formattedContent = formattedContent.replace(/^(\s*\d+\\\.)\s+/gm, '$1 ');
-    // Escape parenthesis-style numbered list markers and normalize spaces (e.g. "1)" → "1\)")
-    formattedContent = formattedContent.replace(/^(\s*\d+)\)\s+/gm, '$1\\) ');
+    const formattedContent = prepareContent(body);
     // Collect only files that are actually embedded in the note via ![[...]] syntax.
     // The link text may contain an alias or heading anchor (e.g. ![[image.png|caption]]
     // or ![[note#section]]), so we capture only the part before the first | or #.
