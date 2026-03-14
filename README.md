@@ -23,7 +23,9 @@ This plugin allows you to post notes directly to Telegram channels and groups wi
 
 5. Set a default preset to post quickly with it from command palette or with hotkey.
 
-6. Open formating instructions either from the plugin's settings or from the command palette.
+6. Optionally enable automatic link to the post saving in the note's properties after publishing.   
+
+7. Open formating instructions either from the plugin's settings or from the command palette.
 
 
 ## Installation Instructions
