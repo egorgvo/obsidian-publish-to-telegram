@@ -53,9 +53,9 @@ To publish notes to Telegram, you need to configure a preset.
 
 2. Copy your bot's API key in the app and paste this token into the corresponding field in the plugin settings.
 
-3. Use the [@userinfobot](https://t.me/userinfobot) tool to get the ID of the channel/group where you plan to post.
+3. Use the [@userinfobot](https://t.me/userinfobot) tool to get the ID of the channel/group where you plan to post. You can also get your account ID if you want to use the preset to send messages to yourself (the bot will send you messages to you personally).
 
-4. Copy the ID of the target channel/group and paste it into the corresponding field in the plugin settings.
+4. Copy the ID of the target channel/group and paste it into the corresponding field in the plugin settings. Alternatively, if you will post to the *public* channel, you can paste to that field the link to the channel in the format `@channel_name`.
 
 5. While in Telegram, add the bot you created to the target channel/group and assign it the role of administrator. Give the bot permission to only publish messages.
 

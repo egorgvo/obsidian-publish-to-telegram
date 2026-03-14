@@ -14,7 +14,7 @@ export default {
 2. Find out your channel/group ID using @userinfobot and paste it into the corresponding field in the plugin.
 3. Add your bot to the channel/group and give it permission to send messages.`,
     SETTING_ADD_CHANNEL: "Create new preset",
-    SETTING_FORMATTING_HELP: "Formatting instructions",
+    SETTING_FORMATTING_HELP: "Usage instructions",
     SETTING_OPEN_BOTFATHER: "Open @BotFather",
     SETTING_OPEN_USERINFOBOT: "Open @userinfobot",
     SETTING_BOT_TOKEN_NAME: "You bot token",
@@ -37,7 +37,7 @@ export default {
     COMMAND_SEND_DEFAULT: "Publish with default preset",
     COMMAND_SEND_MULTIPLE: "Publish with advanced settings",
     COMMAND_SEND_TO_PRESET: "Publish to",
-    COMMAND_SHOW_FORMATTING_HELP: "Open formatting instructions",
+    COMMAND_SHOW_FORMATTING_HELP: "Open usage instructions",
     MULTI_PRESET_TITLE: "Advanced publishing settings",
     MULTI_PRESET_CHANNEL_SELECTION: "Choose channels/groups to post to",
     MULTI_PRESET_ADVANCED_FORMATTING: "Advanced formatting",
@@ -51,7 +51,23 @@ export default {
     SETTING_SAVE_POST_LINKS_DESC: "If enabled, a link to the published post will be saved to the note's frontmatter",
 
     FORMATTING_HELP_CONTENT: `
-You can show open these formatting instructions from the command palette by typing "Publish to Telegram: Open formatting instructions".
+You can open these instructions from the command palette by typing "Publish to Telegram: Open usage instructions".
+
+### Presets
+
+To publish notes to Telegram, you need to configure a preset.
+
+1. Use the official Telegram tool [@BotFather](https://t.me/BotFather) to create your own bot, following the instructions in the app.
+
+2. Copy your bot's API key in the app and paste this token into the corresponding field in the plugin settings.
+
+3. Use the [@userinfobot](https://t.me/userinfobot) tool to get the ID of the channel/group where you plan to post. You can also get your account ID if you want to use the preset to send messages to yourself (the bot will send you messages to you personally).
+
+4. Copy the ID of the target channel/group and paste it into the corresponding field in the plugin settings. Alternatively, if you will post to the *public* channel, you can paste to that field the link to the channel in the format \`@channel_name\`.
+
+5. While in Telegram, add the bot you created to the target channel/group and assign it the role of administrator. Give the bot permission to only publish messages.
+
+Now you can publish notes in Telegram using your preset name via the command palette or the note's context menu.
 
 ### Formatting
 
