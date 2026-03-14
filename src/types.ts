@@ -8,8 +8,10 @@ export interface TelegramChannel {
 
 export interface TelegramSettings {
     channels: TelegramChannel[];
+    savePostLinks: boolean;
 }
 
 export const DEFAULT_SETTINGS: TelegramSettings = {
-    channels: []
+    channels: [],
+    savePostLinks: false,
 }

@@ -199,6 +199,10 @@ export class TelegramSettingTab extends PluginSettingTab {
                 this.display();
             }).buttonEl.addClass("telegram-add-button");
 
+        new Setting(containerEl).setName(t.SETTING_SAVE_POST_LINKS_NAME).setDesc(t.SETTING_SAVE_POST_LINKS_DESC)
+            .addToggle(toggle => toggle.setValue(this.plugin.settings.savePostLinks)
+                .onChange(async (v) => { this.plugin.settings.savePostLinks = v; await this.plugin.saveSettings(); }));
+
         this.plugin.settings.channels.forEach((channel, index) => {
             const channelDiv = containerEl.createDiv("telegram-channel-item");
             const header = channelDiv.createDiv("telegram-channel-header");
