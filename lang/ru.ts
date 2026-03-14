@@ -47,6 +47,8 @@ export default {
     MULTI_PRESET_SILENT_POST_DESC: "Подписчики получат уведомление без звука",
     MULTI_PRESET_ATTACHMENTS_NAME: "Вложения под текстом",
     MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикреплёнными медиафайлами",
+    SETTING_SAVE_POST_LINKS_NAME: "Сохранять ссылки на посты",
+    SETTING_SAVE_POST_LINKS_DESC: "Если включено, ссылка на опубликованную запись будет добавлена в свойства заметки.",
 
     FORMATTING_HELP_CONTENT: `
 Данную справку можно вызвать из палитры команд, введя "Publish to Telegram: Открыть справку по форматированию".

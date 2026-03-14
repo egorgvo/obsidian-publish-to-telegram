@@ -37,7 +37,13 @@ function prepareContent(body: string): string {
 
 // ─── Telegram API calls ───────────────────────────────────────────────────────
 
-async function sendTextMessage(channel: TelegramChannel, text: string, silent: boolean) {
+function buildPostLink(chat: { id: number; username?: string }, messageId: number): string {
+    if (chat.username) return `https://t.me/${chat.username}/${messageId}`;
+    const channelId = String(chat.id).replace(/^-100/, "");
+    return `https://t.me/c/${channelId}/${messageId}`;
+}
+
+async function sendTextMessage(channel: TelegramChannel, text: string, silent: boolean): Promise<string> {
     const body: Record<string, unknown> = {
         chat_id: channel.chatId,
         text,
@@ -50,10 +56,12 @@ async function sendTextMessage(channel: TelegramChannel, text: string, silent: b
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
     });
-    if (!response.ok) throw new Error((await response.json()).description);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.description);
+    return buildPostLink(data.result.chat, data.result.message_id);
 }
 
-async function sendSingleMedia(app: App, channel: TelegramChannel, file: TFile, type: "photo" | "document", caption: string, silent: boolean, attachUnderText: boolean) {
+async function sendSingleMedia(app: App, channel: TelegramChannel, file: TFile, type: "photo" | "document", caption: string, silent: boolean, attachUnderText: boolean): Promise<string> {
     const method = type === "photo" ? "sendPhoto" : "sendDocument";
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
@@ -66,10 +74,12 @@ async function sendSingleMedia(app: App, channel: TelegramChannel, file: TFile, 
     if (attachUnderText) formData.append("show_caption_above_media", "true");
 
     const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/${method}`, { method: "POST", body: formData });
-    if (!response.ok) throw new Error((await response.json()).description);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.description);
+    return buildPostLink(data.result.chat, data.result.message_id);
 }
 
-async function sendMediaGroup(app: App, channel: TelegramChannel, files: TFile[], type: "photo" | "document", caption: string, silent: boolean, attachUnderText: boolean) {
+async function sendMediaGroup(app: App, channel: TelegramChannel, files: TFile[], type: "photo" | "document", caption: string, silent: boolean, attachUnderText: boolean): Promise<string> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
     if (silent) formData.append("disable_notification", "true");
@@ -90,10 +100,12 @@ async function sendMediaGroup(app: App, channel: TelegramChannel, files: TFile[]
 
     formData.append("media", JSON.stringify(mediaArray));
     const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMediaGroup`, { method: "POST", body: formData });
-    if (!response.ok) throw new Error((await response.json()).description);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.description);
+    return buildPostLink(data.result[0].chat, data.result[0].message_id);
 }
 
-export async function sendNoteToTelegram(app: App, file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
+export async function sendNoteToTelegram(app: App, file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<string | null> {
     const content = await app.vault.read(file);
     const { body } = extractFrontmatter(content);
     const formattedContent = prepareContent(body);
@@ -120,24 +132,23 @@ export async function sendNoteToTelegram(app: App, file: TFile, channel: Telegra
     if (photoFiles.length > 0) {
         const firstBatch = photoFiles.slice(0, 10);
         const remainingPhotos = photoFiles.slice(10);
-        if (firstBatch.length === 1) {
-            await sendSingleMedia(app, channel, firstBatch[0], "photo", formattedContent, silent, attachUnderText);
-        } else {
-            await sendMediaGroup(app, channel, firstBatch, "photo", formattedContent, silent, attachUnderText);
-        }
+        const link = firstBatch.length === 1
+            ? await sendSingleMedia(app, channel, firstBatch[0], "photo", formattedContent, silent, attachUnderText)
+            : await sendMediaGroup(app, channel, firstBatch, "photo", formattedContent, silent, attachUnderText);
         for (const photo of remainingPhotos) await sendSingleMedia(app, channel, photo, "photo", "", silent, false);
+        return link;
     }
     else if (docFiles.length > 0) {
         const firstBatch = docFiles.slice(0, 10);
         const remainingDocs = docFiles.slice(10);
-        if (firstBatch.length === 1) {
-            await sendSingleMedia(app, channel, firstBatch[0], "document", formattedContent, silent, attachUnderText);
-        } else {
-            await sendMediaGroup(app, channel, firstBatch, "document", formattedContent, silent, attachUnderText);
-        }
+        const link = firstBatch.length === 1
+            ? await sendSingleMedia(app, channel, firstBatch[0], "document", formattedContent, silent, attachUnderText)
+            : await sendMediaGroup(app, channel, firstBatch, "document", formattedContent, silent, attachUnderText);
         for (const doc of remainingDocs) await sendSingleMedia(app, channel, doc, "document", "", silent, false);
+        return link;
     }
     else if (formattedContent.length > 0) {
-        await sendTextMessage(channel, formattedContent, silent);
+        return await sendTextMessage(channel, formattedContent, silent);
     }
+    return null;
 }

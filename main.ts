@@ -106,7 +106,13 @@ export default class SendToTelegramPlugin extends Plugin {
 
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
         try {
-            await sendNoteToTelegram(this.app, file, channel, silent, attachUnderText);
+            const link = await sendNoteToTelegram(this.app, file, channel, silent, attachUnderText);
+            if (this.settings.savePostLinks && link) {
+                await this.app.fileManager.processFrontMatter(file, (fm) => {
+                    if (!Array.isArray(fm.telegram_links)) fm.telegram_links = [];
+                    fm.telegram_links.push(link);
+                });
+            }
             new Notice(t.NOTICE_SUCCESS);
         } catch (err: any) {
             new Notice(`${t.NOTICE_ERR_SEND}${err.message}`);

@@ -47,6 +47,8 @@ export default {
     MULTI_PRESET_SILENT_POST_DESC: "Subscribers will receive a notification without sound",
     MULTI_PRESET_ATTACHMENTS_NAME: "Attachments below the text",
     MULTI_PRESET_ATTACHMENTS_DESC: "Display post text above the attached media files",
+    SETTING_SAVE_POST_LINKS_NAME: "Save posts links",
+    SETTING_SAVE_POST_LINKS_DESC: "If enabled, a link to the post will be added to the note's frontmatter after publishing.",
 
     FORMATTING_HELP_CONTENT: `
 You can show open these formatting instructions from the command palette by typing "Publish to Telegram: Open formatting instructions".
