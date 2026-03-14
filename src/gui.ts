@@ -203,6 +203,10 @@ export class TelegramSettingTab extends PluginSettingTab {
             .addToggle(toggle => toggle.setValue(this.plugin.settings.savePostLinks)
                 .onChange(async (v) => { this.plugin.settings.savePostLinks = v; await this.plugin.saveSettings(); }));
 
+        new Setting(containerEl).setName(t.SETTING_MD_EMBEDS_AS_COMMENTS_NAME).setDesc(t.SETTING_MD_EMBEDS_AS_COMMENTS_DESC)
+            .addToggle(toggle => toggle.setValue(this.plugin.settings.treatMdEmbedsAsComments)
+                .onChange(async (v) => { this.plugin.settings.treatMdEmbedsAsComments = v; await this.plugin.saveSettings(); }));
+
         this.plugin.settings.channels.forEach((channel, index) => {
             const channelDiv = containerEl.createDiv("telegram-channel-item");
             const header = channelDiv.createDiv("telegram-channel-header");

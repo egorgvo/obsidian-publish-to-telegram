@@ -9,9 +9,11 @@ export interface TelegramChannel {
 export interface TelegramSettings {
     channels: TelegramChannel[];
     savePostLinks: boolean;
+    treatMdEmbedsAsComments: boolean;
 }
 
 export const DEFAULT_SETTINGS: TelegramSettings = {
     channels: [],
     savePostLinks: false,
+    treatMdEmbedsAsComments: false,
 }

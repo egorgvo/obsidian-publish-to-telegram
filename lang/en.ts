@@ -49,6 +49,8 @@ export default {
     MULTI_PRESET_ATTACHMENTS_DESC: "Display post text above the attached media files",
     SETTING_SAVE_POST_LINKS_NAME: "Save posts links",
     SETTING_SAVE_POST_LINKS_DESC: "If enabled, a link to the published post will be saved to the note's frontmatter",
+    SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Treat .md embeds as post comments",
+    SETTING_MD_EMBEDS_AS_COMMENTS_DESC: "If on, after publishing the bot will send a commentary to the post with the contents of .md embed",
 
     FORMATTING_HELP_CONTENT: `
 You can open these instructions from the command palette by typing "Publish to Telegram: Open usage instructions".

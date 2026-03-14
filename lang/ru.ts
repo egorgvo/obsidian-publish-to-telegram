@@ -49,6 +49,8 @@ export default {
     MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикреплёнными медиафайлами",
     SETTING_SAVE_POST_LINKS_NAME: "Сохранять ссылки на посты",
     SETTING_SAVE_POST_LINKS_DESC: "Если включено, ссылка на опубликованную запись будет сохранена в свойства заметки",
+    SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Считать .md-вложения комментариями к посту",
+    SETTING_MD_EMBEDS_AS_COMMENTS_DESC: "Если включено, после публикации бот отправит комментарий к посту с содержимым .md-вложения",
 
     FORMATTING_HELP_CONTENT: `
 Данную справку можно вызвать из палитры команд, введя "Publish to Telegram: Открыть справку по использованию".
