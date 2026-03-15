@@ -9,7 +9,7 @@ This plugin allows you to post notes directly to Telegram channels and groups wi
 
 ## Features
 
-1. Create multiple presets to post to different channels/groups.
+1. Create multiple presets to post to different channels and groups.
 
 2. Post in different ways: with hotkeys, command palette and context menus.
 
@@ -21,11 +21,13 @@ This plugin allows you to post notes directly to Telegram channels and groups wi
   	* Post without sound.
   	* Post with attached media under the text.
 
-5. Set a default preset to post quickly with it from command palette or with hotkey.
+5. Attach pre-written commentaries to your posts that will be displayed in the post's discussion after its publication.
 
-6. Optionally enable automatic link to the post saving in the note's properties after publishing.   
+6. Set a default preset to post quickly with it from command palette or with hotkey.
 
-7. Open formating instructions either from the plugin's settings or from the command palette.
+7. Optionally enable automatic link to the post saving in the note's properties after publishing.   
+
+8. Open usage instructions either from the plugin's settings or from the command palette.
 
 
 ## Installation Instructions
@@ -49,7 +51,7 @@ Done! The plugin will automatically install and will be ready to use.
 
 To publish notes to Telegram, you need to configure a preset.
 
-1. Use the official Telegram tool [@BotFather](https://t.me/BotFather) to create your own bot, following the instructions in the app.
+1. Use the official Telegram tool [@BotFather](https://t.me/BotFather) to create your own bot, following the instructions in the app. If you plan to post to group or make pre-written commentaries for posts, in the bot settings go to the "Bot Settings" menu, find the section "Groups and Channels" and turn of the "Group Privacy" option.
 
 2. Copy your bot's API key in the app and paste this token into the corresponding field in the plugin settings.
 
@@ -136,8 +138,20 @@ Currently supported formats:
 
 | Extension                                          | Attachment type |
 | -------------------------------------------------- | --------------- |
-| `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp` 			 | Photo / Album   |
+| `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp` 		     	 | Photo / Album   |
 | `.pdf`                                             | Document        |
+
+### Commentaries
+
+You can pre-write one or more comments for your post that will appear in its discussion right after the publication. To use that feature:
+
+1. In the plugin settings turn on the option "Treat .md embeds as post comments".
+
+2. If a comment on a post is published in a channel, the channel must have a discussion chat linked to it, and the bot must be added to this chat with administrator rights. If a comment on a post is published in a group, it will appear as a regular reply to a message.
+
+3. To prepare a comment for a post, use the `![[comment-file]]` embed syntax. Only files with the .md extension are treated comments.
+
+Note that all comments are published with a slight delay.
 
 ### Limits
 

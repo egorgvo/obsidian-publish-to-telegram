@@ -48,7 +48,7 @@ export default {
     MULTI_PRESET_ATTACHMENTS_NAME: "Attachments below the text",
     MULTI_PRESET_ATTACHMENTS_DESC: "Display post text above the attached media files",
     SETTING_SAVE_POST_LINKS_NAME: "Save posts links",
-    SETTING_SAVE_POST_LINKS_DESC: "If enabled, a link to the published post will be saved to the note's frontmatter",
+    SETTING_SAVE_POST_LINKS_DESC: "If enabled, the link to the published post will be saved to the note's properties",
     SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Treat .md embeds as post comments",
     SETTING_MD_EMBEDS_AS_COMMENTS_DESC: "If on, after publishing the bot will send a commentary to the post with the contents of .md embed",
 
@@ -59,7 +59,7 @@ You can open these instructions from the command palette by typing "Publish to T
 
 To publish notes to Telegram, you need to configure a preset.
 
-1. Use the official Telegram tool [@BotFather](https://t.me/BotFather) to create your own bot, following the instructions in the app.
+1. Use the official Telegram tool [@BotFather](https://t.me/BotFather) to create your own bot, following the instructions in the app. If you plan to post to group or make pre-written commentaries for posts, in the bot settings go to the "Bot Settings" menu, find the section "Groups and Channels" and turn of the "Group Privacy" option.
 
 2. Copy your bot's API key in the app and paste this token into the corresponding field in the plugin settings.
 
@@ -148,6 +148,18 @@ Currently supported formats:
 | -------------------------------------------------- | --------------- |
 | \`.jpg\`, \`.jpeg\`, \`.png\`, \`.gif\`, \`.webp\` | Photo / Album   |
 | \`.pdf\`                                           | Document        |
+
+### Commentaries
+
+You can pre-write one or more comments for your post that will appear in its discussion right after the publication. To use that feature:
+
+1. In the plugin settings turn on the option "Treat .md embeds as post comments".
+
+2. If a comment on a post is published in a channel, the channel must have a discussion chat linked to it, and the bot must be added to this chat with administrator rights. If a comment on a post is published in a group, it will appear as a regular reply to a message.
+
+3. To prepare a comment for a post, use the \`![[comment-file]]\` embed syntax. Only files with the .md extension are treated comments.
+
+Note that all comments are published with a slight delay.
 
 ### Limits
 
