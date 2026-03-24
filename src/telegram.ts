@@ -10,6 +10,14 @@ interface SendResult {
     messageId: number;
 }
 
+// ─── Media type helpers ───────────────────────────────────────────────────────
+
+const VIDEO_EXTS = new Set(["mp4", "mov", "avi", "mkv", "webm"]);
+
+function mediaGroupType(file: TFile): "photo" | "video" {
+    return VIDEO_EXTS.has(file.extension) ? "video" : "photo";
+}
+
 // ─── Frontmatter extraction ───────────────────────────────────────────────────
 
 function extractFrontmatter(content: string): { frontmatter: string; body: string } {
@@ -127,11 +135,10 @@ async function sendReply(botToken: string, chatId: number | string, replyToMessa
     if (!response.ok) throw new Error(data.description);
 }
 
-async function sendSingleMedia(app: App, channel: TelegramChannel, file: TFile, type: "photo" | "document", caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
-    const method = type === "photo" ? "sendPhoto" : "sendDocument";
+async function sendSinglePhoto(app: App, channel: TelegramChannel, file: TFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
-    formData.append(type, new Blob([await app.vault.readBinary(file)]), file.name);
+    formData.append("photo", new Blob([await app.vault.readBinary(file)]), file.name);
     if (caption) {
         formData.append("caption", caption);
         formData.append("parse_mode", "MarkdownV2");
@@ -139,7 +146,7 @@ async function sendSingleMedia(app: App, channel: TelegramChannel, file: TFile, 
     if (silent) formData.append("disable_notification", "true");
     if (attachUnderText) formData.append("show_caption_above_media", "true");
 
-    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/${method}`, { method: "POST", body: formData });
+    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendPhoto`, { method: "POST", body: formData });
     const data = await response.json();
     if (!response.ok) throw new Error(data.description);
     return {
@@ -171,7 +178,52 @@ async function sendAnimation(app: App, channel: TelegramChannel, file: TFile, ca
     };
 }
 
-async function sendMediaGroup(app: App, channel: TelegramChannel, files: TFile[], type: "photo" | "document", caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
+// Videos are sent via sendVideo for single files. They can also be mixed with
+// photos in a media group album via sendMediaGroup (see mediaGroupType).
+async function sendSingleVideo(app: App, channel: TelegramChannel, file: TFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
+    const formData = new FormData();
+    formData.append("chat_id", channel.chatId);
+    formData.append("video", new Blob([await app.vault.readBinary(file)]), file.name);
+    if (caption) {
+        formData.append("caption", caption);
+        formData.append("parse_mode", "MarkdownV2");
+    }
+    if (silent) formData.append("disable_notification", "true");
+    if (attachUnderText) formData.append("show_caption_above_media", "true");
+
+    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendVideo`, { method: "POST", body: formData });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.description);
+    return {
+        link: buildPostLink(data.result.chat, data.result.message_id),
+        messageId: data.result.message_id,
+    };
+}
+
+async function sendSingleDocument(app: App, channel: TelegramChannel, file: TFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
+    const formData = new FormData();
+    formData.append("chat_id", channel.chatId);
+    formData.append("document", new Blob([await app.vault.readBinary(file)]), file.name);
+    if (caption) {
+        formData.append("caption", caption);
+        formData.append("parse_mode", "MarkdownV2");
+    }
+    if (silent) formData.append("disable_notification", "true");
+    if (attachUnderText) formData.append("show_caption_above_media", "true");
+
+    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendDocument`, { method: "POST", body: formData });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.description);
+    return {
+        link: buildPostLink(data.result.chat, data.result.message_id),
+        messageId: data.result.message_id,
+    };
+}
+
+// Sends a mixed album of photos and/or videos. The type of each item is determined
+// per-file by mediaGroupType(), preserving original embed order across media types.
+// Note: GIFs cannot participate in media groups and are always sent individually.
+async function sendMediaGroup(app: App, channel: TelegramChannel, files: TFile[], caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
     if (silent) formData.append("disable_notification", "true");
@@ -180,7 +232,7 @@ async function sendMediaGroup(app: App, channel: TelegramChannel, files: TFile[]
         const attachName = `file${idx}`;
         formData.append(attachName, new Blob([await app.vault.readBinary(file)]), file.name);
         return {
-            type: type,
+            type: mediaGroupType(file),
             media: `attach://${attachName}`,
             ...(idx === 0 && caption ? {
                 caption,
@@ -213,7 +265,7 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
     const formattedContent = prepareContent(body);
 
     const embeddedLinkRegex = /!\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g;
-    const supportedMediaExts = new Set(["jpg", "jpeg", "png", "gif", "webp", "pdf"]);
+    const supportedMediaExts = new Set(["jpg", "jpeg", "png", "gif", "webp", "pdf", ...VIDEO_EXTS]);
     const seen = new Set<string>();
     const attachments: TFile[] = [];
     const mdEmbeds: TFile[] = [];
@@ -232,9 +284,12 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
         }
     }
 
-    // GIFs must be sent via sendAnimation (not sendPhoto) to preserve animation.
-    // sendMediaGroup does not support animation, so GIFs are always sent individually.
-    const staticPhotoFiles = attachments.filter(f => ["jpg", "jpeg", "png", "webp"].includes(f.extension));
+    // Photos and videos can be freely mixed in a single media group album,
+    // preserving their original embed order. GIFs must be sent individually
+    // via sendAnimation — sendMediaGroup does not support the animation type.
+    const photoAndVideoFiles = attachments.filter(f =>
+        ["jpg", "jpeg", "png", "webp"].includes(f.extension) || VIDEO_EXTS.has(f.extension)
+    );
     const gifFiles = attachments.filter(f => f.extension === "gif");
     const docFiles = attachments.filter(f => f.extension === "pdf");
 
@@ -243,14 +298,27 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
     let result: SendResult | null = null;
     let captionConsumed = false;
 
-    if (staticPhotoFiles.length > 0) {
-        const firstBatch = staticPhotoFiles.slice(0, 10);
-        const remainingPhotos = staticPhotoFiles.slice(10);
-        result = firstBatch.length === 1
-            ? await sendSingleMedia(app, channel, firstBatch[0], "photo", formattedContent, silent, attachUnderText)
-            : await sendMediaGroup(app, channel, firstBatch, "photo", formattedContent, silent, attachUnderText);
+    if (photoAndVideoFiles.length > 0) {
+        const firstBatch = photoAndVideoFiles.slice(0, 10);
+        const remaining = photoAndVideoFiles.slice(10);
+
+        if (firstBatch.length === 1) {
+            const f = firstBatch[0];
+            result = VIDEO_EXTS.has(f.extension)
+                ? await sendSingleVideo(app, channel, f, formattedContent, silent, attachUnderText)
+                : await sendSinglePhoto(app, channel, f, formattedContent, silent, attachUnderText);
+        } else {
+            result = await sendMediaGroup(app, channel, firstBatch, formattedContent, silent, attachUnderText);
+        }
         captionConsumed = true;
-        for (const photo of remainingPhotos) await sendSingleMedia(app, channel, photo, "photo", "", silent, false);
+
+        for (const f of remaining) {
+            if (VIDEO_EXTS.has(f.extension)) {
+                await sendSingleVideo(app, channel, f, "", silent, false);
+            } else {
+                await sendSinglePhoto(app, channel, f, "", silent, false);
+            }
+        }
     }
 
     for (const gif of gifFiles) {
@@ -265,11 +333,11 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
         const firstBatch = docFiles.slice(0, 10);
         const remainingDocs = docFiles.slice(10);
         const docResult = firstBatch.length === 1
-            ? await sendSingleMedia(app, channel, firstBatch[0], "document", caption, silent, attachUnderText)
-            : await sendMediaGroup(app, channel, firstBatch, "document", caption, silent, attachUnderText);
+            ? await sendSingleDocument(app, channel, firstBatch[0], caption, silent, attachUnderText)
+            : await sendMediaGroup(app, channel, firstBatch, caption, silent, attachUnderText);
         if (!result) result = docResult;
         captionConsumed = true;
-        for (const doc of remainingDocs) await sendSingleMedia(app, channel, doc, "document", "", silent, false);
+        for (const doc of remainingDocs) await sendSingleDocument(app, channel, doc, "", silent, false);
     }
 
     if (!result && formattedContent.length > 0) {

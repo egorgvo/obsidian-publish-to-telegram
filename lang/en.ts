@@ -144,10 +144,14 @@ Media, album (groups of media) and document attachments are supported. To attach
 
 Currently supported formats:
 
-| Extension                                          | Attachment type |
-| -------------------------------------------------- | --------------- |
-| \`.jpg\`, \`.jpeg\`, \`.png\`, \`.gif\`, \`.webp\` | Photo / Album   |
-| \`.pdf\`                                           | Document        |
+| Extension                                          | Attachment type  |
+| -------------------------------------------------- | ---------------- |
+| \`.jpg\`, \`.jpeg\`, \`.png\`, \`.webp\`           | Photo / Album    |
+| \`.gif\`                                           | Animation        |
+| \`.mp4\`, \`.mov\`, \`.avi\`, \`.mkv\`, \`.webm\`  | Video / Album    |
+| \`.pdf\`                                           | Document         |
+
+Photos and videos can be freely mixed in the same album post. GIFs are always sent as individual animated messages.
 
 ### Commentaries
 
