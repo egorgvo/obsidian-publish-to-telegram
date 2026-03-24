@@ -148,6 +148,29 @@ async function sendSingleMedia(app: App, channel: TelegramChannel, file: TFile, 
     };
 }
 
+// GIFs must be sent via sendAnimation to preserve animation.
+// Telegram's sendMediaGroup does not support the animation type,
+// so each GIF is always sent as an individual message.
+async function sendAnimation(app: App, channel: TelegramChannel, file: TFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
+    const formData = new FormData();
+    formData.append("chat_id", channel.chatId);
+    formData.append("animation", new Blob([await app.vault.readBinary(file)]), file.name);
+    if (caption) {
+        formData.append("caption", caption);
+        formData.append("parse_mode", "MarkdownV2");
+    }
+    if (silent) formData.append("disable_notification", "true");
+    if (attachUnderText) formData.append("show_caption_above_media", "true");
+
+    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendAnimation`, { method: "POST", body: formData });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.description);
+    return {
+        link: buildPostLink(data.result.chat, data.result.message_id),
+        messageId: data.result.message_id,
+    };
+}
+
 async function sendMediaGroup(app: App, channel: TelegramChannel, files: TFile[], type: "photo" | "document", caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
@@ -209,28 +232,47 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
         }
     }
 
-    const photoFiles = attachments.filter(f => ["jpg", "jpeg", "png", "gif", "webp"].includes(f.extension));
+    // GIFs must be sent via sendAnimation (not sendPhoto) to preserve animation.
+    // sendMediaGroup does not support animation, so GIFs are always sent individually.
+    const staticPhotoFiles = attachments.filter(f => ["jpg", "jpeg", "png", "webp"].includes(f.extension));
+    const gifFiles = attachments.filter(f => f.extension === "gif");
     const docFiles = attachments.filter(f => f.extension === "pdf");
 
     // ── Send the main post ────────────────────────────────────────────────────
 
     let result: SendResult | null = null;
+    let captionConsumed = false;
 
-    if (photoFiles.length > 0) {
-        const firstBatch = photoFiles.slice(0, 10);
-        const remainingPhotos = photoFiles.slice(10);
+    if (staticPhotoFiles.length > 0) {
+        const firstBatch = staticPhotoFiles.slice(0, 10);
+        const remainingPhotos = staticPhotoFiles.slice(10);
         result = firstBatch.length === 1
             ? await sendSingleMedia(app, channel, firstBatch[0], "photo", formattedContent, silent, attachUnderText)
             : await sendMediaGroup(app, channel, firstBatch, "photo", formattedContent, silent, attachUnderText);
+        captionConsumed = true;
         for (const photo of remainingPhotos) await sendSingleMedia(app, channel, photo, "photo", "", silent, false);
-    } else if (docFiles.length > 0) {
+    }
+
+    for (const gif of gifFiles) {
+        const caption = captionConsumed ? "" : formattedContent;
+        const gifResult = await sendAnimation(app, channel, gif, caption, silent, attachUnderText);
+        if (!result) result = gifResult;
+        captionConsumed = true;
+    }
+
+    if (docFiles.length > 0) {
+        const caption = captionConsumed ? "" : formattedContent;
         const firstBatch = docFiles.slice(0, 10);
         const remainingDocs = docFiles.slice(10);
-        result = firstBatch.length === 1
-            ? await sendSingleMedia(app, channel, firstBatch[0], "document", formattedContent, silent, attachUnderText)
-            : await sendMediaGroup(app, channel, firstBatch, "document", formattedContent, silent, attachUnderText);
+        const docResult = firstBatch.length === 1
+            ? await sendSingleMedia(app, channel, firstBatch[0], "document", caption, silent, attachUnderText)
+            : await sendMediaGroup(app, channel, firstBatch, "document", caption, silent, attachUnderText);
+        if (!result) result = docResult;
+        captionConsumed = true;
         for (const doc of remainingDocs) await sendSingleMedia(app, channel, doc, "document", "", silent, false);
-    } else if (formattedContent.length > 0) {
+    }
+
+    if (!result && formattedContent.length > 0) {
         result = await sendTextMessage(channel, formattedContent, silent);
     }
 
