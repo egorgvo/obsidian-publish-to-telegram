@@ -128,11 +128,17 @@ All standard Telegram formatting elements are supported as well as some addition
 
 ### Attachments
 
-Media, album (groups of media) and document attachments are supported. To attach a file to your post, use standard Obsidian embed function:
+Media, album (groups of media) and document attachments are supported. To attach a file to your post, use any of the standard Obsidian embed syntax options:
 
 `![[some-book-file.pdf]]`
 
-`![[some-media-file.jpg]]`
+`[](some-media-file.jpg)`
+
+`!(some-video-file.mp4)[]`
+
+You can also embed files with external web-link embeds:
+
+`![](https://obsidian.md/image.png)`
 
 Currently supported formats:
 

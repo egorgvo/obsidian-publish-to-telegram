@@ -1,21 +1,27 @@
 // telegram.ts
-import { App, TFile } from "obsidian";
+import { App, TFile, requestUrl } from "obsidian";
 import { convert } from "telegram-markdown-v2";
 import { TelegramChannel } from "./types";
 
-// ─── Internal result type ─────────────────────────────────────────────────────
+// ─── Internal result & media types ────────────────────────────────────────────
 
 interface SendResult {
     link: string;
     messageId: number;
 }
 
+interface MediaFile {
+    name: string;
+    extension: string;
+    getBlob: () => Promise<Blob>;
+}
+
 // ─── Media type helpers ───────────────────────────────────────────────────────
 
 const VIDEO_EXTS = new Set(["mp4", "mov", "avi", "mkv", "webm"]);
 
-function mediaGroupType(file: TFile): "photo" | "video" {
-    return VIDEO_EXTS.has(file.extension) ? "video" : "photo";
+function mediaGroupType(extension: string): "photo" | "video" {
+    return VIDEO_EXTS.has(extension) ? "video" : "photo";
 }
 
 // ─── Frontmatter extraction ───────────────────────────────────────────────────
@@ -81,12 +87,10 @@ async function findDiscussionMessageId(botToken: string, linkedChatId: number, c
         const data = await response.json();
         if (!response.ok) continue;
 
-        // Iterate in reverse to check the most recent updates first
         for (const update of [...data.result].reverse()) {
             const msg = update.message;
             if (!msg || msg.chat.id !== linkedChatId) continue;
 
-            // Bot API 7.0+: forward_origin.message_id; older: forward_from_message_id
             const forwardedFromId = msg.forward_origin?.message_id ?? msg.forward_from_message_id;
             if (forwardedFromId === channelMessageId) return msg.message_id;
         }
@@ -116,7 +120,6 @@ async function sendTextMessage(channel: TelegramChannel, text: string, silent: b
     };
 }
 
-// Replies to a specific message inside a chat (discussion group or group).
 async function sendReply(botToken: string, chatId: number | string, replyToMessageId: number, text: string, silent: boolean): Promise<void> {
     const body: Record<string, unknown> = {
         chat_id: chatId,
@@ -135,10 +138,10 @@ async function sendReply(botToken: string, chatId: number | string, replyToMessa
     if (!response.ok) throw new Error(data.description);
 }
 
-async function sendSinglePhoto(app: App, channel: TelegramChannel, file: TFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
+async function sendSinglePhoto(app: App, channel: TelegramChannel, file: MediaFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
-    formData.append("photo", new Blob([await app.vault.readBinary(file)]), file.name);
+    formData.append("photo", await file.getBlob(), file.name);
     if (caption) {
         formData.append("caption", caption);
         formData.append("parse_mode", "MarkdownV2");
@@ -155,10 +158,10 @@ async function sendSinglePhoto(app: App, channel: TelegramChannel, file: TFile, 
     };
 }
 
-async function sendAnimation(app: App, channel: TelegramChannel, file: TFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
+async function sendAnimation(app: App, channel: TelegramChannel, file: MediaFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
-    formData.append("animation", new Blob([await app.vault.readBinary(file)]), file.name);
+    formData.append("animation", await file.getBlob(), file.name);
     if (caption) {
         formData.append("caption", caption);
         formData.append("parse_mode", "MarkdownV2");
@@ -175,10 +178,10 @@ async function sendAnimation(app: App, channel: TelegramChannel, file: TFile, ca
     };
 }
 
-async function sendSingleVideo(app: App, channel: TelegramChannel, file: TFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
+async function sendSingleVideo(app: App, channel: TelegramChannel, file: MediaFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
-    formData.append("video", new Blob([await app.vault.readBinary(file)]), file.name);
+    formData.append("video", await file.getBlob(), file.name);
     if (caption) {
         formData.append("caption", caption);
         formData.append("parse_mode", "MarkdownV2");
@@ -195,10 +198,10 @@ async function sendSingleVideo(app: App, channel: TelegramChannel, file: TFile, 
     };
 }
 
-async function sendSingleDocument(app: App, channel: TelegramChannel, file: TFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
+async function sendSingleDocument(app: App, channel: TelegramChannel, file: MediaFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
-    formData.append("document", new Blob([await app.vault.readBinary(file)]), file.name);
+    formData.append("document", await file.getBlob(), file.name);
     if (caption) {
         formData.append("caption", caption);
         formData.append("parse_mode", "MarkdownV2");
@@ -215,16 +218,16 @@ async function sendSingleDocument(app: App, channel: TelegramChannel, file: TFil
     };
 }
 
-async function sendMediaGroup(app: App, channel: TelegramChannel, files: TFile[], caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
+async function sendMediaGroup(app: App, channel: TelegramChannel, files: MediaFile[], caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
     if (silent) formData.append("disable_notification", "true");
 
     const mediaArray = await Promise.all(files.map(async (file, idx) => {
         const attachName = `file${idx}`;
-        formData.append(attachName, new Blob([await app.vault.readBinary(file)]), file.name);
+        formData.append(attachName, await file.getBlob(), file.name);
         return {
-            type: mediaGroupType(file),
+            type: mediaGroupType(file.extension),
             media: `attach://${attachName}`,
             ...(idx === 0 && caption ? {
                 caption,
@@ -262,25 +265,46 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
 
     const supportedMediaExts = new Set(["jpg", "jpeg", "png", "gif", "webp", "pdf", ...VIDEO_EXTS]);
     const seen = new Set<string>();
-    const attachments: TFile[] = [];
-    const mdEmbeds: TFile[] = [];
+
+    const attachments: MediaFile[] = [];
+    const mdEmbeds: TFile[] = []; // MD embeds stay as local TFiles
 
     const processLinkpath = (rawPath: string) => {
-        // Remove markdown tooltips/titles (e.g., "title") and hashes/queries
         let cleanPath = rawPath.split(/\s+"/)[0].split(/[?#]/)[0].trim();
 
-        // Ensure standard markdown URL encoded spaces/special chars are converted back to literal strings
-        try {
-            cleanPath = decodeURIComponent(cleanPath);
-        } catch (e) {
-            // Fallback to raw string if decoding fails (e.g. contains an unescaped literal '%')
+        // Handle web URLs directly
+        if (/^https?:\/\//i.test(cleanPath)) {
+            if (!seen.has(cleanPath)) {
+                seen.add(cleanPath);
+                const ext = cleanPath.split('.').pop()?.toLowerCase() || "";
+
+                if (supportedMediaExts.has(ext)) {
+                    attachments.push({
+                        name: cleanPath.split('/').pop() || `media.${ext}`,
+                        extension: ext,
+                        getBlob: async () => {
+                            // Using requestUrl to safely bypass local CORS restrictions
+                            const response = await requestUrl({ url: cleanPath });
+                            return new Blob([response.arrayBuffer]);
+                        }
+                    });
+                }
+            }
+            return;
         }
+
+        // Handle local files
+        try { cleanPath = decodeURIComponent(cleanPath); } catch (e) {}
 
         const resolved = app.metadataCache.getFirstLinkpathDest(cleanPath, file.path);
         if (resolved instanceof TFile && !seen.has(resolved.path)) {
             seen.add(resolved.path);
             if (supportedMediaExts.has(resolved.extension)) {
-                attachments.push(resolved);
+                attachments.push({
+                    name: resolved.name,
+                    extension: resolved.extension,
+                    getBlob: async () => new Blob([await app.vault.readBinary(resolved)])
+                });
             } else if (resolved.extension === "md") {
                 mdEmbeds.push(resolved);
             }
@@ -289,20 +313,9 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
 
     let m: RegExpExecArray | null;
 
-    // Process Wikilinks ![[image.png]]
-    while ((m = wikilinkRegex.exec(body)) !== null) {
-        processLinkpath(m[1]);
-    }
-
-    // Process Standard MD embeds ![alt](image.png)
-    while ((m = mdLinkRegex.exec(body)) !== null) {
-        processLinkpath(m[1]);
-    }
-
-    // Process Reverse MD embeds !(image.png)[alt]
-    while ((m = reverseMdLinkRegex.exec(body)) !== null) {
-        processLinkpath(m[1]);
-    }
+    while ((m = wikilinkRegex.exec(body)) !== null) processLinkpath(m[1]);
+    while ((m = mdLinkRegex.exec(body)) !== null) processLinkpath(m[1]);
+    while ((m = reverseMdLinkRegex.exec(body)) !== null) processLinkpath(m[1]);
 
     const photoAndVideoFiles = attachments.filter(f =>
         ["jpg", "jpeg", "png", "webp"].includes(f.extension) || VIDEO_EXTS.has(f.extension)
