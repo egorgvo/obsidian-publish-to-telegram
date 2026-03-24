@@ -61,11 +61,6 @@ async function getLinkedChatId(channel: TelegramChannel): Promise<number | null>
     return data.result.linked_chat_id ?? null;
 }
 
-// After the channel post is sent, Telegram automatically forwards it to the linked
-// discussion group. That forwarded copy gets its own message_id in the discussion
-// group, but retains a reference to the original via forward_origin.message_id.
-// We poll getUpdates (without advancing the offset, so we never consume updates)
-// until we find that forwarded copy or run out of attempts.
 async function findDiscussionMessageId(botToken: string, linkedChatId: number, channelMessageId: number): Promise<number | null> {
     const MAX_ATTEMPTS = 5;
     const DELAY_MS = 1500;
@@ -155,9 +150,6 @@ async function sendSinglePhoto(app: App, channel: TelegramChannel, file: TFile, 
     };
 }
 
-// GIFs must be sent via sendAnimation to preserve animation.
-// Telegram's sendMediaGroup does not support the animation type,
-// so each GIF is always sent as an individual message.
 async function sendAnimation(app: App, channel: TelegramChannel, file: TFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
@@ -178,8 +170,6 @@ async function sendAnimation(app: App, channel: TelegramChannel, file: TFile, ca
     };
 }
 
-// Videos are sent via sendVideo for single files. They can also be mixed with
-// photos in a media group album via sendMediaGroup (see mediaGroupType).
 async function sendSingleVideo(app: App, channel: TelegramChannel, file: TFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
@@ -220,9 +210,6 @@ async function sendSingleDocument(app: App, channel: TelegramChannel, file: TFil
     };
 }
 
-// Sends a mixed album of photos and/or videos. The type of each item is determined
-// per-file by mediaGroupType(), preserving original embed order across media types.
-// Note: GIFs cannot participate in media groups and are always sent individually.
 async function sendMediaGroup(app: App, channel: TelegramChannel, files: TFile[], caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
     const formData = new FormData();
     formData.append("chat_id", channel.chatId);
@@ -284,9 +271,6 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
         }
     }
 
-    // Photos and videos can be freely mixed in a single media group album,
-    // preserving their original embed order. GIFs must be sent individually
-    // via sendAnimation — sendMediaGroup does not support the animation type.
     const photoAndVideoFiles = attachments.filter(f =>
         ["jpg", "jpeg", "png", "webp"].includes(f.extension) || VIDEO_EXTS.has(f.extension)
     );
@@ -345,10 +329,6 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
     }
 
     // ── Send .md embeds as comments ───────────────────────────────────────────
-    // For channels: find the forwarded copy in the discussion group via getUpdates,
-    // then reply to it directly in the discussion group. The forwarded copy has its
-    // own message_id there, identified by forward_origin.message_id matching the
-    // original channel post. For groups: reply directly in the same chat.
 
     if (treatMdEmbedsAsComments && result && mdEmbeds.length > 0) {
         const linkedChatId = await getLinkedChatId(channel);
@@ -360,8 +340,6 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
             if (formattedMdContent.length === 0) continue;
 
             if (linkedChatId !== null) {
-                // Find the discussion group's local copy of the channel post, retrying
-                // with a delay since Telegram forwards it asynchronously.
                 const discussionMessageId = await findDiscussionMessageId(channel.botToken, linkedChatId, result.messageId);
                 if (discussionMessageId !== null) {
                     await sendReply(channel.botToken, linkedChatId, discussionMessageId, formattedMdContent, silent);
