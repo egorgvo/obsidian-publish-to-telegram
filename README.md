@@ -138,7 +138,9 @@ Currently supported formats:
 
 | Extension                                          | Attachment type |
 | -------------------------------------------------- | --------------- |
-| `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp` 		     	 | Photo / Album   |
+| `.jpg`, `.jpeg`, `.png`, `.webp` 		             	 | Photo / Album   |
+| `.gif`                                             | Animation       |
+| `.mp4`, `.mov`, `.avi`, `.mkv`, `.webm`            | Video / Album   |
 | `.pdf`                                             | Document        |
 
 ### Commentaries
