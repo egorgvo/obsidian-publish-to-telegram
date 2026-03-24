@@ -31,7 +31,12 @@ function extractFrontmatter(content: string): { frontmatter: string; body: strin
 
 function prepareContent(body: string): string {
     const withHr = body.replace(/^(-{3,}|\*{3,}|_{3,})$/gm, (hr) => '\u2500'.repeat(hr.length));
-    const stripped = withHr.replace(/!\[\[[^\]]*\]\]/g, "").replace(/[ \t]+\n/g, "\n").trim();
+    const stripped = withHr
+        .replace(/!\[\[[^\]]*\]\]/g, "")           // Strip wikilink embeds
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")      // Strip standard MD embeds ![]()
+        .replace(/!\([^)]*\)\[[^\]]*\]/g, "")      // Strip reversed MD embeds !()[]
+        .replace(/[ \t]+\n/g, "\n")
+        .trim();
 
     let result = convert(stripped);
 
@@ -251,16 +256,27 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
     const { body } = extractFrontmatter(content);
     const formattedContent = prepareContent(body);
 
-    const embeddedLinkRegex = /!\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g;
+    const wikilinkRegex = /!\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g;
+    const mdLinkRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
+    const reverseMdLinkRegex = /!\(([^)]+)\)\[[^\]]*\]/g;
+
     const supportedMediaExts = new Set(["jpg", "jpeg", "png", "gif", "webp", "pdf", ...VIDEO_EXTS]);
     const seen = new Set<string>();
     const attachments: TFile[] = [];
     const mdEmbeds: TFile[] = [];
 
-    let m: RegExpExecArray | null;
-    while ((m = embeddedLinkRegex.exec(body)) !== null) {
-        const linkpath = m[1].trim();
-        const resolved = app.metadataCache.getFirstLinkpathDest(linkpath, file.path);
+    const processLinkpath = (rawPath: string) => {
+        // Remove markdown tooltips/titles (e.g., "title") and hashes/queries
+        let cleanPath = rawPath.split(/\s+"/)[0].split(/[?#]/)[0].trim();
+
+        // Ensure standard markdown URL encoded spaces/special chars are converted back to literal strings
+        try {
+            cleanPath = decodeURIComponent(cleanPath);
+        } catch (e) {
+            // Fallback to raw string if decoding fails (e.g. contains an unescaped literal '%')
+        }
+
+        const resolved = app.metadataCache.getFirstLinkpathDest(cleanPath, file.path);
         if (resolved instanceof TFile && !seen.has(resolved.path)) {
             seen.add(resolved.path);
             if (supportedMediaExts.has(resolved.extension)) {
@@ -269,6 +285,23 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
                 mdEmbeds.push(resolved);
             }
         }
+    };
+
+    let m: RegExpExecArray | null;
+
+    // Process Wikilinks ![[image.png]]
+    while ((m = wikilinkRegex.exec(body)) !== null) {
+        processLinkpath(m[1]);
+    }
+
+    // Process Standard MD embeds ![alt](image.png)
+    while ((m = mdLinkRegex.exec(body)) !== null) {
+        processLinkpath(m[1]);
+    }
+
+    // Process Reverse MD embeds !(image.png)[alt]
+    while ((m = reverseMdLinkRegex.exec(body)) !== null) {
+        processLinkpath(m[1]);
     }
 
     const photoAndVideoFiles = attachments.filter(f =>
