@@ -127,6 +127,8 @@ All standard Telegram formatting elements are supported as well as some addition
   </tbody>
 </table>
 
+In addition to the formatting that will be reflected in the Telegram post, you can use the comment syntax `<!-- hidden text -->` or `%% hidden text %%` to add information to your notes that will not be included in the post content when it is published.
+
 ### Attachments
 
 Media, album (groups of media) and document attachments are supported. To attach a file to your post, use any of the standard Obsidian embed syntax options:
