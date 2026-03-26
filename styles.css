@@ -151,6 +151,23 @@
     border: 1px solid var(--background-modifier-border);
     margin-bottom: 12px;
     border-radius: var(--setting-items-radius);
+    transition: opacity 0.15s ease;
+}
+
+.telegram-multi-preset-item.is-disabled {
+    opacity: 0.35;
+    pointer-events: none;
+    user-select: none;
+}
+
+.telegram-update-channel-hint {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-accent);
+    margin-top: 4px;
+}
+
+.telegram-update-channel-hint.is-error {
+    color: var(--text-error);
 }
 
 .telegram-multi-preset-name {

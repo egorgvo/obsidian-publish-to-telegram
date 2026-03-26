@@ -47,6 +47,16 @@ export default {
     MULTI_PRESET_SILENT_POST_DESC: "Подписчики получат уведомление без звука",
     MULTI_PRESET_ATTACHMENTS_NAME: "Вложения под текстом",
     MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикреплёнными медиафайлами",
+    MULTI_PRESET_UPDATE_HEADING: "Отредактировать пост",
+    MULTI_PRESET_UPDATE_NAME: "Обновить существующий пост",
+    MULTI_PRESET_UPDATE_NAME_DESC: "Ссылки хранятся в свойстве telegram_links",
+    MULTI_PRESET_UPDATE_NO_OPTION: "Выберите ссылку на пост",
+    MULTI_PRESET_UPDATE_LINK_LABEL: "{link}", /* REMOVE */
+    MULTI_PRESET_UPDATE_NO_LINKS: "Ссылки на пост не найдены в свойствах",
+    MULTI_PRESET_UPDATE_RESOLVING: "Поиск канала…",
+    MULTI_PRESET_UPDATE_WILL_USE: "Пост будет обновлён в {name}",
+    MULTI_PRESET_UPDATE_NO_MATCH: "Подходящий пресет не найден!", /* REMOVE ??? */
+    MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Подходящий к ссылке пресет не найден!",
     SETTING_SAVE_POST_LINKS_NAME: "Сохранять ссылки на посты",
     SETTING_SAVE_POST_LINKS_DESC: "Если включено, ссылка на опубликованную запись будет сохранена в свойствах заметки",
     SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Считать .md-вложения комментариями к посту",

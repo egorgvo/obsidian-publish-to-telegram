@@ -1,6 +1,49 @@
 import { App, Modal, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent } from "obsidian";
 import { t } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
+import { TelegramChannel } from "./types";
+
+// ─── Channel resolution helpers ───────────────────────────────────────────────
+
+function findChannelByLink(channels: TelegramChannel[], link: string): TelegramChannel | null {
+    const msgIdMatch = link.match(/\/(?:t\.me\/|c\/|)([^/]+)\/(\d+)\/?$/);
+    if (!msgIdMatch) return null;
+    const identifier = msgIdMatch[1];
+    return channels.find(c => {
+        const cleanChatId = c.chatId.replace(/^-100|^@/, "");
+        return c.chatId === identifier ||
+               c.chatId === `@${identifier}` ||
+               cleanChatId === identifier;
+    }) || null;
+}
+
+async function resolveChannelByLink(channels: TelegramChannel[], link: string): Promise<TelegramChannel | null> {
+    const direct = findChannelByLink(channels, link);
+    if (direct) return direct;
+
+    const msgIdMatch = link.match(/\/(?:t\.me\/|c\/|)([^/]+)\/(\d+)\/?$/);
+    if (!msgIdMatch) return null;
+    const identifier = msgIdMatch[1].toLowerCase();
+
+    for (const channel of channels) {
+        if (!channel.botToken || !channel.chatId) continue;
+        try {
+            const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/getChat`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: channel.chatId })
+            });
+            const data = await response.json();
+            if (!response.ok) continue;
+            const username: string | undefined = data.result?.username;
+            if (username && username.toLowerCase() === identifier) return channel;
+        } catch {
+            continue;
+        }
+    }
+
+    return null;
+}
 
 // ─── Formatting Help Modal ────────────────────────────────────────────────────
 
@@ -66,6 +109,11 @@ export class MultiPresetModal extends Modal {
     private silentToggle: ToggleComponent;
     private attachToggle: ToggleComponent;
     private updateLinkDropdown: DropdownComponent | null = null;
+    private updateChannelHintEl: HTMLElement | null = null;
+    private updateNameDescEl: HTMLElement | null = null;
+    private resolvedUpdateChannel: TelegramChannel | null = null;
+
+    private channelRows: Array<{ id: string, container: HTMLElement, toggle: ToggleComponent }> = [];
 
     constructor(app: App, plugin: SendToTelegramPlugin, file: TFile) {
         super(app);
@@ -74,10 +122,51 @@ export class MultiPresetModal extends Modal {
         this.selectedChannels = new Set();
     }
 
-    private resetAdvancedSettings() {
-        this.silentToggle?.setValue(false);
-        this.attachToggle?.setValue(false);
-        this.updateLinkDropdown?.setValue("none");
+    private setChannelRowsDisabled(disabled: boolean) {
+        this.channelRows.forEach(row => {
+            if (disabled) {
+                row.container.addClass("is-disabled");
+                row.toggle.setValue(false);
+                this.selectedChannels.delete(row.id);
+            } else {
+                row.container.removeClass("is-disabled");
+            }
+        });
+    }
+
+    private setHint(text: string, isError: boolean) {
+        if (!this.updateChannelHintEl) return;
+        this.updateChannelHintEl.setText(text);
+        this.updateChannelHintEl.show();
+        this.updateNameDescEl?.hide();
+        if (isError) this.updateChannelHintEl.addClass("is-error");
+        else this.updateChannelHintEl.removeClass("is-error");
+    }
+
+    private hideHint() {
+        this.updateChannelHintEl?.hide();
+        this.updateNameDescEl?.show();
+    }
+
+    private async handleLinkSelection(value: string) {
+        if (value === "none") {
+            this.resolvedUpdateChannel = null;
+            this.setChannelRowsDisabled(false);
+            this.hideHint();
+            return;
+        }
+
+        this.setChannelRowsDisabled(true);
+        this.setHint(t.MULTI_PRESET_UPDATE_RESOLVING, false);
+
+        const matched = await resolveChannelByLink(this.plugin.settings.channels, value);
+        this.resolvedUpdateChannel = matched;
+
+        if (matched) {
+            this.setHint(t.MULTI_PRESET_UPDATE_WILL_USE.replace("{name}", matched.name || matched.chatId), false);
+        } else {
+            this.setHint(t.MULTI_PRESET_UPDATE_NO_MATCH, true);
+        }
     }
 
     onOpen() {
@@ -99,17 +188,17 @@ export class MultiPresetModal extends Modal {
         this.plugin.settings.channels.forEach(channel => {
             const itemEl = listContainer.createDiv("telegram-multi-preset-item");
             const nameEl = itemEl.createDiv("telegram-multi-preset-name");
-            nameEl.setText(channel.isDefault
-                ? `${channel.name || t.UNTITLED_CHANNEL}`
-                : channel.name || t.UNTITLED_CHANNEL);
+            nameEl.setText(channel.name || t.UNTITLED_CHANNEL);
 
             const controlEl = itemEl.createDiv("telegram-multi-preset-control");
-            new ToggleComponent(controlEl)
+            const toggle = new ToggleComponent(controlEl)
                 .setValue(false)
                 .onChange(value => {
                     if (value) this.selectedChannels.add(channel.id);
                     else this.selectedChannels.delete(channel.id);
                 });
+
+            this.channelRows.push({ id: channel.id, container: itemEl, toggle });
         });
 
         contentEl.createDiv({
@@ -134,36 +223,44 @@ export class MultiPresetModal extends Modal {
         // ─── Update Existing Post Section ─────────────────────────────────────────────
 
         contentEl.createDiv({
-            text: "Update post",
+            text: t.MULTI_PRESET_UPDATE_HEADING,
             cls: "telegram-modal-heading"
         });
 
         const updateOptionEl = contentEl.createDiv("telegram-option-item");
         const updateTextEl = updateOptionEl.createDiv("telegram-option-text");
-        updateTextEl.createDiv({ text: "Update already existing post", cls: "telegram-option-name" });
+        updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NAME, cls: "telegram-option-name" });
+        this.updateNameDescEl = updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NAME_DESC, cls: "telegram-option-desc" });
+        this.updateChannelHintEl = updateTextEl.createDiv({ cls: "telegram-update-channel-hint" });
+        this.updateChannelHintEl.hide();
 
         const cache = this.app.metadataCache.getFileCache(this.file);
         let telegramLinks: string[] = [];
 
         if (cache?.frontmatter?.telegram_links) {
             const links = cache.frontmatter.telegram_links;
-            if (Array.isArray(links)) {
-                telegramLinks = links.map(String);
-            } else if (typeof links === "string") {
-                telegramLinks = [links];
-            }
+            telegramLinks = Array.isArray(links) ? links.map(String) : [String(links)];
         }
 
         if (telegramLinks.length > 0) {
             this.updateLinkDropdown = new DropdownComponent(updateOptionEl.createDiv("telegram-option-control"));
-            this.updateLinkDropdown.addOption("none", "Do not update");
+            this.updateLinkDropdown.addOption("none", t.MULTI_PRESET_UPDATE_NO_OPTION);
 
             telegramLinks.forEach((link, idx) => {
-                this.updateLinkDropdown!.addOption(link, `Link ${idx + 1}: ${link}`);
+                this.updateLinkDropdown!.addOption(
+                    link,
+                    t.MULTI_PRESET_UPDATE_LINK_LABEL
+                        .replace("{idx}", String(idx + 1))
+                        .replace("{link}", link)
+                );
             });
             this.updateLinkDropdown.setValue("none");
+
+            this.updateLinkDropdown.onChange((value) => {
+                this.handleLinkSelection(value);
+            });
         } else {
-            updateTextEl.createDiv({ text: "No telegram_links found in frontmatter", cls: "telegram-option-desc" });
+            updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NO_LINKS, cls: "telegram-option-desc" });
         }
 
         const btnContainer = contentEl.createDiv("telegram-modal-buttons");
@@ -171,21 +268,36 @@ export class MultiPresetModal extends Modal {
             .setButtonText(t.MULTI_PRESET_POST_BTN)
             .setCta()
             .onClick(async () => {
-                if (this.selectedChannels.size === 0) {
+                const updateLinkRaw = this.updateLinkDropdown?.getValue();
+                const isUpdating = updateLinkRaw && updateLinkRaw !== "none";
+
+                if (!isUpdating && this.selectedChannels.size === 0) {
                     new Notice(t.MULTI_PRESET_NO_SELECTION);
                     return;
                 }
-                const channelsToPost = this.plugin.settings.channels.filter(c => this.selectedChannels.has(c.id));
+
                 const silent = this.silentToggle?.getValue() ?? false;
                 const attachUnderText = this.attachToggle?.getValue() ?? false;
+                const updateLink = isUpdating ? updateLinkRaw : undefined;
 
-                const updateLinkRaw = this.updateLinkDropdown?.getValue();
-                const updateLink = updateLinkRaw === "none" ? undefined : updateLinkRaw;
+                let channelsToPost: TelegramChannel[] = [];
 
-                this.resetAdvancedSettings();
+                if (isUpdating) {
+                    const targetChannel = this.resolvedUpdateChannel
+                        ?? await resolveChannelByLink(this.plugin.settings.channels, updateLinkRaw!);
+
+                    if (!targetChannel) {
+                        new Notice(t.MULTI_PRESET_UPDATE_NO_MATCH_NOTICE);
+                        return;
+                    }
+                    channelsToPost = [targetChannel];
+                } else {
+                    channelsToPost = this.plugin.settings.channels.filter(c => this.selectedChannels.has(c.id));
+                }
+
                 this.close();
+
                 for (const channel of channelsToPost) {
-                    // Passed via type assertion in case the plugin's root method signature wasn't updated yet.
                     await (this.plugin as any).sendNoteToTelegram(this.file, channel, silent, attachUnderText, updateLink);
                 }
             });
@@ -217,21 +329,18 @@ export class TelegramSettingTab extends PluginSettingTab {
 
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_OPEN_BOTFATHER)
-            .onClick(() => {
-                window.open("https://t.me/BotFather", "_blank");
-            }).buttonEl.addClass("telegram-link-button");
+            .onClick(() => { window.open("https://t.me/BotFather", "_blank"); })
+            .buttonEl.addClass("telegram-link-button");
 
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_OPEN_USERINFOBOT)
-            .onClick(() => {
-                window.open("https://t.me/userinfobot", "_blank");
-            }).buttonEl.addClass("telegram-link-button");
+            .onClick(() => { window.open("https://t.me/userinfobot", "_blank"); })
+            .buttonEl.addClass("telegram-link-button");
 
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_FORMATTING_HELP)
-            .onClick(() => {
-                new FormattingHelpModal(this.app, this.plugin).open();
-            }).buttonEl.addClass("telegram-link-button");
+            .onClick(() => { new FormattingHelpModal(this.app, this.plugin).open(); })
+            .buttonEl.addClass("telegram-link-button");
 
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_ADD_CHANNEL)
@@ -273,10 +382,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                     };
 
                     input.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
-                        if (e.key === "Enter") {
-                            e.preventDefault();
-                            save();
-                        }
+                        if (e.key === "Enter") { e.preventDefault(); save(); }
                     });
                     input.inputEl.addEventListener("blur", save);
                 }).buttonEl.addClass("telegram-edit-button");
