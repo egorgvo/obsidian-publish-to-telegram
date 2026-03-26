@@ -104,13 +104,19 @@ export default class SendToTelegramPlugin extends Plugin {
         });
     }
 
-    async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean): Promise<void> {
+    // UPDATED: Added updateLink parameter
+    async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string): Promise<void> {
         try {
-            const link = await sendNoteToTelegram(this.app, file, channel, silent, attachUnderText, this.settings.treatMdEmbedsAsComments);
+            // UPDATED: Pass updateLink through to the core function
+            const link = await sendNoteToTelegram(this.app, file, channel, silent, attachUnderText, this.settings.treatMdEmbedsAsComments, updateLink);
+
             if (this.settings.savePostLinks && link) {
                 await this.app.fileManager.processFrontMatter(file, (fm) => {
                     if (!Array.isArray(fm.telegram_links)) fm.telegram_links = [];
-                    fm.telegram_links.push(link);
+                    // UPDATED: Only push the link if it doesn't already exist (prevents duplicates when updating)
+                    if (!fm.telegram_links.includes(link)) {
+                        fm.telegram_links.push(link);
+                    }
                 });
             }
             new Notice(t.NOTICE_SUCCESS);

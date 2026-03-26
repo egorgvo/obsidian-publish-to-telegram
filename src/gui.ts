@@ -1,4 +1,4 @@
-import { App, Modal, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent } from "obsidian";
+import { App, Modal, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent } from "obsidian";
 import { t } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
 
@@ -65,6 +65,7 @@ export class MultiPresetModal extends Modal {
 
     private silentToggle: ToggleComponent;
     private attachToggle: ToggleComponent;
+    private updateLinkDropdown: DropdownComponent | null = null;
 
     constructor(app: App, plugin: SendToTelegramPlugin, file: TFile) {
         super(app);
@@ -76,6 +77,7 @@ export class MultiPresetModal extends Modal {
     private resetAdvancedSettings() {
         this.silentToggle?.setValue(false);
         this.attachToggle?.setValue(false);
+        this.updateLinkDropdown?.setValue("none");
     }
 
     onOpen() {
@@ -129,6 +131,41 @@ export class MultiPresetModal extends Modal {
         this.attachToggle = new ToggleComponent(attachOptionEl.createDiv("telegram-option-control"))
             .setValue(false);
 
+        // ─── Update Existing Post Section ─────────────────────────────────────────────
+
+        contentEl.createDiv({
+            text: "Update post",
+            cls: "telegram-modal-heading"
+        });
+
+        const updateOptionEl = contentEl.createDiv("telegram-option-item");
+        const updateTextEl = updateOptionEl.createDiv("telegram-option-text");
+        updateTextEl.createDiv({ text: "Update already existing post", cls: "telegram-option-name" });
+
+        const cache = this.app.metadataCache.getFileCache(this.file);
+        let telegramLinks: string[] = [];
+
+        if (cache?.frontmatter?.telegram_links) {
+            const links = cache.frontmatter.telegram_links;
+            if (Array.isArray(links)) {
+                telegramLinks = links.map(String);
+            } else if (typeof links === "string") {
+                telegramLinks = [links];
+            }
+        }
+
+        if (telegramLinks.length > 0) {
+            this.updateLinkDropdown = new DropdownComponent(updateOptionEl.createDiv("telegram-option-control"));
+            this.updateLinkDropdown.addOption("none", "Do not update");
+
+            telegramLinks.forEach((link, idx) => {
+                this.updateLinkDropdown!.addOption(link, `Link ${idx + 1}: ${link}`);
+            });
+            this.updateLinkDropdown.setValue("none");
+        } else {
+            updateTextEl.createDiv({ text: "No telegram_links found in frontmatter", cls: "telegram-option-desc" });
+        }
+
         const btnContainer = contentEl.createDiv("telegram-modal-buttons");
         new ButtonComponent(btnContainer)
             .setButtonText(t.MULTI_PRESET_POST_BTN)
@@ -141,10 +178,15 @@ export class MultiPresetModal extends Modal {
                 const channelsToPost = this.plugin.settings.channels.filter(c => this.selectedChannels.has(c.id));
                 const silent = this.silentToggle?.getValue() ?? false;
                 const attachUnderText = this.attachToggle?.getValue() ?? false;
+
+                const updateLinkRaw = this.updateLinkDropdown?.getValue();
+                const updateLink = updateLinkRaw === "none" ? undefined : updateLinkRaw;
+
                 this.resetAdvancedSettings();
                 this.close();
                 for (const channel of channelsToPost) {
-                    await this.plugin.sendNoteToTelegram(this.file, channel, silent, attachUnderText);
+                    // Passed via type assertion in case the plugin's root method signature wasn't updated yet.
+                    await (this.plugin as any).sendNoteToTelegram(this.file, channel, silent, attachUnderText, updateLink);
                 }
             });
     }

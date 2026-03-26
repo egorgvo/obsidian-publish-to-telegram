@@ -253,11 +253,55 @@ function resolveChatId(value: string): string {
     return `@${trimmed}`;
 }
 
-export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: TelegramChannel, silent: boolean, attachUnderText: boolean, treatMdEmbedsAsComments: boolean): Promise<string | null> {
+export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: TelegramChannel, silent: boolean, attachUnderText: boolean, treatMdEmbedsAsComments: boolean, updateLink?: string): Promise<string | null> {
     const channel = { ...tg_channel, chatId: resolveChatId(tg_channel.chatId) };
     const content = await app.vault.read(file);
     const { body } = extractFrontmatter(content);
     const formattedContent = prepareContent(body);
+
+    // ── Update Existing Post ──────────────────────────────────────────────────
+
+    if (updateLink && updateLink !== "none") {
+        const msgIdMatch = updateLink.match(/\/(\d+)\/?$/);
+        const messageId = msgIdMatch ? parseInt(msgIdMatch[1], 10) : null;
+
+        if (messageId) {
+            let updateBody: Record<string, unknown> = {
+                chat_id: channel.chatId,
+                message_id: messageId,
+                text: formattedContent,
+                parse_mode: "MarkdownV2"
+            };
+
+            let response = await fetch(`https://api.telegram.org/bot${channel.botToken}/editMessageText`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updateBody)
+            });
+            let data = await response.json();
+
+            // Fallback to editing caption if the target is a media message
+            if (!response.ok && data.description && data.description.includes("there is no text in the message to edit")) {
+                updateBody = {
+                    chat_id: channel.chatId,
+                    message_id: messageId,
+                    caption: formattedContent,
+                    parse_mode: "MarkdownV2"
+                };
+                response = await fetch(`https://api.telegram.org/bot${channel.botToken}/editMessageCaption`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(updateBody)
+                });
+                data = await response.json();
+            }
+
+            if (!response.ok) throw new Error(data.description);
+            return updateLink; // Return original link on success
+        }
+    }
+
+    // ── Send New Post ─────────────────────────────────────────────────────────
 
     const wikilinkRegex = /!\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g;
     const mdLinkRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
