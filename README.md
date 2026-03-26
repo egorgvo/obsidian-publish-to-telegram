@@ -20,7 +20,7 @@ This plugin allows you to post notes directly to Telegram channels and groups wi
   	* Post to multiple channels/groups at once.
   	* Post without sound.
   	* Post with attached media under the text.
-    * Edit already existing posts.
+    * Edit already existing post.
 
 5. Attach pre-written commentaries to your posts that will be displayed in the post's discussion after its publication.
 
@@ -162,10 +162,6 @@ You can pre-write one or more comments for your post that will appear in its dis
 
 Note that all comments are published with a slight delay.
 
-### Limits
-
-Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post, etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
-
 ### Advanced publishing settings
 
 You can call an advanced publishing settings window with command palette (`Ctrl + P`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
@@ -173,6 +169,11 @@ You can call an advanced publishing settings window with command palette (`Ctrl 
 * Post to multiple channels/groups at once.
 * Post without sound.
 * Post with attached media under the text.
+* Edit already existing post. Links to the posts are stored in the `telegram_links` property, which is filled automatically if the corresponding option is enablen in the settings. You can also create it and fill manually.
+
+### Limits
+
+Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post, etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
 
 ## About the Author
 
