@@ -38,6 +38,7 @@ function extractFrontmatter(content: string): { frontmatter: string; body: strin
 function prepareContent(body: string): string {
     const withHr = body.replace(/^(-{3,}|\*{3,}|_{3,})$/gm, (hr) => '\u2500'.repeat(hr.length));
     const stripped = withHr
+        .replace(/%%[\s\S]*?%%/g, "")             // Strip Obsidian comments %% ... %%
         .replace(/!\[\[[^\]]*\]\]/g, "")           // Strip wikilink embeds
         .replace(/!\[[^\]]*\]\([^)]*\)/g, "")      // Strip standard MD embeds ![]()
         .replace(/!\([^)]*\)\[[^\]]*\]/g, "")      // Strip reversed MD embeds !()[]
@@ -253,6 +254,22 @@ function resolveChatId(value: string): string {
     return `@${trimmed}`;
 }
 
+// ── Finds a configured channel that matches the provided Telegram link
+
+export function findChannelByLink(channels: TelegramChannel[], link: string): TelegramChannel | null {
+    const msgIdMatch = link.match(/\/(?:t\.me\/|c\/|)([^/]+)\/(\d+)\/?$/);
+    if (!msgIdMatch) return null;
+
+    const identifier = msgIdMatch[1]; // Could be a username or a stripped ID
+
+    return channels.find(c => {
+        const cleanChatId = c.chatId.replace(/^-100|^@/, "");
+        return c.chatId === identifier ||
+               c.chatId === `@${identifier}` ||
+               cleanChatId === identifier;
+    }) || null;
+}
+
 export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: TelegramChannel, silent: boolean, attachUnderText: boolean, treatMdEmbedsAsComments: boolean, updateLink?: string): Promise<string | null> {
     const channel = { ...tg_channel, chatId: resolveChatId(tg_channel.chatId) };
     const content = await app.vault.read(file);
@@ -311,7 +328,7 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
     const seen = new Set<string>();
 
     const attachments: MediaFile[] = [];
-    const mdEmbeds: TFile[] = []; // MD embeds stay as local TFiles
+    const mdEmbeds: TFile[] = [];
 
     const processLinkpath = (rawPath: string) => {
         let cleanPath = rawPath.split(/\s+"/)[0].split(/[?#]/)[0].trim();
@@ -327,7 +344,6 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
                         name: cleanPath.split('/').pop() || `media.${ext}`,
                         extension: ext,
                         getBlob: async () => {
-                            // Using requestUrl to safely bypass local CORS restrictions
                             const response = await requestUrl({ url: cleanPath });
                             return new Blob([response.arrayBuffer]);
                         }
