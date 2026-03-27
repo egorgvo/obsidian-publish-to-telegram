@@ -4,7 +4,7 @@ English | [Русский](https://github.com/pan4ratte/obsidian-publish-to-tele
 
 ![](media/plugin-demo-settings.png)
 
-This plugin allows you to post notes directly to Telegram channels and groups with different presets. The plugin works through your personal bot, sending to it contents of an active note and information about the channel/group to post to. Every standard Telegram formatting options are supported, as well as photo, album and document uploads, plus some advanced publishing settings are available.
+This plugin allows you to post notes directly to Telegram channels and groups with different presets. The plugin works through your personal bot, sending to it contents of an active note and information about the channel/group to post to. All standard Telegram formatting options are supported, as well as photo, album and document uploads, plus some advanced publishing settings are available.
 
 
 ## Features
@@ -135,7 +135,7 @@ Media, album (groups of media) and document attachments are supported. To attach
 
 `![[some-book-file.pdf]]`
 
-`[](some-media-file.jpg)`
+`![](some-media-file.jpg)`
 
 `!(some-video-file.mp4)[]`
 
@@ -171,7 +171,7 @@ You can call an advanced publishing settings window with command palette (`Ctrl 
 * Post to multiple channels/groups at once.
 * Post without sound.
 * Post with attached media under the text.
-* Edit already existing post. Links to the posts are stored in the `telegram_links` property, which is filled automatically if the corresponding option is enablen in the settings. You can also create it and fill manually.
+* Edit already existing post. Links to the posts are stored in the `telegram_links` property, which is filled automatically if the corresponding option is enabled in the settings. You can also create it and fill manually.
 
 ### Limits
 
