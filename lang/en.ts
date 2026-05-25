@@ -146,7 +146,13 @@ All standard Telegram formatting elements are supported as well as some addition
   </tbody>
 </table>
 
+#### Omitting text from a post
+
 In addition to the formatting that will be reflected in the Telegram post, you can use the comment syntax \`<!-- hidden text -->\` or \`%% hidden text %%\` to add information to your notes that will not be included in the post content when it is published.
+
+#### Splitting a note into multiple posts
+
+You can also use the special command \`<!-- \split -->\` or \`%% \split %%\` to split the text of your note into separate posts. If you use this command, the plugin will publish all posts at the same time. Attachments (see below), including pre-written comments, must appear before the special command that marks the end of the post.
 
 ### Attachments
 

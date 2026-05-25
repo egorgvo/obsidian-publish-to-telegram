@@ -22,13 +22,15 @@ This plugin allows you to post notes directly to Telegram channels and groups wi
   	* Post with attached media under the text.
     * Edit already existing post.
 
-5. Attach pre-written commentaries to your posts that will be displayed in the post's discussion after its publication.
+5. Publish pre-written commentaries to the post discussion (or as replies to the message if it was posted in a group).
 
-6. Set a default preset to post quickly with it from command palette or with hotkey.
+6. Set up a default preset to post quickly with it or use command palette or hotkeys.
 
-7. Optionally enable automatic link to the post saving in the note's properties after publishing.   
+7. Optionally enable automatic post link saving to the note's properties after publishing.   
 
-8. Open usage instructions either from the plugin's settings or from the command palette.
+8. Publish multiple posts in a row from a single note using a special command that splits the text into separate posts.
+
+9. Detailed usage instructions, including descriptions of all features, available directly in the plugin settings.
 
 
 ## Installation Instructions
@@ -127,7 +129,13 @@ All standard Telegram formatting elements are supported as well as some addition
   </tbody>
 </table>
 
+#### Omitting text from a post
+
 In addition to the formatting that will be reflected in the Telegram post, you can use the comment syntax `<!-- hidden text -->` or `%% hidden text %%` to add information to your notes that will not be included in the post content when it is published.
+
+#### Splitting a note into multiple posts
+
+You can also use the special command `<!-- \split -->` or `%% \split %%` to split the text of your note into separate posts. If you use this command, the plugin will publish all posts at the same time. Attachments (see below), including pre-written comments, must appear before the special command that marks the end of the post.  
 
 ### Attachments
 
