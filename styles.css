@@ -52,26 +52,27 @@
     flex-wrap: wrap;
 }
 
-.telegram-add-button {
-    background-color: var(--interactive-accent) !important;
-    color: var(--text-on-accent) !important;
+/* Specificity increased with body prefix to safely override Obsidian defaults */
+body .telegram-add-button {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
     font-weight: var(--font-semibold);
     width: 100%;
 }
 
-.telegram-add-button:hover {
-    background-color: var(--interactive-accent-hover) !important;
+body .telegram-add-button:hover {
+    background-color: var(--interactive-accent-hover);
 }
 
-.telegram-link-button:hover {
-    background-color: var(--setting-items-border-color) !important;
-    box-shadow: none !important;
+body .telegram-link-button:hover {
+    background-color: var(--setting-items-border-color);
+    box-shadow: none;
     border: 1px solid var(--setting-items-border-color);
 }
 
-.telegram-link-button {
-    background-color: transparent !important;
-    box-shadow: none !important;
+body .telegram-link-button {
+    background-color: transparent;
+    box-shadow: none;
     border: 1px solid var(--setting-items-border-color);
     flex-grow: 1;
 }
@@ -114,26 +115,26 @@
     font-size: var(--font-ui-medium);
 }
 
-.telegram-edit-button {
-    background-color: var(--setting-items-background) !important;
-    box-shadow: none !important;
+body .telegram-edit-button {
+    background-color: var(--setting-items-background);
+    box-shadow: none;
     height: 44px;
     width: 44px;
 }
 
-.telegram-edit-button:hover {
+body .telegram-edit-button:hover {
     color: var(--interactive-accent);
 }
 
-.telegram-delete-button {
-    background-color: var(--setting-items-background) !important;
-    box-shadow: none !important;
+body .telegram-delete-button {
+    background-color: var(--setting-items-background);
+    box-shadow: none;
     height: 44px;
     width: 44px;
 }
 
-.telegram-delete-button:hover {
-    color: var(--text-error) !important;
+body .telegram-delete-button:hover {
+    color: var(--text-error);
 }
 
 .telegram-modal-buttons {
