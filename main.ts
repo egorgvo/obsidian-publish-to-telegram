@@ -121,8 +121,15 @@ export default class SendToTelegramPlugin extends Plugin {
             }
             new Notice(t.NOTICE_SUCCESS);
         } catch (err: any) {
-            new Notice(`${t.NOTICE_ERR_SEND}${err.message}`);
+        const msg: string = err.message ?? "";
+        if (msg.includes("message is too long")) {
+            new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
+        } else if (msg.includes("caption is too long")) {
+            new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
+        } else {
+            new Notice(`${t.NOTICE_ERR_SEND}${msg}`);
         }
+    }
     }
 
     async loadSettings() { this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()); }
