@@ -42,6 +42,7 @@ function prepareContent(body: string): string {
         .replace(/!\[\[[^\]]*\]\]/g, "")           // Strip wikilink embeds
         .replace(/!\[[^\]]*\]\([^)]*\)/g, "")      // Strip standard MD embeds ![]()
         .replace(/!\([^)]*\)\[[^\]]*\]/g, "")      // Strip reversed MD embeds !()[]
+        .replace(/<!--[\s\S]*?-->/g, "")           // Strip HTML comments
         .replace(/[ \t]+\n/g, "\n")
         .trim();
 
@@ -52,6 +53,18 @@ function prepareContent(body: string): string {
     result = result.replace(/^(\s*\d+\\\.)\s+/gm, '$1 ');
     result = result.replace(/^(\s*\d+)\)\s+/gm, '$1\\) ');
     return result;
+}
+
+// ─── Split helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Splits a raw note body on every line that is exactly a split marker:
+ *   %% \split %%   or   <!-- \split -->
+ * Returns the non-empty trimmed parts in document order.
+ */
+function splitBodyByMarkers(body: string): string[] {
+    const marker = /^[ \t]*(?:%%\s*\\split\s*%%|<!--\s*\\split\s*-->)[ \t]*$/gm;
+    return body.split(marker).map(p => p.trim()).filter(p => p.length > 0);
 }
 
 // ─── Telegram API calls ───────────────────────────────────────────────────────
@@ -260,7 +273,7 @@ export function findChannelByLink(channels: TelegramChannel[], link: string): Te
     const msgIdMatch = link.match(/\/(?:t\.me\/|c\/|)([^/]+)\/(\d+)\/?$/);
     if (!msgIdMatch) return null;
 
-    const identifier = msgIdMatch[1]; // Could be a username or a stripped ID
+    const identifier = msgIdMatch[1];
 
     return channels.find(c => {
         const cleanChatId = c.chatId.replace(/^-100|^@/, "");
@@ -270,55 +283,18 @@ export function findChannelByLink(channels: TelegramChannel[], link: string): Te
     }) || null;
 }
 
-export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: TelegramChannel, silent: boolean, attachUnderText: boolean, treatMdEmbedsAsComments: boolean, updateLink?: string): Promise<string | null> {
-    const channel = { ...tg_channel, chatId: resolveChatId(tg_channel.chatId) };
-    const content = await app.vault.read(file);
-    const { body } = extractFrontmatter(content);
+// ─── Send a single body part ──────────────────────────────────────────────────
+
+async function sendPartToTelegram(
+    app: App,
+    body: string,
+    channel: TelegramChannel,
+    silent: boolean,
+    attachUnderText: boolean,
+    sourceFile: TFile,
+    treatMdEmbedsAsComments: boolean
+): Promise<SendResult | null> {
     const formattedContent = prepareContent(body);
-
-    // ── Update Existing Post ──────────────────────────────────────────────────
-
-    if (updateLink && updateLink !== "none") {
-        const msgIdMatch = updateLink.match(/\/(\d+)\/?$/);
-        const messageId = msgIdMatch ? parseInt(msgIdMatch[1], 10) : null;
-
-        if (messageId) {
-            let updateBody: Record<string, unknown> = {
-                chat_id: channel.chatId,
-                message_id: messageId,
-                text: formattedContent,
-                parse_mode: "MarkdownV2"
-            };
-
-            let response = await fetch(`https://api.telegram.org/bot${channel.botToken}/editMessageText`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updateBody)
-            });
-            let data = await response.json();
-
-            // Fallback to editing caption if the target is a media message
-            if (!response.ok && data.description && data.description.includes("there is no text in the message to edit")) {
-                updateBody = {
-                    chat_id: channel.chatId,
-                    message_id: messageId,
-                    caption: formattedContent,
-                    parse_mode: "MarkdownV2"
-                };
-                response = await fetch(`https://api.telegram.org/bot${channel.botToken}/editMessageCaption`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(updateBody)
-                });
-                data = await response.json();
-            }
-
-            if (!response.ok) throw new Error(data.description);
-            return updateLink; // Return original link on success
-        }
-    }
-
-    // ── Send New Post ─────────────────────────────────────────────────────────
 
     const wikilinkRegex = /!\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g;
     const mdLinkRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
@@ -333,12 +309,10 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
     const processLinkpath = (rawPath: string) => {
         let cleanPath = rawPath.split(/\s+"/)[0].split(/[?#]/)[0].trim();
 
-        // Handle web URLs directly
         if (/^https?:\/\//i.test(cleanPath)) {
             if (!seen.has(cleanPath)) {
                 seen.add(cleanPath);
                 const ext = cleanPath.split('.').pop()?.toLowerCase() || "";
-
                 if (supportedMediaExts.has(ext)) {
                     attachments.push({
                         name: cleanPath.split('/').pop() || `media.${ext}`,
@@ -353,10 +327,9 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
             return;
         }
 
-        // Handle local files
         try { cleanPath = decodeURIComponent(cleanPath); } catch (e) {}
 
-        const resolved = app.metadataCache.getFirstLinkpathDest(cleanPath, file.path);
+        const resolved = app.metadataCache.getFirstLinkpathDest(cleanPath, sourceFile.path);
         if (resolved instanceof TFile && !seen.has(resolved.path)) {
             seen.add(resolved.path);
             if (supportedMediaExts.has(resolved.extension)) {
@@ -372,7 +345,6 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
     };
 
     let m: RegExpExecArray | null;
-
     while ((m = wikilinkRegex.exec(body)) !== null) processLinkpath(m[1]);
     while ((m = mdLinkRegex.exec(body)) !== null) processLinkpath(m[1]);
     while ((m = reverseMdLinkRegex.exec(body)) !== null) processLinkpath(m[1]);
@@ -382,8 +354,6 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
     );
     const gifFiles = attachments.filter(f => f.extension === "gif");
     const docFiles = attachments.filter(f => f.extension === "pdf");
-
-    // ── Send the main post ────────────────────────────────────────────────────
 
     let result: SendResult | null = null;
     let captionConsumed = false;
@@ -456,5 +426,84 @@ export async function sendNoteToTelegram(app: App, file: TFile, tg_channel: Tele
         }
     }
 
-    return result ? result.link : null;
+    return result;
+}
+
+// ─── Public entry point ───────────────────────────────────────────────────────
+
+export async function sendNoteToTelegram(
+    app: App,
+    file: TFile,
+    tg_channel: TelegramChannel,
+    silent: boolean,
+    attachUnderText: boolean,
+    treatMdEmbedsAsComments: boolean,
+    updateLink?: string
+): Promise<{ links: string[]; errors: Error[] }> {
+    const channel = { ...tg_channel, chatId: resolveChatId(tg_channel.chatId) };
+    const content = await app.vault.read(file);
+    const { body } = extractFrontmatter(content);
+    const formattedContent = prepareContent(body);
+
+    // ── Update Existing Post ──────────────────────────────────────────────────
+
+    if (updateLink && updateLink !== "none") {
+        const msgIdMatch = updateLink.match(/\/(\d+)\/?$/);
+        const messageId = msgIdMatch ? parseInt(msgIdMatch[1], 10) : null;
+
+        if (messageId) {
+            let updateBody: Record<string, unknown> = {
+                chat_id: channel.chatId,
+                message_id: messageId,
+                text: formattedContent,
+                parse_mode: "MarkdownV2"
+            };
+
+            let response = await fetch(`https://api.telegram.org/bot${channel.botToken}/editMessageText`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updateBody)
+            });
+            let data = await response.json();
+
+            if (!response.ok && data.description && data.description.includes("there is no text in the message to edit")) {
+                updateBody = {
+                    chat_id: channel.chatId,
+                    message_id: messageId,
+                    caption: formattedContent,
+                    parse_mode: "MarkdownV2"
+                };
+                response = await fetch(`https://api.telegram.org/bot${channel.botToken}/editMessageCaption`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(updateBody)
+                });
+                data = await response.json();
+            }
+
+            if (!response.ok) throw new Error(data.description);
+            return { links: [updateLink], errors: [] };
+        }
+    }
+
+    // ── Split body and send each part ─────────────────────────────────────────
+
+    const parts = splitBodyByMarkers(body);
+    const effectiveParts = parts.length > 0 ? parts : [body];
+
+    const links: string[] = [];
+    const errors: Error[] = [];
+
+    for (const part of effectiveParts) {
+        try {
+            const result = await sendPartToTelegram(
+                app, part, channel, silent, attachUnderText, file, treatMdEmbedsAsComments
+            );
+            if (result) links.push(result.link);
+        } catch (err: any) {
+            errors.push(err instanceof Error ? err : new Error(String(err)));
+        }
+    }
+
+    return { links, errors };
 }

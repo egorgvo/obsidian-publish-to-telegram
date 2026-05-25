@@ -104,33 +104,48 @@ export default class SendToTelegramPlugin extends Plugin {
         });
     }
 
-    // UPDATED: Added updateLink parameter
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string): Promise<void> {
-        try {
-            // UPDATED: Pass updateLink through to the core function
-            const link = await sendNoteToTelegram(this.app, file, channel, silent, attachUnderText, this.settings.treatMdEmbedsAsComments, updateLink);
+            try {
+                const { links, errors } = await sendNoteToTelegram(
+                    this.app, file, channel, silent, attachUnderText,
+                    this.settings.treatMdEmbedsAsComments, updateLink
+                );
 
-            if (this.settings.savePostLinks && link) {
-                await this.app.fileManager.processFrontMatter(file, (fm) => {
-                    if (!Array.isArray(fm.telegram_links)) fm.telegram_links = [];
-                    // UPDATED: Only push the link if it doesn't already exist (prevents duplicates when updating)
-                    if (!fm.telegram_links.includes(link)) {
-                        fm.telegram_links.push(link);
+                if (this.settings.savePostLinks && links.length > 0) {
+                    await this.app.fileManager.processFrontMatter(file, (fm) => {
+                        if (!Array.isArray(fm.telegram_links)) fm.telegram_links = [];
+                        for (const link of links) {
+                            if (!fm.telegram_links.includes(link)) {
+                                fm.telegram_links.push(link);
+                            }
+                        }
+                    });
+                }
+
+                for (const err of errors) {
+                    const msg: string = err.message ?? "";
+                    if (msg.includes("message is too long")) {
+                        new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
+                    } else if (msg.includes("caption is too long")) {
+                        new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
+                    } else {
+                        new Notice(`${t.NOTICE_ERR_SEND}${msg}`);
                     }
-                });
+                }
+
+                if (errors.length === 0) new Notice(t.NOTICE_SUCCESS);
+
+            } catch (err: any) {
+                const msg: string = err.message ?? "";
+                if (msg.includes("message is too long")) {
+                    new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
+                } else if (msg.includes("caption is too long")) {
+                    new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
+                } else {
+                    new Notice(`${t.NOTICE_ERR_SEND}${msg}`);
+                }
             }
-            new Notice(t.NOTICE_SUCCESS);
-        } catch (err: any) {
-        const msg: string = err.message ?? "";
-        if (msg.includes("message is too long")) {
-            new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
-        } else if (msg.includes("caption is too long")) {
-            new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
-        } else {
-            new Notice(`${t.NOTICE_ERR_SEND}${msg}`);
         }
-    }
-    }
 
     async loadSettings() { this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()); }
     async saveSettings() {
