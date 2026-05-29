@@ -17,6 +17,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "markdown-to-telegram": "^0.0.4",
     "telegram-markdown-v2": "^0.0.4"
   }
 }

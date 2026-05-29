@@ -1,6 +1,6 @@
 // telegram.ts
 import { App, TFile, requestUrl } from "obsidian";
-import { convert } from "telegram-markdown-v2";
+import { convert } from "markdown-to-telegram";
 import { TelegramChannel } from "./types";
 
 // ─── Internal result & media types ────────────────────────────────────────────
