@@ -1,0 +1,2 @@
+- name: Generate Generic Attestations
+  uses: actions/attest@v4.1.0
