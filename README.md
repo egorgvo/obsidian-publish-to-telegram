@@ -2,9 +2,9 @@
 
 English | [Русский](https://github.com/pan4ratte/obsidian-publish-to-telegram/blob/main/README_RU.md)
 
-![](media/plugin-demo-settings.png)
-
 This plugin allows you to post notes directly to Telegram channels and groups with different presets. The plugin works through your personal bot, sending to it contents of an active note and information about the channel/group to post to. All standard Telegram formatting options are supported, as well as photo, album and document uploads, plus some advanced publishing settings are available.
+
+![](media/plugin-demo-settings.png)
 
 
 ## Features
@@ -33,19 +33,27 @@ This plugin allows you to post notes directly to Telegram channels and groups wi
 9. Detailed usage instructions, including descriptions of all features, available directly in the plugin settings.
 
 
-## Installation Instructions
+## Installation
 
-Before plugin appears in the official Obsidian store, the easiest way to install it is through the `BRAT` plugin:
+### Option 1: Obsidian plugin store
 
-1. Install the `BRAT` plugin from the official Obsidian plugin store.
+1. In Obsidian settings open the tab "Community plugins" and click "Browse" button.
+
+2. In the search bar type `Publish to Telegram`, click on the result, then "Install" and "Enable" buttons.
+
+Alternatively, you can install the plugin by following the link to the community website: [https://community.obsidian.md/plugins/publish-to-telegram](https://community.obsidian.md/plugins/publish-to-telegram)
+
+### Option 2: BRAT plugin
+
+If you want to test beta-versions of the plugin or use previous versions, you can do that with `BRAT` plugin:
+
+1. Install `BRAT` plugin from the official Obsidian plugin store.
 
 2. In the `BRAT` settings, find the “Beta plugin list” section and click on the “Add beta plugin” button.
 
 3. In the window that appears, paste the link to the `Publish to Telegram` plugin repository: [https://github.com/pan4ratte/obsidian-publish-to-telegram](https://github.com/pan4ratte/obsidian-publish-to-telegram)
 
-4. Under “Select a version” choose “Latest version” and click the “Add plugin” button.
-
-Done! The plugin will automatically install and will be ready to use.
+4. Under “Select a version” choose the desired version and click the “Add plugin” button. The plugin will be automatically installed and will be ready to use.
 
 
 ## Usage
