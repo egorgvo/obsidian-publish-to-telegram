@@ -36,8 +36,7 @@ function extractFrontmatter(content: string): { frontmatter: string; body: strin
 // ─── Content preparation ──────────────────────────────────────────────────────
 
 function prepareContent(body: string): string {
-    const withHr = body.replace(/^(-{3,}|\*{3,}|_{3,})$/gm, (hr) => '\u2500'.repeat(hr.length));
-    const stripped = withHr
+    const stripped = body
         .replace(/%%[\s\S]*?%%/g, "")             // Strip Obsidian comments %% ... %%
         .replace(/!\[\[[^\]]*\]\]/g, "")           // Strip wikilink embeds
         .replace(/!\[[^\]]*\]\([^)]*\)/g, "")      // Strip standard MD embeds ![]()
@@ -47,11 +46,6 @@ function prepareContent(body: string): string {
         .trim();
 
     let result = convert(stripped);
-
-    result = result.replace(/^> /gm, '>');
-    result = result.replace(/^(\s*)(?:\+|•)\s+/gm, '$1• ');
-    result = result.replace(/^(\s*\d+\\\.)\s+/gm, '$1 ');
-    result = result.replace(/^(\s*\d+)\)\s+/gm, '$1\\) ');
     return result;
 }
 
