@@ -52,17 +52,6 @@ function prepareContent(body: string): string {
     return result;
 }
 
-function prepareContentAccount(body: string): string {
-    return body
-        .replace(/%%[\s\S]*?%%/g, "")
-        .replace(/!\[\[[^\]]*\]\]/g, "")
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-        .replace(/!\([^)]*\)\[[^\]]*\]/g, "")
-        .replace(/<!--[\s\S]*?-->/g, "")
-        .replace(/[ \t]+\n/g, "\n")
-        .trim();
-}
-
 // ─── Split helpers ────────────────────────────────────────────────────────────
 
 function splitBodyByMarkers(body: string): string[] {
@@ -484,7 +473,7 @@ async function sendPartViaAccount(
     attachUnderText: boolean,
     sourceFile: TFile,
 ): Promise<SendResult | null> {
-    const text = prepareContentAccount(body);
+    const text = prepareContent(body);
     const { attachments } = collectMediaFiles(app, body, sourceFile);
 
     const client = await getClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
