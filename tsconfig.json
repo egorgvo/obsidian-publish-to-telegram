@@ -9,5 +9,6 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["**/*.ts"]
+  "include": ["**/*.ts"],
+  "exclude": ["cloud-functions/**"]
 }
