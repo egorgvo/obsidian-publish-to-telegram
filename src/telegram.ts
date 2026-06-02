@@ -457,11 +457,12 @@ let cachedClient: TelegramClient | null = null;
 
 async function getClient(session: string, apiId?: number, apiHash?: string): Promise<TelegramClient> {
     if (cachedClient?.connected) return cachedClient;
+    const isLocalAuth = !!apiId;
     cachedClient = new TelegramClient(
         new StringSession(session),
         apiId || DEFAULT_TG_API_ID,
         apiHash || DEFAULT_TG_API_HASH,
-        { connectionRetries: 3, useWSS: true }
+        { connectionRetries: 5, timeout: 60, ...(isLocalAuth && { useWSS: true }) }
     );
     await cachedClient.connect();
     return cachedClient;
