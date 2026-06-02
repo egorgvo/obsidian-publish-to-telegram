@@ -64,6 +64,31 @@ export default {
     SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Считать .md-вложения комментариями к посту",
     SETTING_MD_EMBEDS_AS_COMMENTS_DESC: "Если включено, после публикации бот отправит комментарий к посту с содержимым .md-вложения",
 
+    AUTH_SECTION_HEADER: "Аккаунт Telegram",
+    AUTH_CONFIG_URL_NAME: "Config URL",
+    AUTH_CONFIG_URL_DESC: "URL облачной функции конфигурации",
+    AUTH_CONFIG_URL_PLACEHOLDER: "Введите URL конфигурации...",
+    AUTH_AUTHORIZE_BTN: "Авторизоваться",
+    AUTH_NOT_AUTHORIZED: "Не авторизован",
+    AUTH_AUTHORIZED_AS: "Авторизован как {name}",
+    AUTH_LOGOUT_BTN: "Выйти",
+    AUTH_NO_CONFIG_URL: "Ошибка: Config URL не указан.",
+    AUTH_TITLE: "Авторизация Telegram",
+    AUTH_PHONE_NAME: "Номер телефона",
+    AUTH_PHONE_DESC: "Введите номер телефона вашего аккаунта Telegram",
+    AUTH_PHONE_PLACEHOLDER: "+79001234567",
+    AUTH_SEND_CODE_BTN: "Отправить код",
+    AUTH_CODE_SENT: "Код авторизации отправлен на {phone}",
+    AUTH_CODE_NAME: "Код подтверждения",
+    AUTH_CODE_PLACEHOLDER: "Введите код...",
+    AUTH_VERIFY_BTN: "Подтвердить",
+    AUTH_PASSWORD_REQUIRED: "В вашем телеграм-аккаунте включена двухфакторная аутентификация. Для входа необходим облачный пароль.",
+    AUTH_PASSWORD_NAME: "Облачный пароль",
+    AUTH_PASSWORD_PLACEHOLDER: "Введите пароль...",
+    AUTH_SUCCESS: "Успешно авторизован",
+    AUTH_ERROR: "Ошибка авторизации",
+    AUTH_LOADING: "Подождите...",
+
     FORMATTING_HELP_CONTENT: `
 Данную справку можно вызвать из палитры команд, введя "Publish to Telegram: Открыть справку по использованию".
 

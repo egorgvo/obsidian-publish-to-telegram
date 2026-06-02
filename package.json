@@ -4,8 +4,8 @@
   "description": "Allows you to post notes directly to Telegram channels and groups with different presets and advanced posting settings.",
   "main": "main.js",
   "scripts": {
-    "dev": "esbuild main.ts --bundle --external:obsidian --format=cjs --outfile=main.js --watch",
-    "build": "esbuild main.ts --bundle --external:obsidian --format=cjs --outfile=main.js --minify"
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production"
   },
   "keywords": [],
   "author": "pan4ratte",
@@ -17,6 +17,18 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "markdown-to-telegram": "^0.0.7"
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "constants-browserify": "^1.0.0",
+    "crypto-browserify": "^3.12.1",
+    "events": "^3.3.0",
+    "markdown-to-telegram": "^0.0.7",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "telegram": "^2.26.22",
+    "util": "^0.12.5",
+    "vm-browserify": "^1.1.2"
   }
 }

@@ -1,13 +1,15 @@
 import { Plugin, Notice, TFile, TFolder, Menu } from "obsidian";
 import { t } from "./lang/helpers";
 import { TelegramChannel, TelegramSettings, DEFAULT_SETTINGS } from "./src/types";
-import { sendNoteToTelegram } from "./src/telegram";
+import { sendNoteToTelegram, disconnectClient } from "./src/telegram";
 import { FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
 
 export default class SendToTelegramPlugin extends Plugin {
     settings: TelegramSettings;
 
     private channelCommandIds: string[] = [];
+
+    onunload() { disconnectClient(); }
 
     async onload(): Promise<void> {
         await this.loadSettings();
@@ -107,7 +109,7 @@ export default class SendToTelegramPlugin extends Plugin {
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string): Promise<void> {
             try {
                 const { links, errors } = await sendNoteToTelegram(
-                    this.app, file, channel, silent, attachUnderText,
+                    this.app, file, channel, this.settings, silent, attachUnderText,
                     this.settings.treatMdEmbedsAsComments, updateLink
                 );
 

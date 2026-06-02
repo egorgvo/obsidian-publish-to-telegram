@@ -1,7 +1,10 @@
 // telegram.ts
 import { App, TFile, requestUrl } from "obsidian";
 import { convert } from "markdown-to-telegram";
-import { TelegramChannel } from "./types";
+import { TelegramClient } from "telegram";
+import { StringSession } from "telegram/sessions";
+import { CustomFile } from "telegram/client/uploads";
+import { TelegramChannel, TelegramSettings } from "./types";
 
 // ─── Internal result & media types ────────────────────────────────────────────
 
@@ -49,25 +52,104 @@ function prepareContent(body: string): string {
     return result;
 }
 
+function prepareContentAccount(body: string): string {
+    return body
+        .replace(/%%[\s\S]*?%%/g, "")
+        .replace(/!\[\[[^\]]*\]\]/g, "")
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+        .replace(/!\([^)]*\)\[[^\]]*\]/g, "")
+        .replace(/<!--[\s\S]*?-->/g, "")
+        .replace(/[ \t]+\n/g, "\n")
+        .trim();
+}
+
 // ─── Split helpers ────────────────────────────────────────────────────────────
 
-/**
- * Splits a raw note body on every line that is exactly a split marker:
- *   %% \split %%   or   <!-- \split -->
- * Returns the non-empty trimmed parts in document order.
- */
 function splitBodyByMarkers(body: string): string[] {
     const marker = /^[ \t]*(?:%%\s*\\split\s*%%|<!--\s*\\split\s*-->)[ \t]*$/gm;
     return body.split(marker).map(p => p.trim()).filter(p => p.length > 0);
 }
 
-// ─── Telegram API calls ───────────────────────────────────────────────────────
+// ─── Attachment collection (shared) ───────────────────────────────────────────
+
+const SUPPORTED_MEDIA_EXTS = new Set(["jpg", "jpeg", "png", "gif", "webp", "pdf", ...VIDEO_EXTS]);
+
+function collectMediaFiles(app: App, body: string, sourceFile: TFile): { attachments: MediaFile[]; mdEmbeds: TFile[] } {
+    const wikilinkRegex = /!\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g;
+    const mdLinkRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
+    const reverseMdLinkRegex = /!\(([^)]+)\)\[[^\]]*\]/g;
+
+    const seen = new Set<string>();
+    const attachments: MediaFile[] = [];
+    const mdEmbeds: TFile[] = [];
+
+    const processLinkpath = (rawPath: string) => {
+        let cleanPath = rawPath.split(/\s+"/)[0].split(/[?#]/)[0].trim();
+
+        if (/^https?:\/\//i.test(cleanPath)) {
+            if (!seen.has(cleanPath)) {
+                seen.add(cleanPath);
+                const ext = cleanPath.split('.').pop()?.toLowerCase() || "";
+                if (SUPPORTED_MEDIA_EXTS.has(ext)) {
+                    attachments.push({
+                        name: cleanPath.split('/').pop() || `media.${ext}`,
+                        extension: ext,
+                        getBlob: async () => {
+                            const response = await requestUrl({ url: cleanPath });
+                            return new Blob([response.arrayBuffer]);
+                        }
+                    });
+                }
+            }
+            return;
+        }
+
+        try { cleanPath = decodeURIComponent(cleanPath); } catch (e) {}
+
+        const resolved = app.metadataCache.getFirstLinkpathDest(cleanPath, sourceFile.path);
+        if (resolved instanceof TFile && !seen.has(resolved.path)) {
+            seen.add(resolved.path);
+            if (SUPPORTED_MEDIA_EXTS.has(resolved.extension)) {
+                attachments.push({
+                    name: resolved.name,
+                    extension: resolved.extension,
+                    getBlob: async () => new Blob([await app.vault.readBinary(resolved)])
+                });
+            } else if (resolved.extension === "md") {
+                mdEmbeds.push(resolved);
+            }
+        }
+    };
+
+    let m: RegExpExecArray | null;
+    while ((m = wikilinkRegex.exec(body)) !== null) processLinkpath(m[1]);
+    while ((m = mdLinkRegex.exec(body)) !== null) processLinkpath(m[1]);
+    while ((m = reverseMdLinkRegex.exec(body)) !== null) processLinkpath(m[1]);
+
+    return { attachments, mdEmbeds };
+}
+
+// ─── Post link helpers ────────────────────────────────────────────────────────
 
 function buildPostLink(chat: { id: number; username?: string }, messageId: number): string {
     if (chat.username) return `https://t.me/${chat.username}/${messageId}`;
     const channelId = String(chat.id).replace(/^-100/, "");
     return `https://t.me/c/${channelId}/${messageId}`;
 }
+
+function buildPostLinkFromChatId(chatId: string, messageId: number): string {
+    if (chatId.startsWith("@")) return `https://t.me/${chatId.slice(1)}/${messageId}`;
+    const channelId = chatId.replace(/^-100/, "");
+    return `https://t.me/c/${channelId}/${messageId}`;
+}
+
+function resolveChatId(value: string): string {
+    const trimmed = value.trim();
+    if (trimmed.startsWith("@") || /^-?\d+$/.test(trimmed)) return trimmed;
+    return `@${trimmed}`;
+}
+
+// ─── Bot API: Telegram calls ──────────────────────────────────────────────────
 
 async function getLinkedChatId(channel: TelegramChannel): Promise<number | null> {
     const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/getChat`, {
@@ -255,12 +337,6 @@ async function sendMediaGroup(app: App, channel: TelegramChannel, files: MediaFi
     };
 }
 
-function resolveChatId(value: string): string {
-    const trimmed = value.trim();
-    if (trimmed.startsWith("@") || /^-?\d+$/.test(trimmed)) return trimmed;
-    return `@${trimmed}`;
-}
-
 // ── Finds a configured channel that matches the provided Telegram link
 
 export function findChannelByLink(channels: TelegramChannel[], link: string): TelegramChannel | null {
@@ -277,9 +353,9 @@ export function findChannelByLink(channels: TelegramChannel[], link: string): Te
     }) || null;
 }
 
-// ─── Send a single body part ──────────────────────────────────────────────────
+// ─── Bot API: send a single body part ─────────────────────────────────────────
 
-async function sendPartToTelegram(
+async function sendPartViaBotApi(
     app: App,
     body: string,
     channel: TelegramChannel,
@@ -289,59 +365,7 @@ async function sendPartToTelegram(
     treatMdEmbedsAsComments: boolean
 ): Promise<SendResult | null> {
     const formattedContent = prepareContent(body);
-
-    const wikilinkRegex = /!\[\[([^\]|#]+?)(?:[|#][^\]]*)?\]\]/g;
-    const mdLinkRegex = /!\[[^\]]*\]\(([^)]+)\)/g;
-    const reverseMdLinkRegex = /!\(([^)]+)\)\[[^\]]*\]/g;
-
-    const supportedMediaExts = new Set(["jpg", "jpeg", "png", "gif", "webp", "pdf", ...VIDEO_EXTS]);
-    const seen = new Set<string>();
-
-    const attachments: MediaFile[] = [];
-    const mdEmbeds: TFile[] = [];
-
-    const processLinkpath = (rawPath: string) => {
-        let cleanPath = rawPath.split(/\s+"/)[0].split(/[?#]/)[0].trim();
-
-        if (/^https?:\/\//i.test(cleanPath)) {
-            if (!seen.has(cleanPath)) {
-                seen.add(cleanPath);
-                const ext = cleanPath.split('.').pop()?.toLowerCase() || "";
-                if (supportedMediaExts.has(ext)) {
-                    attachments.push({
-                        name: cleanPath.split('/').pop() || `media.${ext}`,
-                        extension: ext,
-                        getBlob: async () => {
-                            const response = await requestUrl({ url: cleanPath });
-                            return new Blob([response.arrayBuffer]);
-                        }
-                    });
-                }
-            }
-            return;
-        }
-
-        try { cleanPath = decodeURIComponent(cleanPath); } catch (e) {}
-
-        const resolved = app.metadataCache.getFirstLinkpathDest(cleanPath, sourceFile.path);
-        if (resolved instanceof TFile && !seen.has(resolved.path)) {
-            seen.add(resolved.path);
-            if (supportedMediaExts.has(resolved.extension)) {
-                attachments.push({
-                    name: resolved.name,
-                    extension: resolved.extension,
-                    getBlob: async () => new Blob([await app.vault.readBinary(resolved)])
-                });
-            } else if (resolved.extension === "md") {
-                mdEmbeds.push(resolved);
-            }
-        }
-    };
-
-    let m: RegExpExecArray | null;
-    while ((m = wikilinkRegex.exec(body)) !== null) processLinkpath(m[1]);
-    while ((m = mdLinkRegex.exec(body)) !== null) processLinkpath(m[1]);
-    while ((m = reverseMdLinkRegex.exec(body)) !== null) processLinkpath(m[1]);
+    const { attachments, mdEmbeds } = collectMediaFiles(app, body, sourceFile);
 
     const photoAndVideoFiles = attachments.filter(f =>
         ["jpg", "jpeg", "png", "webp"].includes(f.extension) || VIDEO_EXTS.has(f.extension)
@@ -423,12 +447,102 @@ async function sendPartToTelegram(
     return result;
 }
 
+// ─── Account (GramJS) sending ─────────────────────────────────────────────────
+
+// Telegram Desktop api credentials (public, used only for initConnection with existing session)
+const TELEGRAM_API_ID = 2040;
+const TELEGRAM_API_HASH = "b18441a1ff607e10a989891a5462e627";
+
+let cachedClient: TelegramClient | null = null;
+
+async function getClient(session: string): Promise<TelegramClient> {
+    if (cachedClient?.connected) return cachedClient;
+    cachedClient = new TelegramClient(
+        new StringSession(session),
+        TELEGRAM_API_ID,
+        TELEGRAM_API_HASH,
+        { connectionRetries: 3 }
+    );
+    await cachedClient.connect();
+    return cachedClient;
+}
+
+export function disconnectClient() {
+    if (cachedClient) {
+        cachedClient.disconnect();
+        cachedClient = null;
+    }
+}
+
+async function sendPartViaAccount(
+    app: App,
+    body: string,
+    channel: TelegramChannel,
+    session: string,
+    silent: boolean,
+    attachUnderText: boolean,
+    sourceFile: TFile,
+): Promise<SendResult | null> {
+    const text = prepareContentAccount(body);
+    const { attachments } = collectMediaFiles(app, body, sourceFile);
+
+    const client = await getClient(session);
+    const entity = /^-?\d+$/.test(channel.chatId) ? parseInt(channel.chatId) : channel.chatId;
+
+    const photoAndVideoFiles = attachments.filter(f =>
+        ["jpg", "jpeg", "png", "webp"].includes(f.extension) || VIDEO_EXTS.has(f.extension)
+    );
+    const gifFiles = attachments.filter(f => f.extension === "gif");
+    const docFiles = attachments.filter(f => f.extension === "pdf");
+    const allMediaFiles = [...photoAndVideoFiles, ...gifFiles];
+
+    if (allMediaFiles.length > 0 || docFiles.length > 0) {
+        const filesToSend = allMediaFiles.length > 0 ? allMediaFiles : docFiles;
+        const customFiles = await Promise.all(filesToSend.map(async f => {
+            const blob = await f.getBlob();
+            const data = Buffer.from(await blob.arrayBuffer());
+            return new CustomFile(f.name, data.length, "", data);
+        }));
+
+        const forceDocument = allMediaFiles.length === 0;
+        const fileArg = customFiles.length === 1 ? customFiles[0] : customFiles;
+
+        const result = await client.sendMessage(entity, {
+            message: text,
+            parseMode: "md",
+            file: fileArg,
+            forceDocument,
+            silent,
+            invertMedia: attachUnderText,
+        });
+
+        const msg = Array.isArray(result) ? result[0] : result;
+        return {
+            link: buildPostLinkFromChatId(channel.chatId, msg.id),
+            messageId: msg.id,
+        };
+    } else if (text.length > 0) {
+        const result = await client.sendMessage(entity, {
+            message: text,
+            parseMode: "md",
+            silent,
+        });
+        const msg = Array.isArray(result) ? result[0] : result;
+        return {
+            link: buildPostLinkFromChatId(channel.chatId, msg.id),
+            messageId: msg.id,
+        };
+    }
+    return null;
+}
+
 // ─── Public entry point ───────────────────────────────────────────────────────
 
 export async function sendNoteToTelegram(
     app: App,
     file: TFile,
     tg_channel: TelegramChannel,
+    settings: TelegramSettings,
     silent: boolean,
     attachUnderText: boolean,
     treatMdEmbedsAsComments: boolean,
@@ -437,11 +551,13 @@ export async function sendNoteToTelegram(
     const channel = { ...tg_channel, chatId: resolveChatId(tg_channel.chatId) };
     const content = await app.vault.read(file);
     const { body } = extractFrontmatter(content);
-    const formattedContent = prepareContent(body);
 
-    // ── Update Existing Post ──────────────────────────────────────────────────
+    const useAccount = !!settings.telegramSession;
+
+    // ── Update Existing Post (bot API only) ───────────────────────────────────
 
     if (updateLink && updateLink !== "none") {
+        const formattedContent = prepareContent(body);
         const msgIdMatch = updateLink.match(/\/(\d+)\/?$/);
         const messageId = msgIdMatch ? parseInt(msgIdMatch[1], 10) : null;
 
@@ -490,9 +606,9 @@ export async function sendNoteToTelegram(
 
     for (const part of effectiveParts) {
         try {
-            const result = await sendPartToTelegram(
-                app, part, channel, silent, attachUnderText, file, treatMdEmbedsAsComments
-            );
+            const result = useAccount
+                ? await sendPartViaAccount(app, part, channel, settings.telegramSession, silent, attachUnderText, file)
+                : await sendPartViaBotApi(app, part, channel, silent, attachUnderText, file, treatMdEmbedsAsComments);
             if (result) links.push(result.link);
         } catch (err: any) {
             errors.push(err instanceof Error ? err : new Error(String(err)));
