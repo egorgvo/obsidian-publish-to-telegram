@@ -52,6 +52,36 @@ function prepareContent(body: string): string {
     return result;
 }
 
+// Converts markdown-to-telegram's MarkdownV2 output into HTML
+// that GramJS's HTMLParser understands, bypassing GramJS's own
+// broken/incompatible markdown parsers entirely.
+function mdv2ToHtml(text: string): string {
+    return text
+        // code blocks first (must run before inline code)
+        .replace(/```(\w*)\n([\s\S]*?)\n?```/g, (_, _lang, code) => {
+            const esc = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<pre>${esc}</pre>`;
+        })
+        // inline code
+        .replace(/`([^`\n]+)`/g, (_, c) => `<code>${c.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code>`)
+        // spoiler — GramJS HTMLParser uses <spoiler>, not <tg-spoiler>
+        .replace(/\|\|(.+?)\|\|/g, '<spoiler>$1</spoiler>')
+        // bold (*bold* — single asterisk, what markdown-to-telegram outputs)
+        .replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
+        // underline (__text__ — must run before italic to avoid conflict)
+        .replace(/__([^_\n]+)__/g, '<u>$1</u>')
+        // italic (_text_)
+        .replace(/_([^_\n]+)_/g, '<i>$1</i>')
+        // strikethrough (~text~)
+        .replace(/~([^~\n]+)~/g, '<s>$1</s>')
+        // links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+        // blockquote lines (>text with no space — what markdown-to-telegram outputs)
+        .replace(/^>(.+)$/gm, '<blockquote>$1</blockquote>')
+        // unescape MarkdownV2 escape sequences — remove the backslash before punctuation
+        .replace(/\\([_*~`|\\[\](){}#+\-=.!>])/g, '$1');
+}
+
 // ─── Split helpers ────────────────────────────────────────────────────────────
 
 function splitBodyByMarkers(body: string): string[] {
@@ -473,7 +503,8 @@ async function sendPartViaAccount(
     attachUnderText: boolean,
     sourceFile: TFile,
 ): Promise<SendResult | null> {
-    const text = prepareContent(body);
+    const mdv2 = prepareContent(body);
+    const text = mdv2ToHtml(mdv2);           // ← convert to HTML for GramJS
     const { attachments } = collectMediaFiles(app, body, sourceFile);
 
     const client = await getClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
@@ -499,7 +530,7 @@ async function sendPartViaAccount(
 
         const result = await client.sendMessage(entity, {
             message: text,
-            parseMode: "md",
+            parseMode: "html",               // ← was "md"
             file: fileArg,
             forceDocument,
             silent,
@@ -514,7 +545,7 @@ async function sendPartViaAccount(
     } else if (text.length > 0) {
         const result = await client.sendMessage(entity, {
             message: text,
-            parseMode: "md",
+            parseMode: "html",               // ← was "md"
             silent,
         });
         const msg = Array.isArray(result) ? result[0] : result;
