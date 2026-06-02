@@ -1,11 +1,12 @@
 import { Plugin, Notice, TFile, TFolder, Menu } from "obsidian";
 import { t } from "./lang/helpers";
-import { TelegramChannel, TelegramSettings, DEFAULT_SETTINGS } from "./src/types";
+import { TelegramChannel, TelegramSettings, TelegramSecrets, DEFAULT_SETTINGS } from "./src/types";
 import { sendNoteToTelegram, disconnectClient } from "./src/telegram";
 import { FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
 
 export default class SendToTelegramPlugin extends Plugin {
     settings: TelegramSettings;
+    secrets: TelegramSecrets = { telegramSession: "", telegramApiId: 0, telegramApiHash: "" };
 
     private channelCommandIds: string[] = [];
 
@@ -109,7 +110,7 @@ export default class SendToTelegramPlugin extends Plugin {
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string): Promise<void> {
             try {
                 const { links, errors } = await sendNoteToTelegram(
-                    this.app, file, channel, this.settings, silent, attachUnderText,
+                    this.app, file, channel, this.settings, this.secrets, silent, attachUnderText,
                     this.settings.treatMdEmbedsAsComments, updateLink
                 );
 
@@ -149,7 +150,43 @@ export default class SendToTelegramPlugin extends Plugin {
             }
         }
 
-    async loadSettings() { this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()); }
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        // Migrate secrets from data.json to SecretStorage
+        const legacyData = await this.loadData() as any;
+        if (legacyData?.telegramSession) {
+            this.app.secretStorage.setSecret("telegramSession", legacyData.telegramSession);
+            this.app.secretStorage.setSecret("telegramApiId", String(legacyData.telegramApiId || 0));
+            this.app.secretStorage.setSecret("telegramApiHash", legacyData.telegramApiHash || "");
+            delete legacyData.telegramSession;
+            delete legacyData.telegramApiId;
+            delete legacyData.telegramApiHash;
+            await this.saveData(legacyData);
+        }
+        await this.loadSecrets();
+    }
+
+    async loadSecrets() {
+        this.secrets = {
+            telegramSession: this.app.secretStorage.getSecret("telegramSession") ?? "",
+            telegramApiId: Number(this.app.secretStorage.getSecret("telegramApiId") ?? 0),
+            telegramApiHash: this.app.secretStorage.getSecret("telegramApiHash") ?? "",
+        };
+    }
+
+    async saveSecrets() {
+        this.app.secretStorage.setSecret("telegramSession", this.secrets.telegramSession);
+        this.app.secretStorage.setSecret("telegramApiId", String(this.secrets.telegramApiId));
+        this.app.secretStorage.setSecret("telegramApiHash", this.secrets.telegramApiHash);
+    }
+
+    async clearSecrets() {
+        this.secrets = { telegramSession: "", telegramApiId: 0, telegramApiHash: "" };
+        this.app.secretStorage.setSecret("telegramSession", "");
+        this.app.secretStorage.setSecret("telegramApiId", "0");
+        this.app.secretStorage.setSecret("telegramApiHash", "");
+    }
+
     async saveSettings() {
         await this.saveData(this.settings);
         this.syncChannelCommands();

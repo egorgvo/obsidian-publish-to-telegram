@@ -4,7 +4,7 @@ import { convert } from "markdown-to-telegram";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { CustomFile } from "telegram/client/uploads";
-import { TelegramChannel, TelegramSettings } from "./types";
+import { TelegramChannel, TelegramSettings, TelegramSecrets } from "./types";
 
 // ─── Internal result & media types ────────────────────────────────────────────
 
@@ -478,7 +478,7 @@ async function sendPartViaAccount(
     app: App,
     body: string,
     channel: TelegramChannel,
-    settings: TelegramSettings,
+    secrets: TelegramSecrets,
     silent: boolean,
     attachUnderText: boolean,
     sourceFile: TFile,
@@ -486,7 +486,7 @@ async function sendPartViaAccount(
     const text = prepareContentAccount(body);
     const { attachments } = collectMediaFiles(app, body, sourceFile);
 
-    const client = await getClient(settings.telegramSession, settings.telegramApiId, settings.telegramApiHash);
+    const client = await getClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
     const entity = /^-?\d+$/.test(channel.chatId) ? parseInt(channel.chatId) : channel.chatId;
 
     const photoAndVideoFiles = attachments.filter(f =>
@@ -543,6 +543,7 @@ export async function sendNoteToTelegram(
     file: TFile,
     tg_channel: TelegramChannel,
     settings: TelegramSettings,
+    secrets: TelegramSecrets,
     silent: boolean,
     attachUnderText: boolean,
     treatMdEmbedsAsComments: boolean,
@@ -552,7 +553,7 @@ export async function sendNoteToTelegram(
     const content = await app.vault.read(file);
     const { body } = extractFrontmatter(content);
 
-    const useAccount = !!settings.telegramSession;
+    const useAccount = !!secrets.telegramSession;
 
     // ── Update Existing Post (bot API only) ───────────────────────────────────
 
@@ -607,7 +608,7 @@ export async function sendNoteToTelegram(
     for (const part of effectiveParts) {
         try {
             const result = useAccount
-                ? await sendPartViaAccount(app, part, channel, settings, silent, attachUnderText, file)
+                ? await sendPartViaAccount(app, part, channel, secrets, silent, attachUnderText, file)
                 : await sendPartViaBotApi(app, part, channel, silent, attachUnderText, file, treatMdEmbedsAsComments);
             if (result) links.push(result.link);
         } catch (err: any) {

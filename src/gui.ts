@@ -457,7 +457,8 @@ export class AuthModal extends Modal {
     }
 
     private async saveSession(session: string) {
-        this.plugin.settings.telegramSession = session;
+        this.plugin.secrets.telegramSession = session;
+        await this.plugin.saveSecrets();
         this.plugin.settings.telegramDisplayName = this.phone;
         await this.plugin.saveSettings();
         new Notice(t.AUTH_SUCCESS);
@@ -646,10 +647,11 @@ export class LocalAuthModal extends Modal {
     private async saveSession() {
         if (!this.client) return;
         const session = this.client.session.save() as unknown as string;
-        this.plugin.settings.telegramSession = session;
+        this.plugin.secrets.telegramSession = session;
+        this.plugin.secrets.telegramApiId = this.apiId;
+        this.plugin.secrets.telegramApiHash = this.apiHash;
+        await this.plugin.saveSecrets();
         this.plugin.settings.telegramDisplayName = this.phone;
-        this.plugin.settings.telegramApiId = this.apiId;
-        this.plugin.settings.telegramApiHash = this.apiHash;
         await this.plugin.saveSettings();
         new Notice(t.AUTH_SUCCESS);
         this.onSuccess();
@@ -685,17 +687,15 @@ export class TelegramSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        if (this.plugin.settings.telegramSession) {
+        if (this.plugin.secrets.telegramSession) {
             new Setting(containerEl)
                 .setName(t.AUTH_AUTHORIZED_AS.replace("{name}", this.plugin.settings.telegramDisplayName))
                 .addButton(btn => btn
                     .setButtonText(t.AUTH_LOGOUT_BTN)
                     .setWarning()
                     .onClick(async () => {
-                        this.plugin.settings.telegramSession = "";
+                        await this.plugin.clearSecrets();
                         this.plugin.settings.telegramDisplayName = "";
-                        this.plugin.settings.telegramApiId = 0;
-                        this.plugin.settings.telegramApiHash = "";
                         await this.plugin.saveSettings();
                         this.display();
                     }));
