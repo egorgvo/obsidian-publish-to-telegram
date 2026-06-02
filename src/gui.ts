@@ -1,4 +1,7 @@
 import { App, Modal, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent } from "obsidian";
+import { TelegramClient } from "telegram";
+import { StringSession } from "telegram/sessions";
+import { Api } from "telegram";
 import { t } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
 import { fetchConfig, startAuth, verifyAuth, CloudConfig } from "./auth";
@@ -463,6 +466,197 @@ export class AuthModal extends Modal {
     }
 }
 
+// ─── Local Auth Modal ─────────────────────────────────────────────────────
+
+export class LocalAuthModal extends Modal {
+    private plugin: SendToTelegramPlugin;
+    private phone = "";
+    private apiId = 0;
+    private apiHash = "";
+    private client: TelegramClient | null = null;
+    private phoneCodeHash = "";
+    private onSuccess: () => void;
+
+    constructor(app: App, plugin: SendToTelegramPlugin, onSuccess: () => void) {
+        super(app);
+        this.plugin = plugin;
+        this.onSuccess = onSuccess;
+    }
+
+    onOpen() { this.renderPhoneStep(); }
+
+    onClose() {
+        if (this.client) {
+            this.client.disconnect();
+            this.client = null;
+        }
+        this.contentEl.empty();
+    }
+
+    private renderPhoneStep() {
+        const { contentEl, titleEl } = this;
+        contentEl.empty();
+        titleEl.setText(t.AUTH_TITLE);
+
+        let phoneValue = "";
+        let apiIdValue = "";
+        let apiHashValue = "";
+
+        new Setting(contentEl)
+            .setName(t.AUTH_PHONE_NAME)
+            .setDesc(t.AUTH_PHONE_DESC)
+            .addText(text => text
+                .setPlaceholder(t.AUTH_PHONE_PLACEHOLDER)
+                .onChange(v => { phoneValue = v; }));
+
+        new Setting(contentEl)
+            .setName(t.AUTH_LOCAL_API_ID_NAME)
+            .setDesc(t.AUTH_LOCAL_API_ID_DESC)
+            .addText(text => text
+                .setPlaceholder("12345")
+                .onChange(v => { apiIdValue = v; }));
+
+        new Setting(contentEl)
+            .setName(t.AUTH_LOCAL_API_HASH_NAME)
+            .setDesc(t.AUTH_LOCAL_API_HASH_DESC)
+            .addText(text => text
+                .setPlaceholder("0123456789abcdef...")
+                .onChange(v => { apiHashValue = v; }));
+
+        const btnSetting = new Setting(contentEl);
+        btnSetting.addButton(btn => btn
+            .setButtonText(t.AUTH_SEND_CODE_BTN)
+            .setCta()
+            .onClick(async () => {
+                if (!phoneValue.trim() || !apiIdValue.trim() || !apiHashValue.trim()) return;
+                this.phone = phoneValue.trim();
+                this.apiId = Number(apiIdValue.trim());
+                this.apiHash = apiHashValue.trim();
+
+                if (!this.apiId || isNaN(this.apiId)) {
+                    new Notice(t.AUTH_LOCAL_INVALID_API_ID);
+                    return;
+                }
+
+                btn.setDisabled(true);
+                btn.setButtonText(t.AUTH_LOADING);
+                try {
+                    this.client = new TelegramClient(
+                        new StringSession(""),
+                        this.apiId,
+                        this.apiHash,
+                        { connectionRetries: 3, useWSS: true }
+                    );
+                    await this.client.connect();
+                    const result = await this.client.sendCode(
+                        { apiId: this.apiId, apiHash: this.apiHash },
+                        this.phone
+                    );
+                    this.phoneCodeHash = result.phoneCodeHash;
+                    this.renderCodeStep();
+                } catch (err: any) {
+                    btn.setDisabled(false);
+                    btn.setButtonText(t.AUTH_SEND_CODE_BTN);
+                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                }
+            }));
+    }
+
+    private renderCodeStep() {
+        const { contentEl, titleEl } = this;
+        contentEl.empty();
+        titleEl.setText(t.AUTH_TITLE);
+
+        contentEl.createEl("p", { text: t.AUTH_CODE_SENT.replace("{phone}", this.phone) });
+
+        let codeValue = "";
+        new Setting(contentEl)
+            .setName(t.AUTH_CODE_NAME)
+            .addText(text => text
+                .setPlaceholder(t.AUTH_CODE_PLACEHOLDER)
+                .onChange(v => { codeValue = v; }));
+
+        const btnSetting = new Setting(contentEl);
+        btnSetting.addButton(btn => btn
+            .setButtonText(t.AUTH_VERIFY_BTN)
+            .setCta()
+            .onClick(async () => {
+                if (!codeValue.trim() || !this.client) return;
+                btn.setDisabled(true);
+                btn.setButtonText(t.AUTH_LOADING);
+                try {
+                    await this.client.invoke(
+                        new Api.auth.SignIn({
+                            phoneNumber: this.phone,
+                            phoneCodeHash: this.phoneCodeHash,
+                            phoneCode: codeValue.trim(),
+                        })
+                    );
+                    await this.saveSession();
+                } catch (err: any) {
+                    if (err instanceof Error && err.message.includes("SESSION_PASSWORD_NEEDED")) {
+                        this.renderPasswordStep();
+                    } else {
+                        btn.setDisabled(false);
+                        btn.setButtonText(t.AUTH_VERIFY_BTN);
+                        new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                    }
+                }
+            }));
+    }
+
+    private renderPasswordStep() {
+        const { contentEl, titleEl } = this;
+        contentEl.empty();
+        titleEl.setText(t.AUTH_TITLE);
+
+        contentEl.createEl("p", { text: t.AUTH_PASSWORD_REQUIRED });
+
+        let passwordValue = "";
+        new Setting(contentEl)
+            .setName(t.AUTH_PASSWORD_NAME)
+            .addText(text => {
+                text.setPlaceholder(t.AUTH_PASSWORD_PLACEHOLDER)
+                    .onChange(v => { passwordValue = v; });
+                text.inputEl.type = "password";
+            });
+
+        const btnSetting = new Setting(contentEl);
+        btnSetting.addButton(btn => btn
+            .setButtonText(t.AUTH_VERIFY_BTN)
+            .setCta()
+            .onClick(async () => {
+                if (!passwordValue.trim() || !this.client) return;
+                btn.setDisabled(true);
+                btn.setButtonText(t.AUTH_LOADING);
+                try {
+                    await this.client.signInWithPassword(
+                        { apiId: this.apiId, apiHash: this.apiHash },
+                        { password: () => passwordValue.trim() }
+                    );
+                    await this.saveSession();
+                } catch (err: any) {
+                    btn.setDisabled(false);
+                    btn.setButtonText(t.AUTH_VERIFY_BTN);
+                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                }
+            }));
+    }
+
+    private async saveSession() {
+        if (!this.client) return;
+        const session = this.client.session.save() as unknown as string;
+        this.plugin.settings.telegramSession = session;
+        this.plugin.settings.telegramDisplayName = this.phone;
+        this.plugin.settings.telegramApiId = this.apiId;
+        this.plugin.settings.telegramApiHash = this.apiHash;
+        await this.plugin.saveSettings();
+        new Notice(t.AUTH_SUCCESS);
+        this.onSuccess();
+        this.close();
+    }
+}
+
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 export class TelegramSettingTab extends PluginSettingTab {
@@ -500,6 +694,8 @@ export class TelegramSettingTab extends PluginSettingTab {
                     .onClick(async () => {
                         this.plugin.settings.telegramSession = "";
                         this.plugin.settings.telegramDisplayName = "";
+                        this.plugin.settings.telegramApiId = 0;
+                        this.plugin.settings.telegramApiHash = "";
                         await this.plugin.saveSettings();
                         this.display();
                     }));
@@ -515,6 +711,11 @@ export class TelegramSettingTab extends PluginSettingTab {
                             return;
                         }
                         new AuthModal(this.app, this.plugin, () => this.display()).open();
+                    }))
+                .addButton(btn => btn
+                    .setButtonText(t.AUTH_LOCAL_BTN)
+                    .onClick(() => {
+                        new LocalAuthModal(this.app, this.plugin, () => this.display()).open();
                     }));
         }
 

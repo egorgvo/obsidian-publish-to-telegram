@@ -449,19 +449,19 @@ async function sendPartViaBotApi(
 
 // ─── Account (GramJS) sending ─────────────────────────────────────────────────
 
-// Telegram Desktop api credentials (public, used only for initConnection with existing session)
-const TELEGRAM_API_ID = 2040;
-const TELEGRAM_API_HASH = "b18441a1ff607e10a989891a5462e627";
+// Telegram Desktop api credentials (public, used as fallback for initConnection with existing session)
+const DEFAULT_TG_API_ID = 2040;
+const DEFAULT_TG_API_HASH = "b18441a1ff607e10a989891a5462e627";
 
 let cachedClient: TelegramClient | null = null;
 
-async function getClient(session: string): Promise<TelegramClient> {
+async function getClient(session: string, apiId?: number, apiHash?: string): Promise<TelegramClient> {
     if (cachedClient?.connected) return cachedClient;
     cachedClient = new TelegramClient(
         new StringSession(session),
-        TELEGRAM_API_ID,
-        TELEGRAM_API_HASH,
-        { connectionRetries: 3 }
+        apiId || DEFAULT_TG_API_ID,
+        apiHash || DEFAULT_TG_API_HASH,
+        { connectionRetries: 3, useWSS: true }
     );
     await cachedClient.connect();
     return cachedClient;
@@ -478,7 +478,7 @@ async function sendPartViaAccount(
     app: App,
     body: string,
     channel: TelegramChannel,
-    session: string,
+    settings: TelegramSettings,
     silent: boolean,
     attachUnderText: boolean,
     sourceFile: TFile,
@@ -486,7 +486,7 @@ async function sendPartViaAccount(
     const text = prepareContentAccount(body);
     const { attachments } = collectMediaFiles(app, body, sourceFile);
 
-    const client = await getClient(session);
+    const client = await getClient(settings.telegramSession, settings.telegramApiId, settings.telegramApiHash);
     const entity = /^-?\d+$/.test(channel.chatId) ? parseInt(channel.chatId) : channel.chatId;
 
     const photoAndVideoFiles = attachments.filter(f =>
@@ -607,7 +607,7 @@ export async function sendNoteToTelegram(
     for (const part of effectiveParts) {
         try {
             const result = useAccount
-                ? await sendPartViaAccount(app, part, channel, settings.telegramSession, silent, attachUnderText, file)
+                ? await sendPartViaAccount(app, part, channel, settings, silent, attachUnderText, file)
                 : await sendPartViaBotApi(app, part, channel, silent, attachUnderText, file, treatMdEmbedsAsComments);
             if (result) links.push(result.link);
         } catch (err: any) {

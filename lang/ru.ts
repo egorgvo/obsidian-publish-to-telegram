@@ -88,6 +88,12 @@ export default {
     AUTH_SUCCESS: "Успешно авторизован",
     AUTH_ERROR: "Ошибка авторизации",
     AUTH_LOADING: "Подождите...",
+    AUTH_LOCAL_BTN: "Свои API-ключи",
+    AUTH_LOCAL_API_ID_NAME: "API ID",
+    AUTH_LOCAL_API_ID_DESC: "Получите на my.telegram.org",
+    AUTH_LOCAL_API_HASH_NAME: "API Hash",
+    AUTH_LOCAL_API_HASH_DESC: "Получите на my.telegram.org",
+    AUTH_LOCAL_INVALID_API_ID: "Ошибка: API ID должен быть числом.",
 
     FORMATTING_HELP_CONTENT: `
 Данную справку можно вызвать из палитры команд, введя "Publish to Telegram: Открыть справку по использованию".

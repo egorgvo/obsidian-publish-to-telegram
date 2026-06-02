@@ -88,6 +88,12 @@ export default {
     AUTH_SUCCESS: "Successfully authorized",
     AUTH_ERROR: "Authorization error",
     AUTH_LOADING: "Please wait...",
+    AUTH_LOCAL_BTN: "Own API credentials",
+    AUTH_LOCAL_API_ID_NAME: "API ID",
+    AUTH_LOCAL_API_ID_DESC: "Get it at my.telegram.org",
+    AUTH_LOCAL_API_HASH_NAME: "API Hash",
+    AUTH_LOCAL_API_HASH_DESC: "Get it at my.telegram.org",
+    AUTH_LOCAL_INVALID_API_ID: "Error: API ID must be a number.",
 
     FORMATTING_HELP_CONTENT: `
 You can open these instructions from the command palette by typing "Publish to Telegram: Open usage instructions".

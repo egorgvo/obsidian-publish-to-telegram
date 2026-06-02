@@ -13,6 +13,8 @@ export interface TelegramSettings {
     configUrl: string;
     telegramSession: string;
     telegramDisplayName: string;
+    telegramApiId: number;
+    telegramApiHash: string;
 }
 
 export const DEFAULT_SETTINGS: TelegramSettings = {
@@ -22,4 +24,6 @@ export const DEFAULT_SETTINGS: TelegramSettings = {
     configUrl: "https://functions.yandexcloud.net/d4es24t8ce9jesmb38qd",
     telegramSession: "",
     telegramDisplayName: "",
+    telegramApiId: 0,
+    telegramApiHash: "",
 }
