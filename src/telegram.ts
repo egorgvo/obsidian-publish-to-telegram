@@ -532,27 +532,19 @@ async function sendPartViaBotApi(
 const DEFAULT_TG_API_ID = 2040;
 const DEFAULT_TG_API_HASH = "b18441a1ff607e10a989891a5462e627";
 
-let cachedClient: TelegramClient | null = null;
-
-async function getClient(session: string, apiId?: number, apiHash?: string): Promise<TelegramClient> {
-    if (cachedClient?.connected) return cachedClient;
+async function createClient(session: string, apiId?: number, apiHash?: string): Promise<TelegramClient> {
     const isLocalAuth = !!apiId;
-    cachedClient = new TelegramClient(
+    const client = new TelegramClient(
         new StringSession(session),
         apiId || DEFAULT_TG_API_ID,
         apiHash || DEFAULT_TG_API_HASH,
         { connectionRetries: 5, timeout: 60, ...(isLocalAuth && { useWSS: true }) }
     );
-    await cachedClient.connect();
-    return cachedClient;
+    client.setLogLevel("none" as any);
+    await client.connect();
+    return client;
 }
 
-export function disconnectClient() {
-    if (cachedClient) {
-        cachedClient.disconnect();
-        cachedClient = null;
-    }
-}
 
 async function sendPartViaAccount(
     app: App,
@@ -566,7 +558,8 @@ async function sendPartViaAccount(
     const text = mdToTelegramHtml(body);
     const { attachments } = collectMediaFiles(app, body, sourceFile);
 
-    const client = await getClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
+    const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
+    try {
     const entity = /^-?\d+$/.test(channel.chatId) ? parseInt(channel.chatId) : channel.chatId;
 
     const photoAndVideoFiles = attachments.filter(f =>
@@ -589,7 +582,7 @@ async function sendPartViaAccount(
 
         const result = await client.sendMessage(entity, {
             message: text,
-            parseMode: "html",               // ← was "md"
+            parseMode: "html",
             file: fileArg,
             forceDocument,
             silent,
@@ -604,7 +597,7 @@ async function sendPartViaAccount(
     } else if (text.length > 0) {
         const result = await client.sendMessage(entity, {
             message: text,
-            parseMode: "html",               // ← was "md"
+            parseMode: "html",
             silent,
         });
         const msg = Array.isArray(result) ? result[0] : result;
@@ -614,6 +607,9 @@ async function sendPartViaAccount(
         };
     }
     return null;
+    } finally {
+        await client.destroy();
+    }
 }
 
 // ─── Public entry point ───────────────────────────────────────────────────────

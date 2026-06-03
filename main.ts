@@ -1,7 +1,7 @@
 import { Plugin, Notice, TFile, TFolder, Menu } from "obsidian";
 import { t } from "./lang/helpers";
 import { TelegramChannel, TelegramSettings, TelegramSecrets, DEFAULT_SETTINGS } from "./src/types";
-import { sendNoteToTelegram, disconnectClient } from "./src/telegram";
+import { sendNoteToTelegram } from "./src/telegram";
 import { FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
 
 export default class SendToTelegramPlugin extends Plugin {
@@ -9,8 +9,6 @@ export default class SendToTelegramPlugin extends Plugin {
     secrets: TelegramSecrets = { telegramSession: "", telegramApiId: 0, telegramApiHash: "" };
 
     private channelCommandIds: string[] = [];
-
-    onunload() { disconnectClient(); }
 
     async onload(): Promise<void> {
         await this.loadSettings();
