@@ -1,11 +1,12 @@
 import { Plugin, Notice, TFile, TFolder, Menu } from "obsidian";
 import { t } from "./lang/helpers";
-import { TelegramChannel, TelegramSettings, DEFAULT_SETTINGS } from "./src/types";
+import { TelegramChannel, TelegramSettings, TelegramSecrets, DEFAULT_SETTINGS } from "./src/types";
 import { sendNoteToTelegram } from "./src/telegram";
 import { FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
 
 export default class SendToTelegramPlugin extends Plugin {
     settings: TelegramSettings;
+    secrets: TelegramSecrets = { telegramSession: "", telegramApiId: 0, telegramApiHash: "" };
 
     private channelCommandIds: string[] = [];
 
@@ -107,7 +108,7 @@ export default class SendToTelegramPlugin extends Plugin {
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string): Promise<void> {
             try {
                 const { links, errors } = await sendNoteToTelegram(
-                    this.app, file, channel, silent, attachUnderText,
+                    this.app, file, channel, this.settings, this.secrets, silent, attachUnderText,
                     this.settings.treatMdEmbedsAsComments, updateLink
                 );
 
@@ -123,31 +124,67 @@ export default class SendToTelegramPlugin extends Plugin {
                 }
 
                 for (const err of errors) {
-                    const msg: string = err.message ?? "";
-                    if (msg.includes("message is too long")) {
+                    const msg: string = (err.message ?? "").toUpperCase();
+                    if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
                         new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
-                    } else if (msg.includes("caption is too long")) {
+                    } else if (msg.includes("MEDIA_CAPTION_TOO_LONG") || msg.includes("CAPTION IS TOO LONG")) {
                         new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
                     } else {
-                        new Notice(`${t.NOTICE_ERR_SEND}${msg}`);
+                        new Notice(`${t.NOTICE_ERR_SEND}${err.message ?? ""}`);
                     }
                 }
 
                 if (errors.length === 0) new Notice(t.NOTICE_SUCCESS);
 
             } catch (err: any) {
-                const msg: string = err.message ?? "";
-                if (msg.includes("message is too long")) {
+                const msg: string = (err.message ?? "").toUpperCase();
+                if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
                     new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
-                } else if (msg.includes("caption is too long")) {
+                } else if (msg.includes("MEDIA_CAPTION_TOO_LONG") || msg.includes("CAPTION IS TOO LONG")) {
                     new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
                 } else {
-                    new Notice(`${t.NOTICE_ERR_SEND}${msg}`);
+                    new Notice(`${t.NOTICE_ERR_SEND}${err.message ?? ""}`);
                 }
             }
         }
 
-    async loadSettings() { this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()); }
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        // Migrate secrets from data.json to SecretStorage
+        const legacyData = await this.loadData() as any;
+        if (legacyData?.telegramSession) {
+            await this.app.secretStorage.setSecret("telegram-session", legacyData.telegramSession);
+            await this.app.secretStorage.setSecret("telegram-api-id", String(legacyData.telegramApiId || 0));
+            await this.app.secretStorage.setSecret("telegram-api-hash", legacyData.telegramApiHash || "");
+            delete legacyData.telegramSession;
+            delete legacyData.telegramApiId;
+            delete legacyData.telegramApiHash;
+            await this.saveData(legacyData);
+        }
+        await this.loadSecrets();
+    }
+
+    async loadSecrets() {
+        this.secrets = {
+            telegramSession: await this.app.secretStorage.getSecret("telegram-session") ?? "",
+            telegramApiId: Number(await this.app.secretStorage.getSecret("telegram-api-id") ?? 0),
+            telegramApiHash: await this.app.secretStorage.getSecret("telegram-api-hash") ?? "",
+        };
+    }
+
+    async saveSecrets() {
+        await this.app.secretStorage.setSecret("telegram-session", this.secrets.telegramSession);
+        await this.app.secretStorage.setSecret("telegram-api-id", String(this.secrets.telegramApiId));
+        await this.app.secretStorage.setSecret("telegram-api-hash", this.secrets.telegramApiHash);
+    }
+
+    async clearSecrets() {
+        this.secrets = { telegramSession: "", telegramApiId: 0, telegramApiHash: "" };
+        await this.app.secretStorage.setSecret("telegram-session", "");
+        await this.app.secretStorage.setSecret("telegram-api-id", "0");
+        await this.app.secretStorage.setSecret("telegram-api-hash", "");
+    }
+
     async saveSettings() {
         await this.saveData(this.settings);
         this.syncChannelCommands();

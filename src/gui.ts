@@ -1,6 +1,10 @@
 import { App, Modal, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent } from "obsidian";
+import { TelegramClient } from "telegram";
+import { StringSession } from "telegram/sessions";
+import { Api } from "telegram";
 import { t } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
+import { fetchConfig, startAuth, verifyAuth, CloudConfig } from "./auth";
 import { TelegramChannel } from "./types";
 
 // ─── Channel resolution helpers ───────────────────────────────────────────────
@@ -306,6 +310,355 @@ export class MultiPresetModal extends Modal {
     onClose() { this.contentEl.empty(); }
 }
 
+// ─── Auth Modal ──────────────────────────────────────────────────────────────
+
+export class AuthModal extends Modal {
+    private plugin: SendToTelegramPlugin;
+    private phone = "";
+    private userId = "";
+    private config: CloudConfig | null = null;
+    private onSuccess: () => void;
+
+    constructor(app: App, plugin: SendToTelegramPlugin, onSuccess: () => void) {
+        super(app);
+        this.plugin = plugin;
+        this.onSuccess = onSuccess;
+        this.userId = crypto.randomUUID();
+    }
+
+    onOpen() { this.renderPhoneStep(); }
+    onClose() { this.contentEl.empty(); }
+
+    private renderPhoneStep() {
+        const { contentEl, titleEl } = this;
+        contentEl.empty();
+        titleEl.setText(t.AUTH_TITLE);
+
+        let phoneValue = "";
+        new Setting(contentEl)
+            .setName(t.AUTH_PHONE_NAME)
+            .setDesc(t.AUTH_PHONE_DESC)
+            .addText(text => text
+                .setPlaceholder(t.AUTH_PHONE_PLACEHOLDER)
+                .onChange(v => { phoneValue = v; }));
+
+        const btnSetting = new Setting(contentEl);
+        btnSetting.addButton(btn => btn
+            .setButtonText(t.AUTH_SEND_CODE_BTN)
+            .setCta()
+            .onClick(async () => {
+                if (!phoneValue.trim()) return;
+                this.phone = phoneValue.trim();
+                btn.setDisabled(true);
+                btn.setButtonText(t.AUTH_LOADING);
+                try {
+                    this.config = await fetchConfig(
+                        this.plugin.settings.configUrl,
+                        this.plugin.manifest.version
+                    );
+                    await startAuth(
+                        this.config.auth_start_url,
+                        this.phone,
+                        this.userId,
+                        this.plugin.manifest.version
+                    );
+                    this.renderCodeStep();
+                } catch (err: any) {
+                    btn.setDisabled(false);
+                    btn.setButtonText(t.AUTH_SEND_CODE_BTN);
+                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                }
+            }));
+    }
+
+    private renderCodeStep() {
+        const { contentEl, titleEl } = this;
+        contentEl.empty();
+        titleEl.setText(t.AUTH_TITLE);
+
+        contentEl.createEl("p", { text: t.AUTH_CODE_SENT.replace("{phone}", this.phone) });
+
+        let codeValue = "";
+        new Setting(contentEl)
+            .setName(t.AUTH_CODE_NAME)
+            .addText(text => text
+                .setPlaceholder(t.AUTH_CODE_PLACEHOLDER)
+                .onChange(v => { codeValue = v; }));
+
+        const btnSetting = new Setting(contentEl);
+        btnSetting.addButton(btn => btn
+            .setButtonText(t.AUTH_VERIFY_BTN)
+            .setCta()
+            .onClick(async () => {
+                if (!codeValue.trim()) return;
+                btn.setDisabled(true);
+                btn.setButtonText(t.AUTH_LOADING);
+                try {
+                    const result = await verifyAuth(
+                        this.config!.auth_verify_url,
+                        this.userId,
+                        this.plugin.manifest.version,
+                        codeValue.trim()
+                    );
+                    if (result.session) {
+                        await this.saveSession(result.session);
+                    } else if (result.reason === "password_required") {
+                        this.renderPasswordStep();
+                    }
+                } catch (err: any) {
+                    btn.setDisabled(false);
+                    btn.setButtonText(t.AUTH_VERIFY_BTN);
+                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                }
+            }));
+    }
+
+    private renderPasswordStep() {
+        const { contentEl, titleEl } = this;
+        contentEl.empty();
+        titleEl.setText(t.AUTH_TITLE);
+
+        contentEl.createEl("p", { text: t.AUTH_PASSWORD_REQUIRED });
+
+        let passwordValue = "";
+        new Setting(contentEl)
+            .setName(t.AUTH_PASSWORD_NAME)
+            .addText(text => {
+                text.setPlaceholder(t.AUTH_PASSWORD_PLACEHOLDER)
+                    .onChange(v => { passwordValue = v; });
+                text.inputEl.type = "password";
+            });
+
+        const btnSetting = new Setting(contentEl);
+        btnSetting.addButton(btn => btn
+            .setButtonText(t.AUTH_VERIFY_BTN)
+            .setCta()
+            .onClick(async () => {
+                if (!passwordValue.trim()) return;
+                btn.setDisabled(true);
+                btn.setButtonText(t.AUTH_LOADING);
+                try {
+                    const result = await verifyAuth(
+                        this.config!.auth_verify_url,
+                        this.userId,
+                        this.plugin.manifest.version,
+                        undefined,
+                        passwordValue.trim()
+                    );
+                    if (result.session) {
+                        await this.saveSession(result.session);
+                    }
+                } catch (err: any) {
+                    btn.setDisabled(false);
+                    btn.setButtonText(t.AUTH_VERIFY_BTN);
+                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                }
+            }));
+    }
+
+    private async saveSession(session: string) {
+        this.plugin.secrets.telegramSession = session;
+        await this.plugin.saveSecrets();
+        this.plugin.settings.telegramDisplayName = this.phone;
+        await this.plugin.saveSettings();
+        new Notice(t.AUTH_SUCCESS);
+        this.onSuccess();
+        this.close();
+    }
+}
+
+// ─── Local Auth Modal ─────────────────────────────────────────────────────
+
+export class LocalAuthModal extends Modal {
+    private plugin: SendToTelegramPlugin;
+    private phone = "";
+    private apiId = 0;
+    private apiHash = "";
+    private client: TelegramClient | null = null;
+    private phoneCodeHash = "";
+    private onSuccess: () => void;
+
+    constructor(app: App, plugin: SendToTelegramPlugin, onSuccess: () => void) {
+        super(app);
+        this.plugin = plugin;
+        this.onSuccess = onSuccess;
+    }
+
+    onOpen() { this.renderPhoneStep(); }
+
+    onClose() {
+        if (this.client) {
+            this.client.disconnect();
+            this.client = null;
+        }
+        this.contentEl.empty();
+    }
+
+    private renderPhoneStep() {
+        const { contentEl, titleEl } = this;
+        contentEl.empty();
+        titleEl.setText(t.AUTH_TITLE);
+
+        let phoneValue = "";
+        let apiIdValue = "";
+        let apiHashValue = "";
+
+        new Setting(contentEl)
+            .setName(t.AUTH_PHONE_NAME)
+            .setDesc(t.AUTH_PHONE_DESC)
+            .addText(text => text
+                .setPlaceholder(t.AUTH_PHONE_PLACEHOLDER)
+                .onChange(v => { phoneValue = v; }));
+
+        new Setting(contentEl)
+            .setName(t.AUTH_LOCAL_API_ID_NAME)
+            .setDesc(t.AUTH_LOCAL_API_ID_DESC)
+            .addText(text => text
+                .setPlaceholder("12345")
+                .onChange(v => { apiIdValue = v; }));
+
+        new Setting(contentEl)
+            .setName(t.AUTH_LOCAL_API_HASH_NAME)
+            .setDesc(t.AUTH_LOCAL_API_HASH_DESC)
+            .addText(text => text
+                .setPlaceholder("0123456789abcdef...")
+                .onChange(v => { apiHashValue = v; }));
+
+        const btnSetting = new Setting(contentEl);
+        btnSetting.addButton(btn => btn
+            .setButtonText(t.AUTH_SEND_CODE_BTN)
+            .setCta()
+            .onClick(async () => {
+                if (!phoneValue.trim() || !apiIdValue.trim() || !apiHashValue.trim()) return;
+                this.phone = phoneValue.trim();
+                this.apiId = Number(apiIdValue.trim());
+                this.apiHash = apiHashValue.trim();
+
+                if (!this.apiId || isNaN(this.apiId)) {
+                    new Notice(t.AUTH_LOCAL_INVALID_API_ID);
+                    return;
+                }
+
+                btn.setDisabled(true);
+                btn.setButtonText(t.AUTH_LOADING);
+                try {
+                    this.client = new TelegramClient(
+                        new StringSession(""),
+                        this.apiId,
+                        this.apiHash,
+                        { connectionRetries: 3, useWSS: true }
+                    );
+                    await this.client.connect();
+                    const result = await this.client.sendCode(
+                        { apiId: this.apiId, apiHash: this.apiHash },
+                        this.phone
+                    );
+                    this.phoneCodeHash = result.phoneCodeHash;
+                    this.renderCodeStep();
+                } catch (err: any) {
+                    btn.setDisabled(false);
+                    btn.setButtonText(t.AUTH_SEND_CODE_BTN);
+                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                }
+            }));
+    }
+
+    private renderCodeStep() {
+        const { contentEl, titleEl } = this;
+        contentEl.empty();
+        titleEl.setText(t.AUTH_TITLE);
+
+        contentEl.createEl("p", { text: t.AUTH_CODE_SENT.replace("{phone}", this.phone) });
+
+        let codeValue = "";
+        new Setting(contentEl)
+            .setName(t.AUTH_CODE_NAME)
+            .addText(text => text
+                .setPlaceholder(t.AUTH_CODE_PLACEHOLDER)
+                .onChange(v => { codeValue = v; }));
+
+        const btnSetting = new Setting(contentEl);
+        btnSetting.addButton(btn => btn
+            .setButtonText(t.AUTH_VERIFY_BTN)
+            .setCta()
+            .onClick(async () => {
+                if (!codeValue.trim() || !this.client) return;
+                btn.setDisabled(true);
+                btn.setButtonText(t.AUTH_LOADING);
+                try {
+                    await this.client.invoke(
+                        new Api.auth.SignIn({
+                            phoneNumber: this.phone,
+                            phoneCodeHash: this.phoneCodeHash,
+                            phoneCode: codeValue.trim(),
+                        })
+                    );
+                    await this.saveSession();
+                } catch (err: any) {
+                    if (err instanceof Error && err.message.includes("SESSION_PASSWORD_NEEDED")) {
+                        this.renderPasswordStep();
+                    } else {
+                        btn.setDisabled(false);
+                        btn.setButtonText(t.AUTH_VERIFY_BTN);
+                        new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                    }
+                }
+            }));
+    }
+
+    private renderPasswordStep() {
+        const { contentEl, titleEl } = this;
+        contentEl.empty();
+        titleEl.setText(t.AUTH_TITLE);
+
+        contentEl.createEl("p", { text: t.AUTH_PASSWORD_REQUIRED });
+
+        let passwordValue = "";
+        new Setting(contentEl)
+            .setName(t.AUTH_PASSWORD_NAME)
+            .addText(text => {
+                text.setPlaceholder(t.AUTH_PASSWORD_PLACEHOLDER)
+                    .onChange(v => { passwordValue = v; });
+                text.inputEl.type = "password";
+            });
+
+        const btnSetting = new Setting(contentEl);
+        btnSetting.addButton(btn => btn
+            .setButtonText(t.AUTH_VERIFY_BTN)
+            .setCta()
+            .onClick(async () => {
+                if (!passwordValue.trim() || !this.client) return;
+                btn.setDisabled(true);
+                btn.setButtonText(t.AUTH_LOADING);
+                try {
+                    await this.client.signInWithPassword(
+                        { apiId: this.apiId, apiHash: this.apiHash },
+                        { password: () => passwordValue.trim() }
+                    );
+                    await this.saveSession();
+                } catch (err: any) {
+                    btn.setDisabled(false);
+                    btn.setButtonText(t.AUTH_VERIFY_BTN);
+                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                }
+            }));
+    }
+
+    private async saveSession() {
+        if (!this.client) return;
+        const session = this.client.session.save() as unknown as string;
+        this.plugin.secrets.telegramSession = session;
+        this.plugin.secrets.telegramApiId = this.apiId;
+        this.plugin.secrets.telegramApiHash = this.apiHash;
+        await this.plugin.saveSecrets();
+        this.plugin.settings.telegramDisplayName = this.phone;
+        await this.plugin.saveSettings();
+        new Notice(t.AUTH_SUCCESS);
+        this.onSuccess();
+        this.close();
+    }
+}
+
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 export class TelegramSettingTab extends PluginSettingTab {
@@ -320,6 +673,53 @@ export class TelegramSettingTab extends PluginSettingTab {
 
         containerEl.createEl("p", { text: t.SETTING_DESCRIPTION, cls: "telegram-plugin-description" });
 
+        // ── Telegram Account Auth ──
+        new Setting(containerEl).setHeading().setName(t.AUTH_SECTION_HEADER);
+
+        new Setting(containerEl)
+            .setName(t.AUTH_CONFIG_URL_NAME)
+            .setDesc(t.AUTH_CONFIG_URL_DESC)
+            .addText(text => text
+                .setPlaceholder(t.AUTH_CONFIG_URL_PLACEHOLDER)
+                .setValue(this.plugin.settings.configUrl)
+                .onChange(async v => {
+                    this.plugin.settings.configUrl = v;
+                    await this.plugin.saveSettings();
+                }));
+
+        if (this.plugin.secrets.telegramSession) {
+            new Setting(containerEl)
+                .setName(t.AUTH_AUTHORIZED_AS.replace("{name}", this.plugin.settings.telegramDisplayName))
+                .addButton(btn => btn
+                    .setButtonText(t.AUTH_LOGOUT_BTN)
+                    .setWarning()
+                    .onClick(async () => {
+                        await this.plugin.clearSecrets();
+                        this.plugin.settings.telegramDisplayName = "";
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }));
+        } else {
+            new Setting(containerEl)
+                .setName(t.AUTH_NOT_AUTHORIZED)
+                .addButton(btn => btn
+                    .setButtonText(t.AUTH_AUTHORIZE_BTN)
+                    .setCta()
+                    .onClick(() => {
+                        if (!this.plugin.settings.configUrl) {
+                            new Notice(t.AUTH_NO_CONFIG_URL);
+                            return;
+                        }
+                        new AuthModal(this.app, this.plugin, () => this.display()).open();
+                    }))
+                .addButton(btn => btn
+                    .setButtonText(t.AUTH_LOCAL_BTN)
+                    .onClick(() => {
+                        new LocalAuthModal(this.app, this.plugin, () => this.display()).open();
+                    }));
+        }
+
+        // ── Channels ──
         const addSection = containerEl.createDiv("telegram-add-preset-section");
         const infoDiv = addSection.createDiv("telegram-add-preset-info");
         infoDiv.createEl("div", { text: t.SETTING_ADD_CHANNEL_NAME, cls: "telegram-add-preset-title" });
