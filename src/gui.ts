@@ -110,6 +110,7 @@ export class MultiPresetModal extends Modal {
 
     private silentToggle: ToggleComponent;
     private attachToggle: ToggleComponent;
+    private scheduleInput: HTMLInputElement | null = null;
     private updateLinkDropdown: DropdownComponent | null = null;
     private updateChannelHintEl: HTMLElement | null = null;
     private updateNameDescEl: HTMLElement | null = null;
@@ -222,6 +223,13 @@ export class MultiPresetModal extends Modal {
         this.attachToggle = new ToggleComponent(attachOptionEl.createDiv("telegram-option-control"))
             .setValue(false);
 
+        const scheduleOptionEl = contentEl.createDiv("telegram-option-item");
+        const scheduleTextEl = scheduleOptionEl.createDiv("telegram-option-text");
+        scheduleTextEl.createDiv({ text: t.MULTI_PRESET_SCHEDULE_NAME, cls: "telegram-option-name" });
+        scheduleTextEl.createDiv({ text: t.MULTI_PRESET_SCHEDULE_DESC, cls: "telegram-option-desc" });
+        this.scheduleInput = scheduleOptionEl.createDiv("telegram-option-control").createEl("input", { cls: "telegram-schedule-input" });
+        this.scheduleInput.type = "datetime-local";
+
         // ─── Update Existing Post Section ─────────────────────────────────────────────
 
         contentEl.createDiv({
@@ -282,6 +290,11 @@ export class MultiPresetModal extends Modal {
                 const attachUnderText = this.attachToggle?.getValue() ?? false;
                 const updateLink = isUpdating ? updateLinkRaw : undefined;
 
+                let scheduleDate: Date | undefined;
+                if (this.scheduleInput?.value) {
+                    scheduleDate = new Date(this.scheduleInput.value);
+                }
+
                 let channelsToPost: TelegramChannel[] = [];
 
                 if (isUpdating) {
@@ -300,7 +313,7 @@ export class MultiPresetModal extends Modal {
                 this.close();
 
                 for (const channel of channelsToPost) {
-                    await (this.plugin as any).sendNoteToTelegram(this.file, channel, silent, attachUnderText, updateLink);
+                    await (this.plugin as any).sendNoteToTelegram(this.file, channel, silent, attachUnderText, updateLink, scheduleDate);
                 }
             });
     }

@@ -1,6 +1,7 @@
 export default {
     MENU_TITLE: "Опубликовать в Telegram",
     NOTICE_SUCCESS: "Успешно опубликовано ✅",
+    NOTICE_SCHEDULED: "Публикация запланирована ✅",
     NOTICE_ERR_CONFIG: "Ошибка: Настройте хотя бы один пресет.",
     NOTICE_ERR_SEND: "Ошибка отправки: ",
     NOTICE_ERR_TOO_LONG_TEXT: "Ошибка: Пост должен быть менее 4097 символов.",
@@ -40,6 +41,8 @@ export default {
     MULTI_PRESET_SILENT_POST_DESC: "Подписчики получат уведомление без звука",
     MULTI_PRESET_ATTACHMENTS_NAME: "Вложения под текстом",
     MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикреплёнными медиафайлами",
+    MULTI_PRESET_SCHEDULE_NAME: "Запланировать публикацию",
+    MULTI_PRESET_SCHEDULE_DESC: "Оставьте пустым для немедленной публикации",
     MULTI_PRESET_UPDATE_HEADING: "Отредактировать пост",
     MULTI_PRESET_UPDATE_NAME: "Обновить существующий пост",
     MULTI_PRESET_UPDATE_NAME_DESC: "Ссылки хранятся в свойстве telegram_links",

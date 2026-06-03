@@ -1,6 +1,7 @@
 export default {
     MENU_TITLE: "Publish to Telegram",
     NOTICE_SUCCESS: "Successfully published ✅",
+    NOTICE_SCHEDULED: "Post scheduled ✅",
     NOTICE_ERR_CONFIG: "Error: Set up at least one preset.",
     NOTICE_ERR_SEND: "Publishing error: ",
     NOTICE_ERR_TOO_LONG_TEXT: "Error: Post must be less than 4097 symbols.",
@@ -40,6 +41,8 @@ export default {
     MULTI_PRESET_SILENT_POST_DESC: "Subscribers will receive a notification without sound",
     MULTI_PRESET_ATTACHMENTS_NAME: "Attachments below the text",
     MULTI_PRESET_ATTACHMENTS_DESC: "Display post text above the attached media files",
+    MULTI_PRESET_SCHEDULE_NAME: "Schedule the post",
+    MULTI_PRESET_SCHEDULE_DESC: "Leave empty to publish immediately",
     MULTI_PRESET_UPDATE_HEADING: "Edit post",
     MULTI_PRESET_UPDATE_NAME: "Update existing post",
     MULTI_PRESET_UPDATE_NAME_DESC: "Links are stored in the telegram_links property",

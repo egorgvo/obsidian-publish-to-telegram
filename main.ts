@@ -105,14 +105,14 @@ export default class SendToTelegramPlugin extends Plugin {
         });
     }
 
-    async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string): Promise<void> {
+    async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string, scheduleDate?: Date): Promise<void> {
             try {
                 const { links, errors } = await sendNoteToTelegram(
                     this.app, file, channel, this.settings, this.secrets, silent, attachUnderText,
-                    this.settings.treatMdEmbedsAsComments, updateLink
+                    this.settings.treatMdEmbedsAsComments, updateLink, scheduleDate
                 );
 
-                if (this.settings.savePostLinks && links.length > 0) {
+                if (this.settings.savePostLinks && links.length > 0 && !scheduleDate) {
                     await this.app.fileManager.processFrontMatter(file, (fm) => {
                         if (!Array.isArray(fm.telegram_links)) fm.telegram_links = [];
                         for (const link of links) {
@@ -134,7 +134,7 @@ export default class SendToTelegramPlugin extends Plugin {
                     }
                 }
 
-                if (errors.length === 0) new Notice(t.NOTICE_SUCCESS);
+                if (errors.length === 0) new Notice(scheduleDate ? t.NOTICE_SCHEDULED : t.NOTICE_SUCCESS);
 
             } catch (err: any) {
                 const msg: string = (err.message ?? "").toUpperCase();

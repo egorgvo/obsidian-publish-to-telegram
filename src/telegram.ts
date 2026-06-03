@@ -319,6 +319,7 @@ async function sendMediaRaw(
     forceDocument: boolean,
     silent: boolean,
     invertMedia: boolean,
+    scheduleDate?: number,
 ): Promise<number> {
     const peer = await client.getInputEntity(entity);
     const [caption, msgEntities] = await _parseMessageText(client, text, "html");
@@ -340,6 +341,7 @@ async function sendMediaRaw(
             entities: msgEntities,
             silent,
             invertMedia,
+            scheduleDate,
         });
         const apiResult = await client.invoke(req);
         const msg = (client as any)._getResponseMessage(req, apiResult, peer);
@@ -379,6 +381,7 @@ async function sendMediaRaw(
         multiMedia: albumItems,
         silent,
         invertMedia,
+        scheduleDate,
     });
     const apiResult = await client.invoke(req);
     const randomIds = albumItems.map(m => (m as any).randomId);
@@ -396,9 +399,11 @@ async function sendPartViaAccount(
     attachUnderText: boolean,
     sourceFile: TFile,
     treatMdEmbedsAsComments: boolean,
+    scheduleDate?: Date,
 ): Promise<SendResult | null> {
     const text = mdToTelegramHtml(body);
     const { attachments, mdEmbeds } = collectMediaFiles(app, body, sourceFile);
+    const scheduleDateUnix = scheduleDate ? Math.floor(scheduleDate.getTime() / 1000) : undefined;
 
     const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
     try {
@@ -420,7 +425,7 @@ async function sendPartViaAccount(
                 const data = Buffer.from(await blob.arrayBuffer());
                 return new CustomFile(f.name, data.length, "", data);
             }));
-            const msgId = await sendMediaRaw(client, entity, customFiles, text, false, silent, attachUnderText);
+            const msgId = await sendMediaRaw(client, entity, customFiles, text, false, silent, attachUnderText, scheduleDateUnix);
             result = { link: buildPostLinkFromChatId(channel.chatId, msgId), messageId: msgId };
             captionConsumed = true;
         }
@@ -432,7 +437,7 @@ async function sendPartViaAccount(
             const customFile = new CustomFile(gif.name, data.length, "", data);
             const caption = captionConsumed ? "" : text;
             const msgId = await sendMediaRaw(client, entity, [customFile], caption, false, silent,
-                !captionConsumed && attachUnderText);
+                !captionConsumed && attachUnderText, scheduleDateUnix);
             if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msgId), messageId: msgId };
             captionConsumed = true;
         }
@@ -446,7 +451,7 @@ async function sendPartViaAccount(
             }));
             const caption = captionConsumed ? "" : text;
             const msgId = await sendMediaRaw(client, entity, customFiles, caption, true, silent,
-                !captionConsumed && attachUnderText);
+                !captionConsumed && attachUnderText, scheduleDateUnix);
             if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msgId), messageId: msgId };
             captionConsumed = true;
         }
@@ -456,12 +461,13 @@ async function sendPartViaAccount(
                 message: text,
                 parseMode: "html",
                 silent,
+                schedule: scheduleDateUnix,
             });
             const msg = Array.isArray(sent) ? sent[0] : sent;
             result = { link: buildPostLinkFromChatId(channel.chatId, msg.id), messageId: msg.id };
         }
 
-        if (treatMdEmbedsAsComments && result && mdEmbeds.length > 0) {
+        if (treatMdEmbedsAsComments && result && mdEmbeds.length > 0 && !scheduleDate) {
             for (const mdFile of mdEmbeds) {
                 const mdContent = await app.vault.read(mdFile);
                 const { body: mdBody } = extractFrontmatter(mdContent);
@@ -488,7 +494,8 @@ export async function sendNoteToTelegram(
     silent: boolean,
     attachUnderText: boolean,
     treatMdEmbedsAsComments: boolean,
-    updateLink?: string
+    updateLink?: string,
+    scheduleDate?: Date,
 ): Promise<{ links: string[]; errors: Error[] }> {
     const channel = { ...tg_channel, chatId: resolveChatId(tg_channel.chatId) };
     const content = await app.vault.read(file);
@@ -527,7 +534,7 @@ export async function sendNoteToTelegram(
 
     for (const part of effectiveParts) {
         try {
-            const result = await sendPartViaAccount(app, part, channel, secrets, silent, attachUnderText, file, treatMdEmbedsAsComments);
+            const result = await sendPartViaAccount(app, part, channel, secrets, silent, attachUnderText, file, treatMdEmbedsAsComments, scheduleDate);
             if (result) links.push(result.link);
         } catch (err: any) {
             errors.push(err instanceof Error ? err : new Error(String(err)));

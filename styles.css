@@ -216,6 +216,18 @@ body .telegram-delete-button:hover {
     margin-top: 16px;
 }
 
+input.telegram-schedule-input {
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--input-radius);
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    padding: 4px 8px;
+    font-size: var(--font-ui-smaller);
+    height: 32px;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
 /* Formatting Help Modal */
 
 .telegram-formatting-help-modal {
