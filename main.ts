@@ -124,26 +124,26 @@ export default class SendToTelegramPlugin extends Plugin {
                 }
 
                 for (const err of errors) {
-                    const msg: string = err.message ?? "";
-                    if (msg.includes("message is too long")) {
+                    const msg: string = (err.message ?? "").toUpperCase();
+                    if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
                         new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
-                    } else if (msg.includes("caption is too long")) {
+                    } else if (msg.includes("MEDIA_CAPTION_TOO_LONG") || msg.includes("CAPTION IS TOO LONG")) {
                         new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
                     } else {
-                        new Notice(`${t.NOTICE_ERR_SEND}${msg}`);
+                        new Notice(`${t.NOTICE_ERR_SEND}${err.message ?? ""}`);
                     }
                 }
 
                 if (errors.length === 0) new Notice(t.NOTICE_SUCCESS);
 
             } catch (err: any) {
-                const msg: string = err.message ?? "";
-                if (msg.includes("message is too long")) {
+                const msg: string = (err.message ?? "").toUpperCase();
+                if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
                     new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
-                } else if (msg.includes("caption is too long")) {
+                } else if (msg.includes("MEDIA_CAPTION_TOO_LONG") || msg.includes("CAPTION IS TOO LONG")) {
                     new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
                 } else {
-                    new Notice(`${t.NOTICE_ERR_SEND}${msg}`);
+                    new Notice(`${t.NOTICE_ERR_SEND}${err.message ?? ""}`);
                 }
             }
         }
