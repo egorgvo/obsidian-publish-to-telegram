@@ -1,7 +1,6 @@
 export interface TelegramChannel {
     id: string;
     name: string;
-    botToken: string;
     chatId: string;
     isDefault: boolean;
 }

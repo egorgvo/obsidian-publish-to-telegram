@@ -5,7 +5,8 @@ import { Api } from "telegram";
 import { t } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
 import { fetchConfig, startAuth, verifyAuth, CloudConfig } from "./auth";
-import { TelegramChannel } from "./types";
+import { TelegramChannel, TelegramSecrets } from "./types";
+import { createClient } from "./telegram";
 
 // ─── Channel resolution helpers ───────────────────────────────────────────────
 
@@ -21,29 +22,26 @@ function findChannelByLink(channels: TelegramChannel[], link: string): TelegramC
     }) || null;
 }
 
-async function resolveChannelByLink(channels: TelegramChannel[], link: string): Promise<TelegramChannel | null> {
+async function resolveChannelByLink(channels: TelegramChannel[], link: string, secrets?: TelegramSecrets): Promise<TelegramChannel | null> {
     const direct = findChannelByLink(channels, link);
     if (direct) return direct;
 
     const msgIdMatch = link.match(/\/(?:t\.me\/|c\/|)([^/]+)\/(\d+)\/?$/);
-    if (!msgIdMatch) return null;
+    if (!msgIdMatch || !secrets?.telegramSession) return null;
     const identifier = msgIdMatch[1].toLowerCase();
 
-    for (const channel of channels) {
-        if (!channel.botToken || !channel.chatId) continue;
-        try {
-            const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/getChat`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ chat_id: channel.chatId })
-            });
-            const data = await response.json();
-            if (!response.ok) continue;
-            const username: string | undefined = data.result?.username;
-            if (username && username.toLowerCase() === identifier) return channel;
-        } catch {
-            continue;
+    const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
+    try {
+        for (const channel of channels) {
+            if (!channel.chatId) continue;
+            try {
+                const entity = await client.getEntity(channel.chatId) as any;
+                const username: string | undefined = entity?.username;
+                if (username && username.toLowerCase() === identifier) return channel;
+            } catch { continue; }
         }
+    } finally {
+        await client.destroy();
     }
 
     return null;
@@ -163,7 +161,7 @@ export class MultiPresetModal extends Modal {
         this.setChannelRowsDisabled(true);
         this.setHint(t.MULTI_PRESET_UPDATE_RESOLVING, false);
 
-        const matched = await resolveChannelByLink(this.plugin.settings.channels, value);
+        const matched = await resolveChannelByLink(this.plugin.settings.channels, value, this.plugin.secrets);
         this.resolvedUpdateChannel = matched;
 
         if (matched) {
@@ -288,7 +286,7 @@ export class MultiPresetModal extends Modal {
 
                 if (isUpdating) {
                     const targetChannel = this.resolvedUpdateChannel
-                        ?? await resolveChannelByLink(this.plugin.settings.channels, updateLinkRaw!);
+                        ?? await resolveChannelByLink(this.plugin.settings.channels, updateLinkRaw!, this.plugin.secrets);
 
                     if (!targetChannel) {
                         new Notice(t.MULTI_PRESET_UPDATE_NO_MATCH_NOTICE);
@@ -728,16 +726,6 @@ export class TelegramSettingTab extends PluginSettingTab {
         const buttonContainer = addSection.createDiv("telegram-add-preset-button-container");
 
         new ButtonComponent(buttonContainer)
-            .setButtonText(t.SETTING_OPEN_BOTFATHER)
-            .onClick(() => { window.open("https://t.me/BotFather", "_blank"); })
-            .buttonEl.addClass("telegram-link-button");
-
-        new ButtonComponent(buttonContainer)
-            .setButtonText(t.SETTING_OPEN_USERINFOBOT)
-            .onClick(() => { window.open("https://t.me/userinfobot", "_blank"); })
-            .buttonEl.addClass("telegram-link-button");
-
-        new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_FORMATTING_HELP)
             .onClick(() => { new FormattingHelpModal(this.app, this.plugin).open(); })
             .buttonEl.addClass("telegram-link-button");
@@ -745,7 +733,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_ADD_CHANNEL)
             .onClick(async () => {
-                this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: "", botToken: "", chatId: "", isDefault: false });
+                this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: "", chatId: "", isDefault: false });
                 await this.plugin.saveSettings();
                 this.display();
             }).buttonEl.addClass("telegram-add-button");
@@ -795,10 +783,6 @@ export class TelegramSettingTab extends PluginSettingTab {
                         this.display();
                     }).open();
                 }).buttonEl.addClass("telegram-delete-button");
-
-            new Setting(channelDiv).setName(t.SETTING_BOT_TOKEN_NAME).setDesc(t.SETTING_BOT_TOKEN_DESC)
-                .addText(text => text.setPlaceholder(t.SETTING_PLACEHOLDER_TOKEN).setValue(channel.botToken)
-                    .onChange(async (v) => { channel.botToken = v; await this.plugin.saveSettings(); }));
 
             new Setting(channelDiv).setName(t.SETTING_CHAT_ID_NAME).setDesc(t.SETTING_CHAT_ID_DESC)
                 .addText(text => text.setPlaceholder(t.SETTING_PLACEHOLDER_CHAT).setValue(channel.chatId)

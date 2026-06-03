@@ -1,6 +1,6 @@
 // telegram.ts
 import { App, TFile, requestUrl } from "obsidian";
-import { TelegramClient } from "telegram";
+import { TelegramClient, Api } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { CustomFile } from "telegram/client/uploads";
 import { TelegramChannel, TelegramSettings, TelegramSecrets } from "./types";
@@ -21,10 +21,6 @@ interface MediaFile {
 // ─── Media type helpers ───────────────────────────────────────────────────────
 
 const VIDEO_EXTS = new Set(["mp4", "mov", "avi", "mkv", "webm"]);
-
-function mediaGroupType(extension: string): "photo" | "video" {
-    return VIDEO_EXTS.has(extension) ? "video" : "photo";
-}
 
 // ─── Frontmatter extraction ───────────────────────────────────────────────────
 
@@ -215,12 +211,6 @@ function collectMediaFiles(app: App, body: string, sourceFile: TFile): { attachm
 
 // ─── Post link helpers ────────────────────────────────────────────────────────
 
-function buildPostLink(chat: { id: number; username?: string }, messageId: number): string {
-    if (chat.username) return `https://t.me/${chat.username}/${messageId}`;
-    const channelId = String(chat.id).replace(/^-100/, "");
-    return `https://t.me/c/${channelId}/${messageId}`;
-}
-
 function buildPostLinkFromChatId(chatId: string, messageId: number): string {
     if (chatId.startsWith("@")) return `https://t.me/${chatId.slice(1)}/${messageId}`;
     const channelId = chatId.replace(/^-100/, "");
@@ -231,194 +221,6 @@ function resolveChatId(value: string): string {
     const trimmed = value.trim();
     if (trimmed.startsWith("@") || /^-?\d+$/.test(trimmed)) return trimmed;
     return `@${trimmed}`;
-}
-
-// ─── Bot API: Telegram calls ──────────────────────────────────────────────────
-
-async function getLinkedChatId(channel: TelegramChannel): Promise<number | null> {
-    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/getChat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: channel.chatId })
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.description);
-    return data.result.linked_chat_id ?? null;
-}
-
-async function findDiscussionMessageId(botToken: string, linkedChatId: number, channelMessageId: number): Promise<number | null> {
-    const MAX_ATTEMPTS = 5;
-    const DELAY_MS = 1500;
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        await new Promise(resolve => setTimeout(resolve, DELAY_MS));
-
-        const response = await fetch(`https://api.telegram.org/bot${botToken}/getUpdates`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ limit: 100, allowed_updates: ["message"] })
-        });
-        const data = await response.json();
-        if (!response.ok) continue;
-
-        for (const update of [...data.result].reverse()) {
-            const msg = update.message;
-            if (!msg || msg.chat.id !== linkedChatId) continue;
-
-            const forwardedFromId = msg.forward_origin?.message_id ?? msg.forward_from_message_id;
-            if (forwardedFromId === channelMessageId) return msg.message_id;
-        }
-    }
-
-    return null;
-}
-
-async function sendTextMessage(channel: TelegramChannel, text: string, silent: boolean): Promise<SendResult> {
-    const body: Record<string, unknown> = {
-        chat_id: channel.chatId,
-        text,
-        parse_mode: "HTML",
-    };
-    if (silent) body.disable_notification = true;
-
-    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.description);
-    return {
-        link: buildPostLink(data.result.chat, data.result.message_id),
-        messageId: data.result.message_id,
-    };
-}
-
-async function sendReply(botToken: string, chatId: number | string, replyToMessageId: number, text: string, silent: boolean): Promise<void> {
-    const body: Record<string, unknown> = {
-        chat_id: chatId,
-        reply_to_message_id: replyToMessageId,
-        text,
-        parse_mode: "HTML",
-    };
-    if (silent) body.disable_notification = true;
-
-    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.description);
-}
-
-async function sendSinglePhoto(app: App, channel: TelegramChannel, file: MediaFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
-    const formData = new FormData();
-    formData.append("chat_id", channel.chatId);
-    formData.append("photo", await file.getBlob(), file.name);
-    if (caption) {
-        formData.append("caption", caption);
-        formData.append("parse_mode", "HTML");
-    }
-    if (silent) formData.append("disable_notification", "true");
-    if (attachUnderText) formData.append("show_caption_above_media", "true");
-
-    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendPhoto`, { method: "POST", body: formData });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.description);
-    return {
-        link: buildPostLink(data.result.chat, data.result.message_id),
-        messageId: data.result.message_id,
-    };
-}
-
-async function sendAnimation(app: App, channel: TelegramChannel, file: MediaFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
-    const formData = new FormData();
-    formData.append("chat_id", channel.chatId);
-    formData.append("animation", await file.getBlob(), file.name);
-    if (caption) {
-        formData.append("caption", caption);
-        formData.append("parse_mode", "HTML");
-    }
-    if (silent) formData.append("disable_notification", "true");
-    if (attachUnderText) formData.append("show_caption_above_media", "true");
-
-    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendAnimation`, { method: "POST", body: formData });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.description);
-    return {
-        link: buildPostLink(data.result.chat, data.result.message_id),
-        messageId: data.result.message_id,
-    };
-}
-
-async function sendSingleVideo(app: App, channel: TelegramChannel, file: MediaFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
-    const formData = new FormData();
-    formData.append("chat_id", channel.chatId);
-    formData.append("video", await file.getBlob(), file.name);
-    if (caption) {
-        formData.append("caption", caption);
-        formData.append("parse_mode", "HTML");
-    }
-    if (silent) formData.append("disable_notification", "true");
-    if (attachUnderText) formData.append("show_caption_above_media", "true");
-
-    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendVideo`, { method: "POST", body: formData });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.description);
-    return {
-        link: buildPostLink(data.result.chat, data.result.message_id),
-        messageId: data.result.message_id,
-    };
-}
-
-async function sendSingleDocument(app: App, channel: TelegramChannel, file: MediaFile, caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
-    const formData = new FormData();
-    formData.append("chat_id", channel.chatId);
-    formData.append("document", await file.getBlob(), file.name);
-    if (caption) {
-        formData.append("caption", caption);
-        formData.append("parse_mode", "HTML");
-    }
-    if (silent) formData.append("disable_notification", "true");
-    if (attachUnderText) formData.append("show_caption_above_media", "true");
-
-    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendDocument`, { method: "POST", body: formData });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.description);
-    return {
-        link: buildPostLink(data.result.chat, data.result.message_id),
-        messageId: data.result.message_id,
-    };
-}
-
-async function sendMediaGroup(app: App, channel: TelegramChannel, files: MediaFile[], caption: string, silent: boolean, attachUnderText: boolean): Promise<SendResult> {
-    const formData = new FormData();
-    formData.append("chat_id", channel.chatId);
-    if (silent) formData.append("disable_notification", "true");
-
-    const mediaArray = await Promise.all(files.map(async (file, idx) => {
-        const attachName = `file${idx}`;
-        formData.append(attachName, await file.getBlob(), file.name);
-        return {
-            type: mediaGroupType(file.extension),
-            media: `attach://${attachName}`,
-            ...(idx === 0 && caption ? {
-                caption,
-                parse_mode: "HTML",
-                show_caption_above_media: attachUnderText
-            } : {})
-        };
-    }));
-
-    formData.append("media", JSON.stringify(mediaArray));
-    const response = await fetch(`https://api.telegram.org/bot${channel.botToken}/sendMediaGroup`, { method: "POST", body: formData });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.description);
-    return {
-        link: buildPostLink(data.result[0].chat, data.result[0].message_id),
-        messageId: data.result[0].message_id,
-    };
 }
 
 // ── Finds a configured channel that matches the provided Telegram link
@@ -437,107 +239,13 @@ export function findChannelByLink(channels: TelegramChannel[], link: string): Te
     }) || null;
 }
 
-// ─── Bot API: send a single body part ─────────────────────────────────────────
-
-async function sendPartViaBotApi(
-    app: App,
-    body: string,
-    channel: TelegramChannel,
-    silent: boolean,
-    attachUnderText: boolean,
-    sourceFile: TFile,
-    treatMdEmbedsAsComments: boolean
-): Promise<SendResult | null> {
-    const formattedContent = mdToTelegramHtml(body);
-    const { attachments, mdEmbeds } = collectMediaFiles(app, body, sourceFile);
-
-    const photoAndVideoFiles = attachments.filter(f =>
-        ["jpg", "jpeg", "png", "webp"].includes(f.extension) || VIDEO_EXTS.has(f.extension)
-    );
-    const gifFiles = attachments.filter(f => f.extension === "gif");
-    const docFiles = attachments.filter(f => f.extension === "pdf");
-
-    let result: SendResult | null = null;
-    let captionConsumed = false;
-
-    if (photoAndVideoFiles.length > 0) {
-        const firstBatch = photoAndVideoFiles.slice(0, 10);
-        const remaining = photoAndVideoFiles.slice(10);
-
-        if (firstBatch.length === 1) {
-            const f = firstBatch[0];
-            result = VIDEO_EXTS.has(f.extension)
-                ? await sendSingleVideo(app, channel, f, formattedContent, silent, attachUnderText)
-                : await sendSinglePhoto(app, channel, f, formattedContent, silent, attachUnderText);
-        } else {
-            result = await sendMediaGroup(app, channel, firstBatch, formattedContent, silent, attachUnderText);
-        }
-        captionConsumed = true;
-
-        for (const f of remaining) {
-            if (VIDEO_EXTS.has(f.extension)) {
-                await sendSingleVideo(app, channel, f, "", silent, false);
-            } else {
-                await sendSinglePhoto(app, channel, f, "", silent, false);
-            }
-        }
-    }
-
-    for (const gif of gifFiles) {
-        const caption = captionConsumed ? "" : formattedContent;
-        const gifResult = await sendAnimation(app, channel, gif, caption, silent, attachUnderText);
-        if (!result) result = gifResult;
-        captionConsumed = true;
-    }
-
-    if (docFiles.length > 0) {
-        const caption = captionConsumed ? "" : formattedContent;
-        const firstBatch = docFiles.slice(0, 10);
-        const remainingDocs = docFiles.slice(10);
-        const docResult = firstBatch.length === 1
-            ? await sendSingleDocument(app, channel, firstBatch[0], caption, silent, attachUnderText)
-            : await sendMediaGroup(app, channel, firstBatch, caption, silent, attachUnderText);
-        if (!result) result = docResult;
-        captionConsumed = true;
-        for (const doc of remainingDocs) await sendSingleDocument(app, channel, doc, "", silent, false);
-    }
-
-    if (!result && formattedContent.length > 0) {
-        result = await sendTextMessage(channel, formattedContent, silent);
-    }
-
-    // ── Send .md embeds as comments ───────────────────────────────────────────
-
-    if (treatMdEmbedsAsComments && result && mdEmbeds.length > 0) {
-        const linkedChatId = await getLinkedChatId(channel);
-
-        for (const mdFile of mdEmbeds) {
-            const mdContent = await app.vault.read(mdFile);
-            const { body: mdBody } = extractFrontmatter(mdContent);
-            const formattedMdContent = mdToTelegramHtml(mdBody);
-            if (formattedMdContent.length === 0) continue;
-
-            if (linkedChatId !== null) {
-                const discussionMessageId = await findDiscussionMessageId(channel.botToken, linkedChatId, result.messageId);
-                if (discussionMessageId !== null) {
-                    await sendReply(channel.botToken, linkedChatId, discussionMessageId, formattedMdContent, silent);
-                }
-            } else {
-                await sendReply(channel.botToken, channel.chatId, result.messageId, formattedMdContent, silent);
-            }
-        }
-    }
-
-    return result;
-}
-
 // ─── Account (GramJS) sending ─────────────────────────────────────────────────
 
 // Telegram Desktop api credentials (public, used as fallback for initConnection with existing session)
 const DEFAULT_TG_API_ID = 2040;
 const DEFAULT_TG_API_HASH = "b18441a1ff607e10a989891a5462e627";
 
-async function createClient(session: string, apiId?: number, apiHash?: string): Promise<TelegramClient> {
+export async function createClient(session: string, apiId?: number, apiHash?: string): Promise<TelegramClient> {
     const isLocalAuth = !!apiId;
     const client = new TelegramClient(
         new StringSession(session),
@@ -551,6 +259,53 @@ async function createClient(session: string, apiId?: number, apiHash?: string): 
 }
 
 
+async function sendCommentViaAccount(
+    client: TelegramClient,
+    channelEntity: string | number,
+    channelMessageId: number,
+    text: string,
+    silent: boolean,
+): Promise<void> {
+    // Determine whether there is a linked discussion group
+    let hasDiscussion = false;
+    try {
+        const full = await client.invoke(new Api.channels.GetFullChannel({ channel: channelEntity }));
+        hasDiscussion = !!(full.fullChat as Api.ChannelFull).linkedChatId;
+    } catch { /* not a channel or no access */ }
+
+    if (hasDiscussion) {
+        // Find the discussion-group thread head for this channel post (may need retries if not yet forwarded)
+        const MAX_ATTEMPTS = 5;
+        const DELAY_MS = 1500;
+        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            if (attempt > 0) await new Promise(r => setTimeout(r, DELAY_MS));
+            try {
+                const discussion = await client.invoke(
+                    new Api.messages.GetDiscussionMessage({ peer: channelEntity, msgId: channelMessageId })
+                );
+                if (!discussion.messages.length) continue;
+                // Messages are returned newest-first; the last element is the thread-opening forwarded post
+                const threadHead = discussion.messages[discussion.messages.length - 1];
+                await client.sendMessage(threadHead.peerId as any, {
+                    message: text,
+                    parseMode: "html",
+                    replyTo: threadHead.id,
+                    silent,
+                });
+                return;
+            } catch { /* not ready yet — retry */ }
+        }
+    } else {
+        // No discussion group: reply directly in the channel
+        await client.sendMessage(channelEntity, {
+            message: text,
+            parseMode: "html",
+            replyTo: channelMessageId,
+            silent,
+        });
+    }
+}
+
 async function sendPartViaAccount(
     app: App,
     body: string,
@@ -559,59 +314,66 @@ async function sendPartViaAccount(
     silent: boolean,
     attachUnderText: boolean,
     sourceFile: TFile,
+    treatMdEmbedsAsComments: boolean,
 ): Promise<SendResult | null> {
     const text = mdToTelegramHtml(body);
-    const { attachments } = collectMediaFiles(app, body, sourceFile);
+    const { attachments, mdEmbeds } = collectMediaFiles(app, body, sourceFile);
 
     const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
     try {
-    const entity = /^-?\d+$/.test(channel.chatId) ? parseInt(channel.chatId) : channel.chatId;
+        const entity = /^-?\d+$/.test(channel.chatId) ? parseInt(channel.chatId) : channel.chatId;
 
-    const photoAndVideoFiles = attachments.filter(f =>
-        ["jpg", "jpeg", "png", "webp"].includes(f.extension) || VIDEO_EXTS.has(f.extension)
-    );
-    const gifFiles = attachments.filter(f => f.extension === "gif");
-    const docFiles = attachments.filter(f => f.extension === "pdf");
-    const allMediaFiles = [...photoAndVideoFiles, ...gifFiles];
+        const photoAndVideoFiles = attachments.filter(f =>
+            ["jpg", "jpeg", "png", "webp"].includes(f.extension) || VIDEO_EXTS.has(f.extension)
+        );
+        const gifFiles = attachments.filter(f => f.extension === "gif");
+        const docFiles = attachments.filter(f => f.extension === "pdf");
+        const allMediaFiles = [...photoAndVideoFiles, ...gifFiles];
 
-    if (allMediaFiles.length > 0 || docFiles.length > 0) {
-        const filesToSend = allMediaFiles.length > 0 ? allMediaFiles : docFiles;
-        const customFiles = await Promise.all(filesToSend.map(async f => {
-            const blob = await f.getBlob();
-            const data = Buffer.from(await blob.arrayBuffer());
-            return new CustomFile(f.name, data.length, "", data);
-        }));
+        let result: SendResult | null = null;
 
-        const forceDocument = allMediaFiles.length === 0;
-        const fileArg = customFiles.length === 1 ? customFiles[0] : customFiles;
+        if (allMediaFiles.length > 0 || docFiles.length > 0) {
+            const filesToSend = allMediaFiles.length > 0 ? allMediaFiles : docFiles;
+            const customFiles = await Promise.all(filesToSend.map(async f => {
+                const blob = await f.getBlob();
+                const data = Buffer.from(await blob.arrayBuffer());
+                return new CustomFile(f.name, data.length, "", data);
+            }));
 
-        const result = await client.sendMessage(entity, {
-            message: text,
-            parseMode: "html",
-            file: fileArg,
-            forceDocument,
-            silent,
-            invertMedia: attachUnderText,
-        });
+            const forceDocument = allMediaFiles.length === 0;
+            const fileArg = customFiles.length === 1 ? customFiles[0] : customFiles;
 
-        const msg = Array.isArray(result) ? result[0] : result;
-        return {
-            link: buildPostLinkFromChatId(channel.chatId, msg.id),
-            messageId: msg.id,
-        };
-    } else if (text.length > 0) {
-        const result = await client.sendMessage(entity, {
-            message: text,
-            parseMode: "html",
-            silent,
-        });
-        const msg = Array.isArray(result) ? result[0] : result;
-        return {
-            link: buildPostLinkFromChatId(channel.chatId, msg.id),
-            messageId: msg.id,
-        };
-    }
-    return null;
+            const sent = await client.sendMessage(entity, {
+                message: text,
+                parseMode: "html",
+                file: fileArg,
+                forceDocument,
+                silent,
+                invertMedia: attachUnderText,
+            });
+            const msg = Array.isArray(sent) ? sent[0] : sent;
+            result = { link: buildPostLinkFromChatId(channel.chatId, msg.id), messageId: msg.id };
+        } else if (text.length > 0) {
+            const sent = await client.sendMessage(entity, {
+                message: text,
+                parseMode: "html",
+                silent,
+            });
+            const msg = Array.isArray(sent) ? sent[0] : sent;
+            result = { link: buildPostLinkFromChatId(channel.chatId, msg.id), messageId: msg.id };
+        }
+
+        if (treatMdEmbedsAsComments && result && mdEmbeds.length > 0) {
+            for (const mdFile of mdEmbeds) {
+                const mdContent = await app.vault.read(mdFile);
+                const { body: mdBody } = extractFrontmatter(mdContent);
+                const formattedMdContent = mdToTelegramHtml(mdBody);
+                if (!formattedMdContent.length) continue;
+                await sendCommentViaAccount(client, entity, result.messageId, formattedMdContent, silent);
+            }
+        }
+
+        return result;
     } finally {
         await client.destroy();
     }
@@ -634,9 +396,7 @@ export async function sendNoteToTelegram(
     const content = await app.vault.read(file);
     const { body } = extractFrontmatter(content);
 
-    const useAccount = !!secrets.telegramSession;
-
-    // ── Update Existing Post (bot API only) ───────────────────────────────────
+    // ── Update Existing Post ──────────────────────────────────────────────────────
 
     if (updateLink && updateLink !== "none") {
         const formattedContent = mdToTelegramHtml(body);
@@ -644,36 +404,17 @@ export async function sendNoteToTelegram(
         const messageId = msgIdMatch ? parseInt(msgIdMatch[1], 10) : null;
 
         if (messageId) {
-            let updateBody: Record<string, unknown> = {
-                chat_id: channel.chatId,
-                message_id: messageId,
-                text: formattedContent,
-                parse_mode: "HTML"
-            };
-
-            let response = await fetch(`https://api.telegram.org/bot${channel.botToken}/editMessageText`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updateBody)
-            });
-            let data = await response.json();
-
-            if (!response.ok && data.description && data.description.includes("there is no text in the message to edit")) {
-                updateBody = {
-                    chat_id: channel.chatId,
-                    message_id: messageId,
-                    caption: formattedContent,
-                    parse_mode: "HTML"
-                };
-                response = await fetch(`https://api.telegram.org/bot${channel.botToken}/editMessageCaption`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(updateBody)
+            const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
+            try {
+                const entity = /^-?\d+$/.test(channel.chatId) ? parseInt(channel.chatId) : channel.chatId;
+                await client.editMessage(entity, {
+                    message: messageId,
+                    text: formattedContent,
+                    parseMode: "html",
                 });
-                data = await response.json();
+            } finally {
+                await client.destroy();
             }
-
-            if (!response.ok) throw new Error(data.description);
             return { links: [updateLink], errors: [] };
         }
     }
@@ -688,9 +429,7 @@ export async function sendNoteToTelegram(
 
     for (const part of effectiveParts) {
         try {
-            const result = useAccount
-                ? await sendPartViaAccount(app, part, channel, secrets, silent, attachUnderText, file)
-                : await sendPartViaBotApi(app, part, channel, silent, attachUnderText, file, treatMdEmbedsAsComments);
+            const result = await sendPartViaAccount(app, part, channel, secrets, silent, attachUnderText, file, treatMdEmbedsAsComments);
             if (result) links.push(result.link);
         } catch (err: any) {
             errors.push(err instanceof Error ? err : new Error(String(err)));
