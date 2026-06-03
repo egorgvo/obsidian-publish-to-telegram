@@ -2,7 +2,9 @@
 import { App, TFile, requestUrl } from "obsidian";
 import { TelegramClient, Api } from "telegram";
 import { StringSession } from "telegram/sessions";
-import { CustomFile } from "telegram/client/uploads";
+import { CustomFile, _fileToMedia } from "telegram/client/uploads";
+import { _parseMessageText } from "telegram/client/messageParse";
+import { getInputMedia } from "telegram/Utils";
 import { TelegramChannel, TelegramSettings, TelegramSecrets } from "./types";
 
 // ─── Internal result & media types ────────────────────────────────────────────
@@ -306,6 +308,73 @@ async function sendCommentViaAccount(
     }
 }
 
+// Sends one or more files with proper invertMedia support via raw MTProto API.
+// GramJS's high-level sendMessage/sendFile/sendAlbum do not forward invertMedia,
+// so we must build and invoke SendMedia / SendMultiMedia directly.
+async function sendMediaRaw(
+    client: TelegramClient,
+    entity: string | number,
+    files: CustomFile[],
+    text: string,
+    forceDocument: boolean,
+    silent: boolean,
+    invertMedia: boolean,
+): Promise<number> {
+    const peer = await client.getInputEntity(entity);
+    const [caption, msgEntities] = await _parseMessageText(client, text, "html");
+
+    if (files.length === 1) {
+        const { media } = await _fileToMedia(client, { file: files[0], forceDocument, workers: 1 });
+        if (!media) throw new Error("Failed to prepare media for sending");
+
+        const req = new Api.messages.SendMedia({
+            peer,
+            media,
+            message: caption,
+            entities: msgEntities,
+            silent,
+            invertMedia,
+        });
+        const apiResult = await client.invoke(req);
+        const msg = (client as any)._getResponseMessage(req, apiResult, peer);
+        const m = Array.isArray(msg) ? msg[0] : msg;
+        return (m as Api.Message).id;
+    }
+
+    // Album: photos/documents must be pre-uploaded before SendMultiMedia
+    const albumItems: Api.InputSingleMedia[] = [];
+    for (let i = 0; i < files.length; i++) {
+        let { media } = await _fileToMedia(client, { file: files[i], forceDocument, workers: 1 });
+        if (!media) continue;
+
+        if (media instanceof Api.InputMediaUploadedPhoto) {
+            const r = await client.invoke(new Api.messages.UploadMedia({ peer, media }));
+            if (r instanceof Api.MessageMediaPhoto && r.photo) media = getInputMedia(r.photo);
+        } else if (media instanceof Api.InputMediaUploadedDocument) {
+            const r = await client.invoke(new Api.messages.UploadMedia({ peer, media }));
+            if (r instanceof Api.MessageMediaDocument && r.document) media = getInputMedia(r.document);
+        }
+
+        albumItems.push(new Api.InputSingleMedia({
+            media: media as Api.TypeInputMedia,
+            message: i === 0 ? caption : "",
+            entities: i === 0 ? msgEntities : [],
+        }));
+    }
+
+    const req = new Api.messages.SendMultiMedia({
+        peer,
+        multiMedia: albumItems,
+        silent,
+        invertMedia,
+    });
+    const apiResult = await client.invoke(req);
+    const randomIds = albumItems.map(m => (m as any).randomId);
+    const msgs = (client as any)._getResponseMessage(randomIds, apiResult, peer);
+    const first = Array.isArray(msgs) ? msgs[0] : msgs;
+    return (first as Api.Message).id;
+}
+
 async function sendPartViaAccount(
     app: App,
     body: string,
@@ -341,18 +410,8 @@ async function sendPartViaAccount(
             }));
 
             const forceDocument = allMediaFiles.length === 0;
-            const fileArg = customFiles.length === 1 ? customFiles[0] : customFiles;
-
-            const sent = await client.sendMessage(entity, {
-                message: text,
-                parseMode: "html",
-                file: fileArg,
-                forceDocument,
-                silent,
-                invertMedia: attachUnderText,
-            });
-            const msg = Array.isArray(sent) ? sent[0] : sent;
-            result = { link: buildPostLinkFromChatId(channel.chatId, msg.id), messageId: msg.id };
+            const msgId = await sendMediaRaw(client, entity, customFiles, text, forceDocument, silent, attachUnderText);
+            result = { link: buildPostLinkFromChatId(channel.chatId, msgId), messageId: msgId };
         } else if (text.length > 0) {
             const sent = await client.sendMessage(entity, {
                 message: text,
