@@ -1,5 +1,7 @@
 export default {
     MENU_TITLE: "Publish to Telegram",
+    NOTICE_PUBLISHING: "Publishing the post...",
+    NOTICE_PUBLISHING_COMMENTS: "Publishing pre-written comments...",
     NOTICE_SUCCESS: "Successfully published ✅",
     NOTICE_SCHEDULED: "Post scheduled ✅",
     NOTICE_ERR_CONFIG: "Error: Set up at least one preset.",

@@ -1,5 +1,7 @@
 export default {
     MENU_TITLE: "Опубликовать в Telegram",
+    NOTICE_PUBLISHING: "Публикация поста...",
+    NOTICE_PUBLISHING_COMMENTS: "Публикация заготовленных комментариев...",
     NOTICE_SUCCESS: "Успешно опубликовано ✅",
     NOTICE_SCHEDULED: "Публикация запланирована ✅",
     NOTICE_ERR_CONFIG: "Ошибка: Настройте хотя бы один пресет.",

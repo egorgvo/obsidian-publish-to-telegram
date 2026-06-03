@@ -106,11 +106,15 @@ export default class SendToTelegramPlugin extends Plugin {
     }
 
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string, scheduleDate?: Date): Promise<void> {
+            const progressNotice = new Notice(t.NOTICE_PUBLISHING, 0);
             try {
                 const { links, errors } = await sendNoteToTelegram(
                     this.app, file, channel, this.settings, this.secrets, silent, attachUnderText,
-                    this.settings.treatMdEmbedsAsComments, updateLink, scheduleDate
+                    this.settings.treatMdEmbedsAsComments, updateLink, scheduleDate,
+                    () => { progressNotice.setMessage(t.NOTICE_PUBLISHING_COMMENTS); }
                 );
+
+                progressNotice.hide();
 
                 if (this.settings.savePostLinks && links.length > 0 && !scheduleDate) {
                     await this.app.fileManager.processFrontMatter(file, (fm) => {
@@ -137,6 +141,7 @@ export default class SendToTelegramPlugin extends Plugin {
                 if (errors.length === 0) new Notice(scheduleDate ? t.NOTICE_SCHEDULED : t.NOTICE_SUCCESS);
 
             } catch (err: any) {
+                progressNotice.hide();
                 const msg: string = (err.message ?? "").toUpperCase();
                 if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
                     new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);

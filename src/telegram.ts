@@ -400,6 +400,7 @@ async function sendPartViaAccount(
     sourceFile: TFile,
     treatMdEmbedsAsComments: boolean,
     scheduleDate?: Date,
+    onProgress?: () => void,
 ): Promise<SendResult | null> {
     const text = mdToTelegramHtml(body);
     const { attachments, mdEmbeds } = collectMediaFiles(app, body, sourceFile);
@@ -468,6 +469,7 @@ async function sendPartViaAccount(
         }
 
         if (treatMdEmbedsAsComments && result && mdEmbeds.length > 0 && !scheduleDate) {
+            onProgress?.();
             for (const mdFile of mdEmbeds) {
                 const mdContent = await app.vault.read(mdFile);
                 const { body: mdBody } = extractFrontmatter(mdContent);
@@ -496,6 +498,7 @@ export async function sendNoteToTelegram(
     treatMdEmbedsAsComments: boolean,
     updateLink?: string,
     scheduleDate?: Date,
+    onProgress?: () => void,
 ): Promise<{ links: string[]; errors: Error[] }> {
     const channel = { ...tg_channel, chatId: resolveChatId(tg_channel.chatId) };
     const content = await app.vault.read(file);
@@ -534,7 +537,7 @@ export async function sendNoteToTelegram(
 
     for (const part of effectiveParts) {
         try {
-            const result = await sendPartViaAccount(app, part, channel, secrets, silent, attachUnderText, file, treatMdEmbedsAsComments, scheduleDate);
+            const result = await sendPartViaAccount(app, part, channel, secrets, silent, attachUnderText, file, treatMdEmbedsAsComments, scheduleDate, onProgress);
             if (result) links.push(result.link);
         } catch (err: any) {
             errors.push(err instanceof Error ? err : new Error(String(err)));
