@@ -66,7 +66,7 @@ export default {
     AUTH_CONFIG_URL_PLACEHOLDER: "Введите URL конфигурации...",
     AUTH_AUTHORIZE_BTN: "Авторизоваться",
     AUTH_NOT_AUTHORIZED: "Не авторизован",
-    AUTH_AUTHORIZED_AS: "Авторизован как {name}",
+    AUTH_AUTHORIZED_AS: "Авторизован как: {name}",
     AUTH_LOGOUT_BTN: "Выйти",
     AUTH_NO_CONFIG_URL: "Ошибка: Config URL не указан.",
     AUTH_TITLE: "Авторизация Telegram",

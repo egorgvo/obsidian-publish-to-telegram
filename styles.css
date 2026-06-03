@@ -137,6 +137,10 @@ body .telegram-delete-button:hover {
     color: var(--text-error);
 }
 
+body .telegram-logout-button:hover {
+    color: var(--text-error);
+}
+
 .telegram-modal-buttons {
     display: flex;
     justify-content: flex-end;

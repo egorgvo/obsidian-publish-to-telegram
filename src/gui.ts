@@ -470,7 +470,16 @@ export class AuthModal extends Modal {
     private async saveSession(session: string) {
         this.plugin.secrets.telegramSession = session;
         await this.plugin.saveSecrets();
-        this.plugin.settings.telegramDisplayName = this.phone;
+        try {
+            const client = await createClient(session);
+            const me = await client.getMe() as any;
+            const parts = [me.firstName, me.lastName].filter(Boolean).join(" ");
+            const username = me.username ? ` (@${me.username})` : "";
+            this.plugin.settings.telegramDisplayName = `${parts}${username}`;
+            await client.disconnect();
+        } catch {
+            this.plugin.settings.telegramDisplayName = this.phone;
+        }
         await this.plugin.saveSettings();
         new Notice(t.AUTH_SUCCESS);
         this.onSuccess();
@@ -662,7 +671,14 @@ export class LocalAuthModal extends Modal {
         this.plugin.secrets.telegramApiId = this.apiId;
         this.plugin.secrets.telegramApiHash = this.apiHash;
         await this.plugin.saveSecrets();
-        this.plugin.settings.telegramDisplayName = this.phone;
+        try {
+            const me = await this.client.getMe() as any;
+            const parts = [me.firstName, me.lastName].filter(Boolean).join(" ");
+            const username = me.username ? ` (@${me.username})` : "";
+            this.plugin.settings.telegramDisplayName = `${parts}${username}`;
+        } catch {
+            this.plugin.settings.telegramDisplayName = this.phone;
+        }
         await this.plugin.saveSettings();
         new Notice(t.AUTH_SUCCESS);
         this.onSuccess();
@@ -685,31 +701,20 @@ export class TelegramSettingTab extends PluginSettingTab {
         containerEl.createEl("p", { text: t.SETTING_DESCRIPTION, cls: "telegram-plugin-description" });
 
         // ── Telegram Account Auth ──
-        new Setting(containerEl).setHeading().setName(t.AUTH_SECTION_HEADER);
-
-        new Setting(containerEl)
-            .setName(t.AUTH_CONFIG_URL_NAME)
-            .setDesc(t.AUTH_CONFIG_URL_DESC)
-            .addText(text => text
-                .setPlaceholder(t.AUTH_CONFIG_URL_PLACEHOLDER)
-                .setValue(this.plugin.settings.configUrl)
-                .onChange(async v => {
-                    this.plugin.settings.configUrl = v;
-                    await this.plugin.saveSettings();
-                }));
-
         if (this.plugin.secrets.telegramSession) {
             new Setting(containerEl)
                 .setName(t.AUTH_AUTHORIZED_AS.replace("{name}", this.plugin.settings.telegramDisplayName))
-                .addButton(btn => btn
-                    .setButtonText(t.AUTH_LOGOUT_BTN)
-                    .setWarning()
-                    .onClick(async () => {
-                        await this.plugin.clearSecrets();
-                        this.plugin.settings.telegramDisplayName = "";
-                        await this.plugin.saveSettings();
-                        this.display();
-                    }));
+                .addExtraButton(btn => {
+                    btn.setIcon("log-out")
+                        .setTooltip(t.AUTH_LOGOUT_BTN)
+                        .onClick(async () => {
+                            await this.plugin.clearSecrets();
+                            this.plugin.settings.telegramDisplayName = "";
+                            await this.plugin.saveSettings();
+                            this.display();
+                        });
+                    btn.extraSettingsEl.addClass("telegram-logout-button");
+                });
         } else {
             new Setting(containerEl)
                 .setName(t.AUTH_NOT_AUTHORIZED)

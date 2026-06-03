@@ -66,7 +66,7 @@ export default {
     AUTH_CONFIG_URL_PLACEHOLDER: "Enter config URL...",
     AUTH_AUTHORIZE_BTN: "Authorize",
     AUTH_NOT_AUTHORIZED: "Not authorized",
-    AUTH_AUTHORIZED_AS: "Authorized as {name}",
+    AUTH_AUTHORIZED_AS: "Authorized as: {name}",
     AUTH_LOGOUT_BTN: "Log out",
     AUTH_NO_CONFIG_URL: "Error: Config URL is not set.",
     AUTH_TITLE: "Telegram Authorization",
