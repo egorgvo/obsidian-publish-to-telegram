@@ -324,7 +324,13 @@ async function sendMediaRaw(
     const [caption, msgEntities] = await _parseMessageText(client, text, "html");
 
     if (files.length === 1) {
-        const { media } = await _fileToMedia(client, { file: files[0], forceDocument, workers: 1 });
+        const ext0 = files[0].name.split('.').pop()?.toLowerCase() ?? "";
+        const { media } = await _fileToMedia(client, {
+            file: files[0],
+            forceDocument,
+            workers: 1,
+            supportsStreaming: VIDEO_EXTS.has(ext0),
+        });
         if (!media) throw new Error("Failed to prepare media for sending");
 
         const req = new Api.messages.SendMedia({
@@ -344,7 +350,13 @@ async function sendMediaRaw(
     // Album: photos/documents must be pre-uploaded before SendMultiMedia
     const albumItems: Api.InputSingleMedia[] = [];
     for (let i = 0; i < files.length; i++) {
-        let { media } = await _fileToMedia(client, { file: files[i], forceDocument, workers: 1 });
+        const ext = files[i].name.split('.').pop()?.toLowerCase() ?? "";
+        let { media } = await _fileToMedia(client, {
+            file: files[i],
+            forceDocument,
+            workers: 1,
+            supportsStreaming: VIDEO_EXTS.has(ext),
+        });
         if (!media) continue;
 
         if (media instanceof Api.InputMediaUploadedPhoto) {
@@ -396,23 +408,50 @@ async function sendPartViaAccount(
             ["jpg", "jpeg", "png", "webp"].includes(f.extension) || VIDEO_EXTS.has(f.extension)
         );
         const gifFiles = attachments.filter(f => f.extension === "gif");
-        const docFiles = attachments.filter(f => f.extension === "pdf");
-        const allMediaFiles = [...photoAndVideoFiles, ...gifFiles];
+        const docFiles  = attachments.filter(f => f.extension === "pdf");
 
         let result: SendResult | null = null;
+        let captionConsumed = false;
 
-        if (allMediaFiles.length > 0 || docFiles.length > 0) {
-            const filesToSend = allMediaFiles.length > 0 ? allMediaFiles : docFiles;
-            const customFiles = await Promise.all(filesToSend.map(async f => {
+        // ── Photos and videos: grouped into one album ─────────────────────────────
+        if (photoAndVideoFiles.length > 0) {
+            const customFiles = await Promise.all(photoAndVideoFiles.map(async f => {
                 const blob = await f.getBlob();
                 const data = Buffer.from(await blob.arrayBuffer());
                 return new CustomFile(f.name, data.length, "", data);
             }));
-
-            const forceDocument = allMediaFiles.length === 0;
-            const msgId = await sendMediaRaw(client, entity, customFiles, text, forceDocument, silent, attachUnderText);
+            const msgId = await sendMediaRaw(client, entity, customFiles, text, false, silent, attachUnderText);
             result = { link: buildPostLinkFromChatId(channel.chatId, msgId), messageId: msgId };
-        } else if (text.length > 0) {
+            captionConsumed = true;
+        }
+
+        // ── GIFs: each sent individually (must NOT be mixed with videos) ──────────
+        for (const gif of gifFiles) {
+            const blob = await gif.getBlob();
+            const data = Buffer.from(await blob.arrayBuffer());
+            const customFile = new CustomFile(gif.name, data.length, "", data);
+            const caption = captionConsumed ? "" : text;
+            const msgId = await sendMediaRaw(client, entity, [customFile], caption, false, silent,
+                !captionConsumed && attachUnderText);
+            if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msgId), messageId: msgId };
+            captionConsumed = true;
+        }
+
+        // ── PDFs: grouped as documents ────────────────────────────────────────────
+        if (docFiles.length > 0) {
+            const customFiles = await Promise.all(docFiles.map(async f => {
+                const blob = await f.getBlob();
+                const data = Buffer.from(await blob.arrayBuffer());
+                return new CustomFile(f.name, data.length, "", data);
+            }));
+            const caption = captionConsumed ? "" : text;
+            const msgId = await sendMediaRaw(client, entity, customFiles, caption, true, silent,
+                !captionConsumed && attachUnderText);
+            if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msgId), messageId: msgId };
+            captionConsumed = true;
+        }
+
+        if (!captionConsumed && text.length > 0) {
             const sent = await client.sendMessage(entity, {
                 message: text,
                 parseMode: "html",
