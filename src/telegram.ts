@@ -1,6 +1,5 @@
 // telegram.ts
 import { App, TFile, requestUrl } from "obsidian";
-import { convert } from "markdown-to-telegram";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { CustomFile } from "telegram/client/uploads";
@@ -38,8 +37,8 @@ function extractFrontmatter(content: string): { frontmatter: string; body: strin
 
 // ─── Content preparation ──────────────────────────────────────────────────────
 
-function prepareContent(body: string): string {
-    const stripped = body
+function stripObsidianSyntax(body: string): string {
+    return body
         .replace(/%%[\s\S]*?%%/g, "")             // Strip Obsidian comments %% ... %%
         .replace(/!\[\[[^\]]*\]\]/g, "")           // Strip wikilink embeds
         .replace(/!\[[^\]]*\]\([^)]*\)/g, "")      // Strip standard MD embeds ![]()
@@ -47,39 +46,100 @@ function prepareContent(body: string): string {
         .replace(/<!--[\s\S]*?-->/g, "")           // Strip HTML comments
         .replace(/[ \t]+\n/g, "\n")
         .trim();
-
-    let result = convert(stripped);
-    return result;
 }
 
-// Converts markdown-to-telegram's MarkdownV2 output into HTML
-// that GramJS's HTMLParser understands, bypassing GramJS's own
-// broken/incompatible markdown parsers entirely.
-function mdv2ToHtml(text: string): string {
-    return text
-        // code blocks first (must run before inline code)
-        .replace(/```(\w*)\n([\s\S]*?)\n?```/g, (_, _lang, code) => {
-            const esc = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            return `<pre>${esc}</pre>`;
+function escHtml(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Converts Obsidian markdown directly to Telegram-compatible HTML
+// for GramJS HTMLParser (supports: b, i, u, s, code, pre, blockquote, a, spoiler)
+function mdToTelegramHtml(body: string): string {
+    const stripped = stripObsidianSyntax(body);
+
+    // Protect code blocks and inline code from further processing
+    const codeBlocks: string[] = [];
+    let text = stripped
+        .replace(/```(\w*)\n([\s\S]*?)\n?```/g, (_, lang, code) => {
+            codeBlocks.push(`<pre>${escHtml(code)}</pre>`);
+            return `\x00CB${codeBlocks.length - 1}\x00`;
         })
-        // inline code
-        .replace(/`([^`\n]+)`/g, (_, c) => `<code>${c.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code>`)
-        // spoiler — GramJS HTMLParser uses <spoiler>, not <tg-spoiler>
-        .replace(/\|\|(.+?)\|\|/g, '<spoiler>$1</spoiler>')
-        // bold (*bold* — single asterisk, what markdown-to-telegram outputs)
-        .replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
-        // underline (__text__ — must run before italic to avoid conflict)
-        .replace(/__([^_\n]+)__/g, '<u>$1</u>')
-        // italic (_text_)
-        .replace(/_([^_\n]+)_/g, '<i>$1</i>')
-        // strikethrough (~text~)
-        .replace(/~([^~\n]+)~/g, '<s>$1</s>')
-        // links
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-        // blockquote lines (>text with no space — what markdown-to-telegram outputs)
-        .replace(/^>(.+)$/gm, '<blockquote>$1</blockquote>')
-        // unescape MarkdownV2 escape sequences — remove the backslash before punctuation
-        .replace(/\\([_*~`|\\[\](){}#+\-=.!>])/g, '$1');
+        .replace(/`([^`\n]+)`/g, (_, c) => {
+            codeBlocks.push(`<code>${escHtml(c)}</code>`);
+            return `\x00CB${codeBlocks.length - 1}\x00`;
+        });
+
+    // Protect escaped characters (\* \_ \~ etc.) from formatting
+    const escapes: string[] = [];
+    text = text.replace(/\\([\\*_~`|>\-\[\](){}#+.!])/g, (_, ch) => {
+        escapes.push(ch);
+        return `\x00ES${escapes.length - 1}\x00`;
+    });
+
+    // Blockquote: lines starting with > plus lazy continuations (non-empty lines without >)
+    const lines = text.split('\n');
+    const processed: string[] = [];
+    let quoteLines: string[] = [];
+    let inQuote = false;
+
+    for (const line of lines) {
+        if (/^>/.test(line)) {
+            inQuote = true;
+            quoteLines.push(line.replace(/^>[ \t]?/, ''));
+        } else if (inQuote && line.trim() !== '') {
+            quoteLines.push(line);
+        } else {
+            if (inQuote) {
+                processed.push(`<blockquote>${quoteLines.join('\n').trimEnd()}</blockquote>`);
+                quoteLines = [];
+                inQuote = false;
+            }
+            processed.push(line);
+        }
+    }
+    if (inQuote) {
+        processed.push(`<blockquote>${quoteLines.join('\n').trimEnd()}</blockquote>`);
+    }
+    text = processed.join('\n');
+
+    // Thematic breaks (---, ___, ***) → horizontal line, preserving length
+    text = text.replace(/^[ \t]*([-_*])\1{2,}[ \t]*$/gm, (match) => {
+        const len = match.trim().length;
+        return '\u2500'.repeat(len);
+    });
+
+    // Unordered list markers (*, +, -) → bullet •
+    text = text.replace(/^(\s*)(?:\*|\+|-)\s+/gm, '$1• ');
+
+    // Headings → bold
+    text = text.replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>');
+
+    // Bold **text** or __text__  (MD standard bold)
+    text = text.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+
+    // Italic *text* or _text_
+    text = text.replace(/\*(.+?)\*/g, '<i>$1</i>');
+    text = text.replace(/(?<![\\a-zA-Zа-яА-ЯёЁ])_(.+?)_(?![a-zA-Zа-яА-ЯёЁ])/g, '<i>$1</i>');
+
+    // Strikethrough ~~text~~
+    text = text.replace(/~~(.+?)~~/g, '<s>$1</s>');
+
+    // Spoiler ||text||
+    text = text.replace(/\|\|(.+?)\|\|/g, '<spoiler>$1</spoiler>');
+
+    // Links [text](url)
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+    // Restore escaped characters as literal text
+    text = text.replace(/\x00ES(\d+)\x00/g, (_, idx) => escHtml(escapes[parseInt(idx)]));
+
+    // Restore code blocks
+    text = text.replace(/\x00CB(\d+)\x00/g, (_, idx) => codeBlocks[parseInt(idx)]);
+
+    // Collapse multiple blank lines into one
+    text = text.replace(/\n{3,}/g, '\n\n');
+
+    return text;
 }
 
 // ─── Split helpers ────────────────────────────────────────────────────────────
@@ -212,7 +272,7 @@ async function sendTextMessage(channel: TelegramChannel, text: string, silent: b
     const body: Record<string, unknown> = {
         chat_id: channel.chatId,
         text,
-        parse_mode: "MarkdownV2",
+        parse_mode: "HTML",
     };
     if (silent) body.disable_notification = true;
 
@@ -234,7 +294,7 @@ async function sendReply(botToken: string, chatId: number | string, replyToMessa
         chat_id: chatId,
         reply_to_message_id: replyToMessageId,
         text,
-        parse_mode: "MarkdownV2",
+        parse_mode: "HTML",
     };
     if (silent) body.disable_notification = true;
 
@@ -253,7 +313,7 @@ async function sendSinglePhoto(app: App, channel: TelegramChannel, file: MediaFi
     formData.append("photo", await file.getBlob(), file.name);
     if (caption) {
         formData.append("caption", caption);
-        formData.append("parse_mode", "MarkdownV2");
+        formData.append("parse_mode", "HTML");
     }
     if (silent) formData.append("disable_notification", "true");
     if (attachUnderText) formData.append("show_caption_above_media", "true");
@@ -273,7 +333,7 @@ async function sendAnimation(app: App, channel: TelegramChannel, file: MediaFile
     formData.append("animation", await file.getBlob(), file.name);
     if (caption) {
         formData.append("caption", caption);
-        formData.append("parse_mode", "MarkdownV2");
+        formData.append("parse_mode", "HTML");
     }
     if (silent) formData.append("disable_notification", "true");
     if (attachUnderText) formData.append("show_caption_above_media", "true");
@@ -293,7 +353,7 @@ async function sendSingleVideo(app: App, channel: TelegramChannel, file: MediaFi
     formData.append("video", await file.getBlob(), file.name);
     if (caption) {
         formData.append("caption", caption);
-        formData.append("parse_mode", "MarkdownV2");
+        formData.append("parse_mode", "HTML");
     }
     if (silent) formData.append("disable_notification", "true");
     if (attachUnderText) formData.append("show_caption_above_media", "true");
@@ -313,7 +373,7 @@ async function sendSingleDocument(app: App, channel: TelegramChannel, file: Medi
     formData.append("document", await file.getBlob(), file.name);
     if (caption) {
         formData.append("caption", caption);
-        formData.append("parse_mode", "MarkdownV2");
+        formData.append("parse_mode", "HTML");
     }
     if (silent) formData.append("disable_notification", "true");
     if (attachUnderText) formData.append("show_caption_above_media", "true");
@@ -340,7 +400,7 @@ async function sendMediaGroup(app: App, channel: TelegramChannel, files: MediaFi
             media: `attach://${attachName}`,
             ...(idx === 0 && caption ? {
                 caption,
-                parse_mode: "MarkdownV2",
+                parse_mode: "HTML",
                 show_caption_above_media: attachUnderText
             } : {})
         };
@@ -383,7 +443,7 @@ async function sendPartViaBotApi(
     sourceFile: TFile,
     treatMdEmbedsAsComments: boolean
 ): Promise<SendResult | null> {
-    const formattedContent = prepareContent(body);
+    const formattedContent = mdToTelegramHtml(body);
     const { attachments, mdEmbeds } = collectMediaFiles(app, body, sourceFile);
 
     const photoAndVideoFiles = attachments.filter(f =>
@@ -449,7 +509,7 @@ async function sendPartViaBotApi(
         for (const mdFile of mdEmbeds) {
             const mdContent = await app.vault.read(mdFile);
             const { body: mdBody } = extractFrontmatter(mdContent);
-            const formattedMdContent = prepareContent(mdBody);
+            const formattedMdContent = mdToTelegramHtml(mdBody);
             if (formattedMdContent.length === 0) continue;
 
             if (linkedChatId !== null) {
@@ -503,8 +563,7 @@ async function sendPartViaAccount(
     attachUnderText: boolean,
     sourceFile: TFile,
 ): Promise<SendResult | null> {
-    const mdv2 = prepareContent(body);
-    const text = mdv2ToHtml(mdv2);           // ← convert to HTML for GramJS
+    const text = mdToTelegramHtml(body);
     const { attachments } = collectMediaFiles(app, body, sourceFile);
 
     const client = await getClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
@@ -579,7 +638,7 @@ export async function sendNoteToTelegram(
     // ── Update Existing Post (bot API only) ───────────────────────────────────
 
     if (updateLink && updateLink !== "none") {
-        const formattedContent = prepareContent(body);
+        const formattedContent = mdToTelegramHtml(body);
         const msgIdMatch = updateLink.match(/\/(\d+)\/?$/);
         const messageId = msgIdMatch ? parseInt(msgIdMatch[1], 10) : null;
 
@@ -588,7 +647,7 @@ export async function sendNoteToTelegram(
                 chat_id: channel.chatId,
                 message_id: messageId,
                 text: formattedContent,
-                parse_mode: "MarkdownV2"
+                parse_mode: "HTML"
             };
 
             let response = await fetch(`https://api.telegram.org/bot${channel.botToken}/editMessageText`, {
@@ -603,7 +662,7 @@ export async function sendNoteToTelegram(
                     chat_id: channel.chatId,
                     message_id: messageId,
                     caption: formattedContent,
-                    parse_mode: "MarkdownV2"
+                    parse_mode: "HTML"
                 };
                 response = await fetch(`https://api.telegram.org/bot${channel.botToken}/editMessageCaption`, {
                     method: "POST",

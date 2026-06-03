@@ -22,7 +22,6 @@
     "constants-browserify": "^1.0.0",
     "crypto-browserify": "^3.12.1",
     "events": "^3.3.0",
-    "markdown-to-telegram": "^0.0.7",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
