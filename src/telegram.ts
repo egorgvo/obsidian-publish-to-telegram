@@ -114,18 +114,23 @@ function mdToTelegramHtml(body: string): string {
     // Headings → bold
     text = text.replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>');
 
-    // Bold **text** or __text__  (MD standard bold)
-    text = text.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    // Bold **text** (multiline: wrap each line separately)
+    text = text.replace(/\*\*([^\s*][\s\S]*?)\*\*/g, (_, content) =>
+        content.split('\n').map((line: string) => `<b>${line}</b>`).join('\n'));
 
-    // Italic *text* or _text_
-    text = text.replace(/\*(.+?)\*/g, '<i>$1</i>');
-    text = text.replace(/(?<![\\a-zA-Zа-яА-ЯёЁ])_(.+?)_(?![a-zA-Zа-яА-ЯёЁ])/g, '<i>$1</i>');
+    // Italic *text* or _text_  (multiline: wrap each line separately)
+    text = text.replace(/\*([^\s*][\s\S]*?)\*/g, (_, content) =>
+        content.split('\n').map((line: string) => `<i>${line}</i>`).join('\n'));
+    text = text.replace(/(?<![\\a-zA-Zа-яА-ЯёЁ])_([^\s_][\s\S]*?)_(?![a-zA-Zа-яА-ЯёЁ])/g, (_, content) =>
+        content.split('\n').map((line: string) => `<i>${line}</i>`).join('\n'));
 
-    // Strikethrough ~~text~~
-    text = text.replace(/~~(.+?)~~/g, '<s>$1</s>');
+    // Strikethrough ~~text~~  (multiline: wrap each line separately)
+    text = text.replace(/~~([^\s~][\s\S]*?)~~/g, (_, content) =>
+        content.split('\n').map((line: string) => `<s>${line}</s>`).join('\n'));
 
-    // Spoiler ||text||
-    text = text.replace(/\|\|(.+?)\|\|/g, '<spoiler>$1</spoiler>');
+    // Spoiler ||text||  (multiline: wrap each line separately)
+    text = text.replace(/\|\|([^\s|][\s\S]*?)\|\|/g, (_, content) =>
+        content.split('\n').map((line: string) => `<spoiler>${line}</spoiler>`).join('\n'));
 
     // Links [text](url)
     text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
