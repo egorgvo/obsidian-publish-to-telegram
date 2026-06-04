@@ -106,6 +106,7 @@ export default class SendToTelegramPlugin extends Plugin {
     }
 
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string, scheduleDate?: Date): Promise<void> {
+            if (!this.secrets.telegramSession) { new Notice(t.NOTICE_ERR_NOT_AUTHENTICATED); return; }
             const progressNotice = new Notice(t.NOTICE_PUBLISHING, 0);
             try {
                 const { links, errors } = await sendNoteToTelegram(

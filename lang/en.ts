@@ -9,6 +9,7 @@ export default {
     NOTICE_ERR_TOO_LONG_TEXT: "Error: Post must be less than 4097 symbols.",
     NOTICE_ERR_TOO_LONG_CAPTION: "Error: Post with media attachments must be less than 1025 symbols.",
     NOTICE_ERR_NO_DEFAULT: "Error: Default preset is not set up.",
+    NOTICE_ERR_NOT_AUTHENTICATED: "Error: Authorize into your Telegram account in the plugin settings before publishing.",
     SETTING_HEADER: "Publish to Telegram Settings",
     SECTION_GENERAL: "General",
     SECTION_PRESETS: "Presets",

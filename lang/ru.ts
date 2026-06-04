@@ -9,6 +9,7 @@ export default {
     NOTICE_ERR_TOO_LONG_TEXT: "Ошибка: Пост должен быть менее 4097 символов.",
     NOTICE_ERR_TOO_LONG_CAPTION: "Ошибка: Пост с медиавложениями должен быть менее 1025 символов.",
     NOTICE_ERR_NO_DEFAULT: "Ошибка: Пресет по умолчанию не установлен.",
+    NOTICE_ERR_NOT_AUTHENTICATED: "Ошибка: Перед публикацией авторизуйтесь в Telegram в настройках плагина.",
     SETTING_HEADER: "Настройки Publish to Telegram",
     SECTION_GENERAL: "Основные",
     SECTION_PRESETS: "Пресеты",
