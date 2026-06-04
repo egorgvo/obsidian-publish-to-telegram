@@ -1,4 +1,4 @@
-import { App, Modal, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent } from "obsidian";
+import { App, Modal, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent, setIcon } from "obsidian";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { Api } from "telegram";
@@ -690,52 +690,59 @@ export class LocalAuthModal extends Modal {
 
 export class TelegramSettingTab extends PluginSettingTab {
     plugin: SendToTelegramPlugin;
+    private inlineLocalClient: TelegramClient | null = null;
 
     constructor(app: App, plugin: SendToTelegramPlugin) { super(app, plugin); this.plugin = plugin; }
 
     display(): void {
+        if (this.inlineLocalClient) {
+            this.inlineLocalClient.disconnect().catch(() => {});
+            this.inlineLocalClient = null;
+        }
         const { containerEl } = this;
         containerEl.empty();
         new Setting(containerEl).setHeading().setName(t.SETTING_HEADER);
 
         containerEl.createEl("p", { text: t.SETTING_DESCRIPTION, cls: "telegram-plugin-description" });
 
-        // ── Telegram Account Auth ──
+        // ── General ──
+        new Setting(containerEl).setHeading().setName(t.SECTION_GENERAL);
+
         if (this.plugin.secrets.telegramSession) {
-            new Setting(containerEl)
-                .setName(t.AUTH_AUTHORIZED_AS.replace("{name}", this.plugin.settings.telegramDisplayName))
-                .addExtraButton(btn => {
-                    btn.setIcon("log-out")
-                        .setTooltip(t.AUTH_LOGOUT_BTN)
-                        .onClick(async () => {
-                            await this.plugin.clearSecrets();
-                            this.plugin.settings.telegramDisplayName = "";
-                            await this.plugin.saveSettings();
-                            this.display();
-                        });
-                    btn.extraSettingsEl.addClass("telegram-logout-button");
-                });
+            const authStatusEl = containerEl.createDiv({ cls: "telegram-auth-status" });
+            authStatusEl.createSpan({
+                text: t.AUTH_AUTHORIZED_AS.replace("{name}", this.plugin.settings.telegramDisplayName),
+                cls: "telegram-auth-status-name"
+            });
+            const logoutBtn = authStatusEl.createEl("button", {
+                cls: "clickable-icon telegram-logout-button",
+                attr: { "aria-label": t.AUTH_LOGOUT_BTN }
+            });
+            setIcon(logoutBtn, "log-out");
+            logoutBtn.addEventListener("click", async () => {
+                await this.plugin.clearSecrets();
+                this.plugin.settings.telegramDisplayName = "";
+                await this.plugin.saveSettings();
+                this.display();
+            });
         } else {
-            new Setting(containerEl)
-                .setName(t.AUTH_NOT_AUTHORIZED)
-                .addButton(btn => btn
-                    .setButtonText(t.AUTH_AUTHORIZE_BTN)
-                    .setCta()
-                    .onClick(() => {
-                        if (!this.plugin.settings.configUrl) {
-                            new Notice(t.AUTH_NO_CONFIG_URL);
-                            return;
-                        }
-                        new AuthModal(this.app, this.plugin, () => this.display()).open();
-                    }))
-                .addButton(btn => btn
-                    .setButtonText(t.AUTH_LOCAL_BTN)
-                    .onClick(() => {
-                        new LocalAuthModal(this.app, this.plugin, () => this.display()).open();
-                    }));
+            const authContainer = containerEl.createDiv({ cls: "telegram-auth-inline" });
+            this.renderInlineCloudPhoneStep(authContainer);
         }
 
-        // ── Channels ──
+        new Setting(containerEl).setName(t.SETTING_SAVE_POST_LINKS_NAME).setDesc(t.SETTING_SAVE_POST_LINKS_DESC)
+            .addToggle(toggle => toggle.setValue(this.plugin.settings.savePostLinks)
+                .onChange(async (v) => { this.plugin.settings.savePostLinks = v; await this.plugin.saveSettings(); }))
+            .settingEl.addClass("telegram-bordered-setting");
+
+        new Setting(containerEl).setName(t.SETTING_MD_EMBEDS_AS_COMMENTS_NAME).setDesc(t.SETTING_MD_EMBEDS_AS_COMMENTS_DESC)
+            .addToggle(toggle => toggle.setValue(this.plugin.settings.treatMdEmbedsAsComments)
+                .onChange(async (v) => { this.plugin.settings.treatMdEmbedsAsComments = v; await this.plugin.saveSettings(); }))
+            .settingEl.addClass("telegram-bordered-setting");
+
+        // ── Presets ──
+        new Setting(containerEl).setHeading().setName(t.SECTION_PRESETS);
+
         const addSection = containerEl.createDiv("telegram-add-preset-section");
         const infoDiv = addSection.createDiv("telegram-add-preset-info");
         infoDiv.createEl("div", { text: t.SETTING_ADD_CHANNEL_NAME, cls: "telegram-add-preset-title" });
@@ -755,14 +762,6 @@ export class TelegramSettingTab extends PluginSettingTab {
                 await this.plugin.saveSettings();
                 this.display();
             }).buttonEl.addClass("telegram-add-button");
-
-        new Setting(containerEl).setName(t.SETTING_SAVE_POST_LINKS_NAME).setDesc(t.SETTING_SAVE_POST_LINKS_DESC)
-            .addToggle(toggle => toggle.setValue(this.plugin.settings.savePostLinks)
-                .onChange(async (v) => { this.plugin.settings.savePostLinks = v; await this.plugin.saveSettings(); }));
-
-        new Setting(containerEl).setName(t.SETTING_MD_EMBEDS_AS_COMMENTS_NAME).setDesc(t.SETTING_MD_EMBEDS_AS_COMMENTS_DESC)
-            .addToggle(toggle => toggle.setValue(this.plugin.settings.treatMdEmbedsAsComments)
-                .onChange(async (v) => { this.plugin.settings.treatMdEmbedsAsComments = v; await this.plugin.saveSettings(); }));
 
         this.plugin.settings.channels.forEach((channel, index) => {
             const channelDiv = containerEl.createDiv("telegram-channel-item");
@@ -815,5 +814,301 @@ export class TelegramSettingTab extends PluginSettingTab {
                         this.display();
                     }));
         });
+    }
+
+    private buildAuthCard(
+        container: HTMLElement,
+        title: string,
+        onBack?: () => void
+    ): { fields: HTMLElement; submitEl: HTMLButtonElement; noteEl: HTMLParagraphElement; extraEl: HTMLElement } {
+        container.empty();
+        const card = container.createDiv({ cls: "telegram-auth-card" });
+
+        const header = card.createDiv({ cls: "telegram-auth-header" });
+        const backBtn = header.createEl("button", { cls: "telegram-auth-back" });
+        setIcon(backBtn, "arrow-left");
+        if (onBack) {
+            backBtn.addEventListener("click", onBack);
+        } else {
+            backBtn.addClass("is-hidden");
+        }
+        header.createDiv({ text: title, cls: "telegram-auth-title" });
+        header.createDiv();
+
+        const fields = card.createDiv({ cls: "telegram-auth-fields" });
+        const submitEl = card.createEl("button", { cls: "telegram-auth-submit" });
+        const noteEl = card.createEl("p", { cls: "telegram-auth-note" });
+        const extraEl = card.createDiv();
+
+        return { fields, submitEl, noteEl, extraEl };
+    }
+
+    private renderInlineCloudPhoneStep(container: HTMLElement): void {
+        const { fields, submitEl, noteEl, extraEl } = this.buildAuthCard(container, t.AUTH_STEP_1);
+
+        let phoneValue = "";
+        const phoneInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "tel", placeholder: t.AUTH_PHONE_PLACEHOLDER } });
+        phoneInput.addEventListener("input", () => { phoneValue = phoneInput.value; });
+        phoneInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
+        setTimeout(() => phoneInput.focus(), 50);
+
+        submitEl.textContent = t.AUTH_SEND_CODE_BTN;
+        submitEl.addEventListener("click", async () => {
+            if (!phoneValue.trim()) return;
+            submitEl.disabled = true;
+            submitEl.textContent = t.AUTH_LOADING;
+            try {
+                const config = await fetchConfig(this.plugin.settings.configUrl, this.plugin.manifest.version);
+                const userId = crypto.randomUUID();
+                await startAuth(config.auth_start_url, phoneValue.trim(), userId, this.plugin.manifest.version);
+                this.renderInlineCloudCodeStep(container, { phone: phoneValue.trim(), userId, config });
+            } catch (err: any) {
+                submitEl.disabled = false;
+                submitEl.textContent = t.AUTH_SEND_CODE_BTN;
+                new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+            }
+        });
+
+        noteEl.textContent = t.AUTH_PHONE_NOTE;
+
+        const linkBtn = extraEl.createEl("button", { cls: "telegram-auth-link-btn", text: t.AUTH_USE_LOCAL });
+        linkBtn.addEventListener("click", () => this.renderInlineLocalPhoneStep(container));
+    }
+
+    private renderInlineCloudCodeStep(container: HTMLElement, state: { phone: string; userId: string; config: CloudConfig }): void {
+        const { fields, submitEl, noteEl } = this.buildAuthCard(
+            container, t.AUTH_STEP_2,
+            () => this.renderInlineCloudPhoneStep(container)
+        );
+
+        let codeValue = "";
+        const codeInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "text", placeholder: t.AUTH_CODE_PLACEHOLDER } });
+        codeInput.addEventListener("input", () => { codeValue = codeInput.value; });
+        codeInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
+        setTimeout(() => codeInput.focus(), 50);
+
+        submitEl.textContent = t.AUTH_VERIFY_BTN;
+        submitEl.addEventListener("click", async () => {
+            if (!codeValue.trim()) return;
+            submitEl.disabled = true;
+            submitEl.textContent = t.AUTH_LOADING;
+            try {
+                const result = await verifyAuth(state.config.auth_verify_url, state.userId, this.plugin.manifest.version, codeValue.trim());
+                if (result.session) {
+                    await this.saveInlineCloudSession(result.session);
+                } else if (result.reason === "password_required") {
+                    this.renderInlineCloudPasswordStep(container, state);
+                }
+            } catch (err: any) {
+                submitEl.disabled = false;
+                submitEl.textContent = t.AUTH_VERIFY_BTN;
+                new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+            }
+        });
+
+        noteEl.textContent = t.AUTH_CODE_NOTE;
+    }
+
+    private renderInlineCloudPasswordStep(container: HTMLElement, state: { phone: string; userId: string; config: CloudConfig }): void {
+        const { fields, submitEl, noteEl } = this.buildAuthCard(
+            container, t.AUTH_STEP_2,
+            () => this.renderInlineCloudCodeStep(container, state)
+        );
+
+        let passwordValue = "";
+        const passwordInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "password", placeholder: t.AUTH_PASSWORD_PLACEHOLDER } });
+        passwordInput.addEventListener("input", () => { passwordValue = passwordInput.value; });
+        passwordInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
+        setTimeout(() => passwordInput.focus(), 50);
+
+        submitEl.textContent = t.AUTH_VERIFY_BTN;
+        submitEl.addEventListener("click", async () => {
+            if (!passwordValue.trim()) return;
+            submitEl.disabled = true;
+            submitEl.textContent = t.AUTH_LOADING;
+            try {
+                const result = await verifyAuth(state.config.auth_verify_url, state.userId, this.plugin.manifest.version, undefined, passwordValue.trim());
+                if (result.session) {
+                    await this.saveInlineCloudSession(result.session);
+                }
+            } catch (err: any) {
+                submitEl.disabled = false;
+                submitEl.textContent = t.AUTH_VERIFY_BTN;
+                new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+            }
+        });
+
+        noteEl.textContent = t.AUTH_PASSWORD_REQUIRED;
+    }
+
+    private renderInlineLocalPhoneStep(container: HTMLElement): void {
+        const { fields, submitEl, noteEl } = this.buildAuthCard(
+            container, t.AUTH_STEP_1,
+            () => this.renderInlineCloudPhoneStep(container)
+        );
+
+        let apiIdValue = "";
+        let apiHashValue = "";
+        let phoneValue = "";
+
+        const appIdInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "text", placeholder: t.AUTH_APP_ID_PLACEHOLDER } });
+        appIdInput.addEventListener("input", () => { apiIdValue = appIdInput.value; });
+
+        const hashInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "text", placeholder: t.AUTH_HASH_PLACEHOLDER } });
+        hashInput.addEventListener("input", () => { apiHashValue = hashInput.value; });
+
+        const phoneInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "tel", placeholder: t.AUTH_PHONE_PLACEHOLDER } });
+        phoneInput.addEventListener("input", () => { phoneValue = phoneInput.value; });
+        phoneInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
+        setTimeout(() => appIdInput.focus(), 50);
+
+        submitEl.textContent = t.AUTH_SEND_CODE_BTN;
+        submitEl.addEventListener("click", async () => {
+            if (!phoneValue.trim() || !apiIdValue.trim() || !apiHashValue.trim()) return;
+            const apiId = Number(apiIdValue.trim());
+            if (!apiId || isNaN(apiId)) { new Notice(t.AUTH_LOCAL_INVALID_API_ID); return; }
+
+            submitEl.disabled = true;
+            submitEl.textContent = t.AUTH_LOADING;
+            try {
+                if (this.inlineLocalClient) {
+                    await this.inlineLocalClient.disconnect();
+                    this.inlineLocalClient = null;
+                }
+                this.inlineLocalClient = new TelegramClient(new StringSession(""), apiId, apiHashValue.trim(), { connectionRetries: 3, useWSS: true });
+                await this.inlineLocalClient.connect();
+                const result = await this.inlineLocalClient.sendCode({ apiId, apiHash: apiHashValue.trim() }, phoneValue.trim());
+                this.renderInlineLocalCodeStep(container, { phone: phoneValue.trim(), apiId, apiHash: apiHashValue.trim(), phoneCodeHash: result.phoneCodeHash });
+            } catch (err: any) {
+                submitEl.disabled = false;
+                submitEl.textContent = t.AUTH_SEND_CODE_BTN;
+                new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+            }
+        });
+
+        noteEl.textContent = t.AUTH_PHONE_NOTE;
+    }
+
+    private renderInlineLocalCodeStep(
+        container: HTMLElement,
+        state: { phone: string; apiId: number; apiHash: string; phoneCodeHash: string }
+    ): void {
+        const { fields, submitEl, noteEl } = this.buildAuthCard(
+            container, t.AUTH_STEP_2,
+            () => {
+                if (this.inlineLocalClient) {
+                    this.inlineLocalClient.disconnect().catch(() => {});
+                    this.inlineLocalClient = null;
+                }
+                this.renderInlineLocalPhoneStep(container);
+            }
+        );
+
+        let codeValue = "";
+        const codeInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "text", placeholder: t.AUTH_CODE_PLACEHOLDER } });
+        codeInput.addEventListener("input", () => { codeValue = codeInput.value; });
+        codeInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
+        setTimeout(() => codeInput.focus(), 50);
+
+        submitEl.textContent = t.AUTH_VERIFY_BTN;
+        submitEl.addEventListener("click", async () => {
+            if (!codeValue.trim() || !this.inlineLocalClient) return;
+            submitEl.disabled = true;
+            submitEl.textContent = t.AUTH_LOADING;
+            try {
+                await this.inlineLocalClient.invoke(new Api.auth.SignIn({
+                    phoneNumber: state.phone,
+                    phoneCodeHash: state.phoneCodeHash,
+                    phoneCode: codeValue.trim(),
+                }));
+                await this.saveInlineLocalSession(state.apiId, state.apiHash);
+            } catch (err: any) {
+                if (err instanceof Error && err.message.includes("SESSION_PASSWORD_NEEDED")) {
+                    this.renderInlineLocalPasswordStep(container, state);
+                } else {
+                    submitEl.disabled = false;
+                    submitEl.textContent = t.AUTH_VERIFY_BTN;
+                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                }
+            }
+        });
+
+        noteEl.textContent = t.AUTH_CODE_NOTE;
+    }
+
+    private renderInlineLocalPasswordStep(
+        container: HTMLElement,
+        state: { phone: string; apiId: number; apiHash: string; phoneCodeHash: string }
+    ): void {
+        const { fields, submitEl, noteEl } = this.buildAuthCard(
+            container, t.AUTH_STEP_2,
+            () => this.renderInlineLocalCodeStep(container, state)
+        );
+
+        let passwordValue = "";
+        const passwordInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "password", placeholder: t.AUTH_PASSWORD_PLACEHOLDER } });
+        passwordInput.addEventListener("input", () => { passwordValue = passwordInput.value; });
+        passwordInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
+        setTimeout(() => passwordInput.focus(), 50);
+
+        submitEl.textContent = t.AUTH_VERIFY_BTN;
+        submitEl.addEventListener("click", async () => {
+            if (!passwordValue.trim() || !this.inlineLocalClient) return;
+            submitEl.disabled = true;
+            submitEl.textContent = t.AUTH_LOADING;
+            try {
+                await this.inlineLocalClient.signInWithPassword(
+                    { apiId: state.apiId, apiHash: state.apiHash },
+                    { password: () => passwordValue.trim() }
+                );
+                await this.saveInlineLocalSession(state.apiId, state.apiHash);
+            } catch (err: any) {
+                submitEl.disabled = false;
+                submitEl.textContent = t.AUTH_VERIFY_BTN;
+                new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+            }
+        });
+
+        noteEl.textContent = t.AUTH_PASSWORD_REQUIRED;
+    }
+
+    private async saveInlineCloudSession(session: string): Promise<void> {
+        this.plugin.secrets.telegramSession = session;
+        await this.plugin.saveSecrets();
+        try {
+            const client = await createClient(session);
+            const me = await client.getMe() as any;
+            const parts = [me.firstName, me.lastName].filter(Boolean).join(" ");
+            const username = me.username ? ` (@${me.username})` : "";
+            this.plugin.settings.telegramDisplayName = `${parts}${username}`;
+            await client.disconnect();
+        } catch {
+            this.plugin.settings.telegramDisplayName = "";
+        }
+        await this.plugin.saveSettings();
+        new Notice(t.AUTH_SUCCESS);
+        this.display();
+    }
+
+    private async saveInlineLocalSession(apiId: number, apiHash: string): Promise<void> {
+        if (!this.inlineLocalClient) return;
+        const session = this.inlineLocalClient.session.save() as unknown as string;
+        this.plugin.secrets.telegramSession = session;
+        this.plugin.secrets.telegramApiId = apiId;
+        this.plugin.secrets.telegramApiHash = apiHash;
+        await this.plugin.saveSecrets();
+        try {
+            const me = await this.inlineLocalClient.getMe() as any;
+            const parts = [me.firstName, me.lastName].filter(Boolean).join(" ");
+            const username = me.username ? ` (@${me.username})` : "";
+            this.plugin.settings.telegramDisplayName = `${parts}${username}`;
+        } catch {
+            this.plugin.settings.telegramDisplayName = "";
+        }
+        await this.inlineLocalClient.disconnect();
+        this.inlineLocalClient = null;
+        await this.plugin.saveSettings();
+        new Notice(t.AUTH_SUCCESS);
+        this.display();
     }
 }
