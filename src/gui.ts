@@ -78,21 +78,25 @@ export class FormattingHelpModal extends Modal {
 
 export class ConfirmationModal extends Modal {
     onSubmit: () => void;
-    channelName: string;
+    title: string;
+    message: string;
+    confirmText: string;
 
-    constructor(app: App, channelName: string, onSubmit: () => void) {
+    constructor(app: App, title: string, message: string, confirmText: string, onSubmit: () => void) {
         super(app);
-        this.channelName = channelName || t.UNTITLED_CHANNEL;
+        this.title = title;
+        this.message = message;
+        this.confirmText = confirmText;
         this.onSubmit = onSubmit;
     }
 
     onOpen() {
         const { contentEl, titleEl } = this;
-        titleEl.setText(t.CONFIRM_DELETE_TITLE);
-        contentEl.createEl("p", { text: t.CONFIRM_DELETE_MSG.replace("{name}", this.channelName) });
+        titleEl.setText(this.title);
+        contentEl.createEl("p", { text: this.message });
         const btnContainer = contentEl.createDiv("telegram-modal-buttons");
         new ButtonComponent(btnContainer).setButtonText(t.CONFIRM_CANCEL_BTN).onClick(() => this.close());
-        new ButtonComponent(btnContainer).setButtonText(t.CONFIRM_DELETE_BTN).setWarning().onClick(() => {
+        new ButtonComponent(btnContainer).setButtonText(this.confirmText).setWarning().onClick(() => {
             this.onSubmit();
             this.close();
         });
@@ -719,11 +723,19 @@ export class TelegramSettingTab extends PluginSettingTab {
                 attr: { "aria-label": t.AUTH_LOGOUT_BTN }
             });
             setIcon(logoutBtn, "log-out");
-            logoutBtn.addEventListener("click", async () => {
-                await this.plugin.clearSecrets();
-                this.plugin.settings.telegramDisplayName = "";
-                await this.plugin.saveSettings();
-                this.display();
+            logoutBtn.addEventListener("click", () => {
+                new ConfirmationModal(
+                    this.app,
+                    t.CONFIRM_LOGOUT_TITLE,
+                    t.CONFIRM_LOGOUT_MSG,
+                    t.CONFIRM_LOGOUT_BTN,
+                    async () => {
+                        await this.plugin.clearSecrets();
+                        this.plugin.settings.telegramDisplayName = "";
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }
+                ).open();
             });
         } else {
             const authContainer = containerEl.createDiv({ cls: "telegram-auth-inline" });
@@ -749,6 +761,11 @@ export class TelegramSettingTab extends PluginSettingTab {
         infoDiv.createEl("div", { text: t.SETTING_ADD_CHANNEL_DESC, cls: "telegram-add-preset-description" });
 
         const buttonContainer = addSection.createDiv("telegram-add-preset-button-container");
+
+        new ButtonComponent(buttonContainer)
+            .setButtonText(t.SETTING_OPEN_USERINFOBOT)
+            .onClick(() => { window.open("https://t.me/userinfobot", "_blank"); })
+            .buttonEl.addClass("telegram-link-button");
 
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_FORMATTING_HELP)
@@ -794,16 +811,23 @@ export class TelegramSettingTab extends PluginSettingTab {
 
             new ButtonComponent(header.createDiv("telegram-delete-container"))
                 .setIcon("trash").onClick(async () => {
-                    new ConfirmationModal(this.app, channel.name, async () => {
-                        this.plugin.settings.channels.splice(index, 1);
-                        await this.plugin.saveSettings();
-                        this.display();
-                    }).open();
+                    new ConfirmationModal(
+                        this.app,
+                        t.CONFIRM_DELETE_TITLE,
+                        t.CONFIRM_DELETE_MSG.replace("{name}", channel.name || t.UNTITLED_CHANNEL),
+                        t.CONFIRM_DELETE_BTN,
+                        async () => {
+                            this.plugin.settings.channels.splice(index, 1);
+                            await this.plugin.saveSettings();
+                            this.display();
+                        }
+                    ).open();
                 }).buttonEl.addClass("telegram-delete-button");
 
             new Setting(channelDiv).setName(t.SETTING_CHAT_ID_NAME).setDesc(t.SETTING_CHAT_ID_DESC)
                 .addText(text => text.setPlaceholder(t.SETTING_PLACEHOLDER_CHAT).setValue(channel.chatId)
-                    .onChange(async (v) => { channel.chatId = v; await this.plugin.saveSettings(); }));
+                    .onChange(async (v) => { channel.chatId = v; await this.plugin.saveSettings(); }))
+                .settingEl.addClass("telegram-preset-chat-id");
 
             new Setting(channelDiv).setName(t.SETTING_DEFAULT_CHANNEL).setDesc(t.SETTING_DEFAULT_DESC)
                 .addToggle(toggle => toggle.setValue(channel.isDefault || false)
@@ -812,7 +836,8 @@ export class TelegramSettingTab extends PluginSettingTab {
                         channel.isDefault = v;
                         await this.plugin.saveSettings();
                         this.display();
-                    }));
+                    }))
+                .settingEl.addClass("telegram-preset-default");
         });
     }
 
