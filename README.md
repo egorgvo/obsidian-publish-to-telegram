@@ -2,35 +2,36 @@
 
 English | [Русский](https://github.com/pan4ratte/obsidian-publish-to-telegram/blob/main/README_RU.md)
 
-This plugin allows you to post notes directly to Telegram channels and groups with different presets. The plugin works through your personal bot, sending to it contents of an active note and information about the channel/group to post to. All standard Telegram formatting options are supported, as well as photo, album and document uploads, plus some advanced publishing settings are available.
+This plugin allows you to post notes directly to Telegram channels, groups and personal messages with different presets. All Telegram formatting options are supported, as well as media and document attachments. Advanced publishing settings are available to schedule posts, send them to multiple channels/groups at once and more.
 
 ![](media/plugin-demo-settings.png)
 
 
 ## Features
 
-1. Create multiple presets to post to different channels and groups.
+1. Create multiple presets to post to different channels, groups and users.
 
 2. Post in different ways: with hotkeys, command palette and context menus.
 
 3. Attach photos, videos, albums and documents to your posts.
 
-4. Use advanced publishing settings to:
+4. Advanced publishing settings:
 
   	* Post to multiple channels/groups at once.
   	* Post without sound.
   	* Post with attached media under the text.
+    * Schedule the publication.
     * Edit already existing post.
 
-5. Publish pre-written commentaries to the post discussion (or as replies to the message if it was posted in a group).
+5. Publish pre-written commentaries to the post discussion (or as replies to the message if it was posted in a group or sent to a user).
 
 6. Set up a default preset to post quickly with it or use command palette or hotkeys.
 
 7. Optionally enable automatic post link saving to the note's properties after publishing.   
 
-8. Publish multiple posts in a row from a single note using a special command that splits the text into separate posts.
+8. Publish multiple posts in a row from a single note using a special command that splits the note's text into separate posts.
 
-9. Detailed usage instructions, including descriptions of all features, available directly in the plugin settings.
+9. Detailed user guide in the plugin settings with detailed description of all features of the plugin and supported formatting options.
 
 
 ## Installation
@@ -56,23 +57,19 @@ If you want to test beta-versions of the plugin or use previous versions, you ca
 4. Under “Select a version” choose the desired version and click the “Add plugin” button. The plugin will be automatically installed and will be ready to use.
 
 
-## Usage
+## User guide
 
 ### Presets
 
 To publish notes to Telegram, you need to configure a preset.
 
-1. Use the official Telegram tool [@BotFather](https://t.me/BotFather) to create your own bot, following the instructions in the app. If you plan to post to group or make pre-written commentaries for posts, in the bot settings go to the "Bot Settings" menu, find the section "Groups and Channels" and turn of the "Group Privacy" option.
+1. In the plugin settings, log in to your account and make sure you have the relevant permissions to post to the target channels/groups.
 
-2. Copy your bot's API key in the app and paste this token into the corresponding field in the plugin settings.
+2. Copy the `@username` of the target channel or user. If the channel is private or you are posting to a group, you will need to get its `ID`. You can get the `ID` of any user, channel, or group with [@userinfobot](https://t.me/userinfobot).
 
-3. Use the [@userinfobot](https://t.me/userinfobot) tool to get the ID of the channel/group where you plan to post. You can also get your account ID if you want to use the preset to send messages to yourself (the bot will send you messages to you personally — do not forget to start a conversation with the bot first).
+3. Create a new preset and paste the `@username` or `ID` into the “Target channel, group, or user” field.
 
-4. Copy the ID of the target channel/group and paste it into the corresponding field in the plugin settings. Alternatively, if you will post to the *public* channel, you can paste to that field the link to the channel in the format `@channel_name`.
-
-5. While in Telegram, add the bot you created to the target channel/group and assign it the role of administrator. Give the bot permission to only publish messages.
-
-Now you can publish notes in Telegram using your preset name via the command palette or the note's context menu.
+Now you can post notes to Telegram using your preset’s name via the command palette, the note’s context menu, or keyboard shortcuts.
 
 ### Formatting
 
@@ -123,8 +120,12 @@ All standard Telegram formatting elements are supported as well as some addition
       <td><pre><code>Code block</code></pre></td>
     </tr>
     <tr>
-      <td><code>- List</code></td>
+      <td><code>- List</code> or <code>* List</code> or <code>+ List</code></td>
       <td><ul><li>List</li></ul></td>
+    </tr>
+    <tr>
+      <td><code>1. List</code> or <code>1) List</code></td>
+      <td>1. List or 1) List</td>
     </tr>
     <tr>
       <td><code># Heading</code></td>
@@ -137,11 +138,11 @@ All standard Telegram formatting elements are supported as well as some addition
   </tbody>
 </table>
 
-#### Omitting text from a post
+#### Additional formatting: Omitting text from a post
 
 In addition to the formatting that will be reflected in the Telegram post, you can use the comment syntax `<!-- hidden text -->` or `%% hidden text %%` to add information to your notes that will not be included in the post content when it is published.
 
-#### Splitting a note into multiple posts
+#### Additional formatting: Splitting the note into multiple posts
 
 You can also use the special command `<!-- \split -->` or `%% \split %%` to split the text of your note into separate posts. If you use this command, the plugin will publish all posts at the same time. Attachments (see below), including pre-written comments, must appear before the special command that marks the end of the post.  
 
@@ -168,25 +169,30 @@ Currently supported formats:
 | `.mp4`, `.mov`, `.avi`, `.mkv`, `.webm`            | Video / Album   |
 | `.pdf`                                             | Document        |
 
-### Commentaries
+### Pre-written comments
 
 You can pre-write one or more comments for your post that will appear in its discussion right after the publication. To use that feature:
 
 1. In the plugin settings turn on the option "Treat .md embeds as post comments".
 
-2. If a comment on a post is published in a channel, the channel must have a discussion chat linked to it, and the bot must be added to this chat with administrator rights. If a comment on a post is published in a group, it will appear as a regular reply to a message.
+2. To prepare a comment for a post, use the `![[comment-file]]` embed syntax. Only files with the .md extension are treated comments.
 
-3. To prepare a comment for a post, use the `![[comment-file]]` embed syntax. Only files with the .md extension are treated comments.
+A couple of notes:
 
-Note that all comments are published with a slight delay.
+* If a comment on a post is published in a group or in personal messages, it will appear as a regular reply to a message.
+
+* If you split the note into multiple posts (see above), you can attach the comments to each of the posts. To do that, place .md-embeds before the corresponding marker.  
+
+* Note that all comments are published with a slight delay.
 
 ### Advanced publishing settings
 
-You can call an advanced publishing settings window with command palette (`Ctrl + P`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
+You can open an advanced publishing settings window with command palette (`Ctrl + P`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
 
 * Post to multiple channels/groups at once.
 * Post without sound.
 * Post with attached media under the text.
+* Schedule the publication.
 * Edit already existing post. Links to the posts are stored in the `telegram_links` property, which is filled automatically if the corresponding option is enabled in the settings. You can also create it and fill manually.
 
 ### Limits
@@ -195,7 +201,7 @@ Standard Telegram posting limits apply to limits of characters per post, limits 
 
 ## About the Author
 
-My name is Mark Ingram (Ingrem), I am a Religious Studies scholar. Apart from my main area of study (Protestant Political Theology in Russia), I teach the subject "Information Technologies in Scientific Research", a unique course that I developed myself from scratch. This plugin helps me in my studies and I use it in my teaching, as well as other plugins that I develop and that you can find on my GitHub profile.
+My name is Mark Ingram (Ingrem), I am a Religious Studies scholar. Apart from my main area of study (Protestant Political Theology in Russia), I teach the subject "Information Technologies in Scientific Research", a unique course that I developed myself from scratch. This plugin helps me in my studies and I use it in my teaching, as well as other plugins that I develop and that you can find on [my GitHub profile](https://github.com/pan4ratte/).
 
 Hello to every student that came across this page!
 
