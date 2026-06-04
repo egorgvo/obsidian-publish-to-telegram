@@ -104,17 +104,19 @@ export default {
     AUTH_LOCAL_INVALID_API_ID: "Error: API ID must be a number.",
 
     FORMATTING_HELP_CONTENT: `
-You can open these instructions from the command palette by typing "Publish to Telegram: Open usage instructions".
+You can open these instructions from the command palette by typing "Publish to Telegram: Open user guide".
 
 ### Presets
 
 To publish notes to Telegram, you need to configure a preset.
 
-1. Sign in to your Telegram account using the **Telegram Account** section in the plugin settings. You can use the cloud authorization (phone number only) or provide your own API credentials from [my.telegram.org](https://my.telegram.org).
+1. In the plugin settings, log in to your account and make sure you have the relevant permissions to post to the target channels/groups. You can use the cloud authorization (phone number only) or provide your own API credentials from [my.telegram.org](https://my.telegram.org).
 
-2. Add a new preset and enter the numeric ID or @username of the channel/group where you plan to post. You can find channel/group IDs in the channel/group info in the Telegram app.
+2. Copy the \`@username\` of the target channel or user. If the channel is private or you are posting to a group, you will need to get its \`ID\`. You can get the \`ID\` of any user, channel, or group with [@userinfobot](https://t.me/userinfobot).
 
-Now you can publish notes in Telegram using your preset name via the command palette or the note's context menu.
+3. Create a new preset and paste the \`@username\` or \`ID\` into the “Target channel, group, or user” field.
+
+Now you can post notes to Telegram using your preset’s name via the command palette, the note’s context menu, or keyboard shortcuts.
 
 ### Formatting
 
@@ -165,8 +167,12 @@ All standard Telegram formatting elements are supported as well as some addition
       <td><pre><code>Code block</code></pre></td>
     </tr>
     <tr>
-      <td><code>- List</code></td>
+      <td><code>- List</code> or <code>* List</code> or <code>+ List</code></td>
       <td><ul><li>List</li></ul></td>
+    </tr>
+    <tr>
+      <td><code>1. List</code> or <code>1) List</code></td>
+      <td>1. List or 1) List</td>
     </tr>
     <tr>
       <td><code># Heading</code></td>
@@ -183,9 +189,9 @@ All standard Telegram formatting elements are supported as well as some addition
 
 In addition to the formatting that will be reflected in the Telegram post, you can use the comment syntax \`<!-- hidden text -->\` or \`%% hidden text %%\` to add information to your notes that will not be included in the post content when it is published.
 
-#### Splitting a note into multiple posts
+#### Splitting the note into multiple posts
 
-You can also use the special command \`<!-- \split -->\` or \`%% \split %%\` to split the text of your note into separate posts. If you use this command, the plugin will publish all posts at the same time. Attachments (see below), including pre-written comments, must appear before the special command that marks the end of the post.
+You can also use the special command \`<!-- \\split -->\` or \`%% \\split %%\` to split the text of your note into separate posts. If you use this command, the plugin will publish all posts at the same time. Attachments (see below), including pre-written comments, must appear before the special command that marks the end of the post.
 
 ### Attachments
 
@@ -210,31 +216,44 @@ Currently supported formats:
 | \`.mp4\`, \`.mov\`, \`.avi\`, \`.mkv\`, \`.webm\`  | Video / Album    |
 | \`.pdf\`                                           | Document         |
 
-Photos and videos can be freely mixed in the same album post. GIFs are always sent as individual animated messages.
-
-### Commentaries
+### Pre-written comments
 
 You can pre-write one or more comments for your post that will appear in its discussion right after the publication. To use that feature:
 
 1. In the plugin settings turn on the option "Treat .md embeds as post comments".
 
-2. If a comment on a post is published in a channel, the channel must have a discussion chat linked to it. If a comment on a post is published in a group, it will appear as a regular reply to a message.
+2. To prepare a comment for a post, use the \`![[comment-file]]\` embed syntax. Only files with the .md extension are treated comments.
 
-3. To prepare a comment for a post, use the \`![[comment-file]]\` embed syntax. Only files with the .md extension are treated comments.
+A couple of notes:
 
-Note that all comments are published with a slight delay.
+* If a comment on a post is published in a group or in personal messages, it will appear as a regular reply to a message.
+
+* If you split the note into multiple posts (see above), you can attach the comments to each of the posts. To do that, place .md-embeds before the corresponding marker.
+
+* Note that all comments are published with a slight delay.
 
 ### Advanced publishing settings
 
-You can call an advanced publishing settings window with command palette (\`Ctrl + P\`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
+You can open an advanced publishing settings window with command palette (\`Ctrl + P\`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
 
 * Post to multiple channels/groups at once.
 * Post without sound.
 * Post with attached media under the text.
-* Edit already existing post. Links to the posts are stored in the \`telegram_links\` property, which is filled automatically if the corresponding option is enablen in the settings. You can also create it and fill manually.
+* Schedule the publication.
+* Edit already existing post. Links to the posts are stored in the \`telegram_links\` property, which is filled automatically if the corresponding option is enabled in the settings. You can also create it and fill manually.
 
 ### Limits
 
 Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post, etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
+
+---
+
+### About the Author
+
+My name is Mark Ingram (Ingrem), I am a Religious Studies scholar. Apart from my main area of study (Protestant Political Theology in Russia), I teach the subject "Information Technologies in Scientific Research", a unique course that I developed myself from scratch. This plugin helps me in my studies and I use it in my teaching, as well as other plugins that I develop and that you can find on [my GitHub profile](https://github.com/pan4ratte/).
+
+Hello to every student that came across this page!
+
+Huge thanks to [Egor Gvozdikov](https://github.com/egorgvo), who wrote the first lines of code for this project and made numerous valuable commits.
 `,
 };

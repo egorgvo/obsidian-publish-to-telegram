@@ -63,7 +63,7 @@ If you want to test beta-versions of the plugin or use previous versions, you ca
 
 To publish notes to Telegram, you need to configure a preset.
 
-1. In the plugin settings, log in to your account and make sure you have the relevant permissions to post to the target channels/groups.
+1. In the plugin settings, log in to your account and make sure you have the relevant permissions to post to the target channels/groups. You can use the cloud authorization (phone number only) or provide your own API credentials from [my.telegram.org](https://my.telegram.org).
 
 2. Copy the `@username` of the target channel or user. If the channel is private or you are posting to a group, you will need to get its `ID`. You can get the `ID` of any user, channel, or group with [@userinfobot](https://t.me/userinfobot).
 
@@ -138,13 +138,13 @@ All standard Telegram formatting elements are supported as well as some addition
   </tbody>
 </table>
 
-#### Additional formatting: Omitting text from a post
+#### Omitting text from a post
 
 In addition to the formatting that will be reflected in the Telegram post, you can use the comment syntax `<!-- hidden text -->` or `%% hidden text %%` to add information to your notes that will not be included in the post content when it is published.
 
-#### Additional formatting: Splitting the note into multiple posts
+#### Splitting the note into multiple posts
 
-You can also use the special command `<!-- \split -->` or `%% \split %%` to split the text of your note into separate posts. If you use this command, the plugin will publish all posts at the same time. Attachments (see below), including pre-written comments, must appear before the special command that marks the end of the post.  
+You can also use the special command `<!-- \split -->` or `%% \split %%` to split the text of your note into separate posts. If you use this command, the plugin will publish all posts at the same time. Attachments (see below), including pre-written comments, must appear before the special command that marks the end of the post.
 
 ### Attachments
 
