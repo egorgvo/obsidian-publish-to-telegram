@@ -66,6 +66,9 @@ export default {
     MULTI_PRESET_UPDATE_WILL_USE: "Will update the post in {name}",
     MULTI_PRESET_UPDATE_NO_MATCH: "Matching preset not found!",
     MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Matching preset not found for this link!",
+    MULTI_PRESET_TOPICS_HEADING: "Group topics",
+    MULTI_PRESET_TOPICS_LOADING: "Loading topics…",
+    MULTI_PRESET_TOPICS_ERROR: "Could not load topics",
     SETTING_SAVE_POST_LINKS_NAME: "Save posts links",
     SETTING_SAVE_POST_LINKS_DESC: "If enabled, the link to the published post will be saved to the note's properties",
     SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Treat .md embeds as post comments",
@@ -237,9 +240,15 @@ A couple of notes:
 You can open an advanced publishing settings window with command palette (\`Ctrl + P\`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
 
 * Post to multiple channels/groups at once.
+
+* Post to specific topics in the groups. If topics option is enabled in the target group, the plugin will allow you to choose where to post.
+
 * Post without sound.
+
 * Post with attached media under the text.
+
 * Schedule the publication.
+
 * Edit already existing post. Links to the posts are stored in the \`telegram_links\` property, which is filled automatically if the corresponding option is enabled in the settings. You can also create it and fill manually.
 
 ### Limits

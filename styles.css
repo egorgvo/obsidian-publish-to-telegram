@@ -394,6 +394,56 @@ input.telegram-schedule-input {
     box-sizing: border-box;
 }
 
+/* Forum Topic Section */
+
+.telegram-multi-preset-item.has-topics {
+    margin-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.telegram-topic-section {
+    border: 1px solid var(--background-modifier-border);
+    border-top: none;
+    border-bottom-left-radius: var(--setting-items-radius);
+    border-bottom-right-radius: var(--setting-items-radius);
+    padding: 8px 16px 12px;
+    margin-bottom: 12px;
+}
+
+.telegram-topic-heading {
+    font-size: var(--font-ui-smaller);
+    font-weight: var(--font-medium);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 0 8px;
+}
+
+.telegram-topic-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 4px;
+    border-radius: var(--radius-s);
+}
+
+.telegram-topic-item:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.telegram-topic-name {
+    font-size: var(--font-ui-small);
+    color: var(--text-normal);
+}
+
+.telegram-topic-loading {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    padding: 8px 0;
+    font-style: italic;
+}
+
 /* Formatting Help Modal */
 
 .telegram-formatting-help-modal {

@@ -213,9 +213,14 @@ function collectMediaFiles(app: App, body: string, sourceFile: TFile): { attachm
 
 // ─── Post link helpers ────────────────────────────────────────────────────────
 
-function buildPostLinkFromChatId(chatId: string, messageId: number): string {
-    if (chatId.startsWith("@")) return `https://t.me/${chatId.slice(1)}/${messageId}`;
+function buildPostLinkFromChatId(chatId: string, messageId: number, topicId?: number): string {
+    const withTopic = topicId && topicId !== 1;
+    if (chatId.startsWith("@")) {
+        if (withTopic) return `https://t.me/${chatId.slice(1)}/${topicId}/${messageId}`;
+        return `https://t.me/${chatId.slice(1)}/${messageId}`;
+    }
     const channelId = chatId.replace(/^-100/, "");
+    if (withTopic) return `https://t.me/c/${channelId}/${topicId}/${messageId}`;
     return `https://t.me/c/${channelId}/${messageId}`;
 }
 
@@ -226,12 +231,13 @@ function resolveChatId(value: string): string {
 }
 
 // ── Finds a configured channel that matches the provided Telegram link
+// Handles both 2-segment (t.me/X/msgId) and 3-segment (t.me/X/topicId/msgId) links
 
 export function findChannelByLink(channels: TelegramChannel[], link: string): TelegramChannel | null {
-    const msgIdMatch = link.match(/\/(?:t\.me\/|c\/|)([^/]+)\/(\d+)\/?$/);
-    if (!msgIdMatch) return null;
+    const match = link.match(/t\.me\/(?:c\/)?([^/]+)\/\d+(?:\/\d+)?\/?$/);
+    if (!match) return null;
 
-    const identifier = msgIdMatch[1];
+    const identifier = match[1];
 
     return channels.find(c => {
         const cleanChatId = c.chatId.replace(/^-100|^@/, "");
@@ -260,6 +266,39 @@ export async function createClient(session: string, apiId?: number, apiHash?: st
     return client;
 }
 
+
+// ─── Forum topic utilities ────────────────────────────────────────────────────
+
+export interface ForumTopicData {
+    id: number;
+    title: string;
+}
+
+export async function checkIsForum(client: TelegramClient, entity: string | number): Promise<boolean> {
+    try {
+        const full = await client.invoke(new Api.channels.GetFullChannel({ channel: entity }));
+        return !!(full.chats[0] as Api.Channel)?.forum;
+    } catch {
+        return false;
+    }
+}
+
+export async function getForumTopics(client: TelegramClient, entity: string | number): Promise<ForumTopicData[]> {
+    try {
+        const result = await client.invoke(new Api.channels.GetForumTopics({
+            channel: entity,
+            offsetDate: 0,
+            offsetId: 0,
+            offsetTopic: 0,
+            limit: 100,
+        }));
+        return result.topics
+            .filter((t): t is Api.ForumTopic => t instanceof Api.ForumTopic)
+            .map(t => ({ id: t.id, title: t.title }));
+    } catch {
+        return [];
+    }
+}
 
 async function sendCommentViaAccount(
     client: TelegramClient,
@@ -320,9 +359,13 @@ async function sendMediaRaw(
     silent: boolean,
     invertMedia: boolean,
     scheduleDate?: number,
+    topicId?: number,
 ): Promise<number> {
     const peer = await client.getInputEntity(entity);
     const [caption, msgEntities] = await _parseMessageText(client, text, "html");
+    const replyTo = topicId
+        ? new Api.InputReplyToMessage({ replyToMsgId: topicId, topMsgId: topicId })
+        : undefined;
 
     if (files.length === 1) {
         const ext0 = files[0].name.split('.').pop()?.toLowerCase() ?? "";
@@ -342,6 +385,7 @@ async function sendMediaRaw(
             silent,
             invertMedia,
             scheduleDate,
+            replyTo,
         });
         const apiResult = await client.invoke(req);
         const msg = (client as any)._getResponseMessage(req, apiResult, peer);
@@ -382,6 +426,7 @@ async function sendMediaRaw(
         silent,
         invertMedia,
         scheduleDate,
+        replyTo,
     });
     const apiResult = await client.invoke(req);
     const randomIds = albumItems.map(m => (m as any).randomId);
@@ -409,6 +454,7 @@ async function sendPartViaAccount(
     const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
     try {
         const entity = /^-?\d+$/.test(channel.chatId) ? parseInt(channel.chatId) : channel.chatId;
+        const topicId = channel.topicId;
 
         const photoAndVideoFiles = attachments.filter(f =>
             ["jpg", "jpeg", "png", "webp"].includes(f.extension) || VIDEO_EXTS.has(f.extension)
@@ -426,8 +472,8 @@ async function sendPartViaAccount(
                 const data = Buffer.from(await blob.arrayBuffer());
                 return new CustomFile(f.name, data.length, "", data);
             }));
-            const msgId = await sendMediaRaw(client, entity, customFiles, text, false, silent, attachUnderText, scheduleDateUnix);
-            result = { link: buildPostLinkFromChatId(channel.chatId, msgId), messageId: msgId };
+            const msgId = await sendMediaRaw(client, entity, customFiles, text, false, silent, attachUnderText, scheduleDateUnix, topicId);
+            result = { link: buildPostLinkFromChatId(channel.chatId, msgId, topicId), messageId: msgId };
             captionConsumed = true;
         }
 
@@ -438,8 +484,8 @@ async function sendPartViaAccount(
             const customFile = new CustomFile(gif.name, data.length, "", data);
             const caption = captionConsumed ? "" : text;
             const msgId = await sendMediaRaw(client, entity, [customFile], caption, false, silent,
-                !captionConsumed && attachUnderText, scheduleDateUnix);
-            if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msgId), messageId: msgId };
+                !captionConsumed && attachUnderText, scheduleDateUnix, topicId);
+            if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msgId, topicId), messageId: msgId };
             captionConsumed = true;
         }
 
@@ -452,20 +498,39 @@ async function sendPartViaAccount(
             }));
             const caption = captionConsumed ? "" : text;
             const msgId = await sendMediaRaw(client, entity, customFiles, caption, true, silent,
-                !captionConsumed && attachUnderText, scheduleDateUnix);
-            if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msgId), messageId: msgId };
+                !captionConsumed && attachUnderText, scheduleDateUnix, topicId);
+            if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msgId, topicId), messageId: msgId };
             captionConsumed = true;
         }
 
         if (!captionConsumed && text.length > 0) {
-            const sent = await client.sendMessage(entity, {
-                message: text,
-                parseMode: "html",
-                silent,
-                schedule: scheduleDateUnix,
-            });
-            const msg = Array.isArray(sent) ? sent[0] : sent;
-            result = { link: buildPostLinkFromChatId(channel.chatId, msg.id), messageId: msg.id };
+            let msgId: number;
+            if (topicId) {
+                const peer = await client.getInputEntity(entity);
+                const [message, entities] = await _parseMessageText(client, text, "html");
+                const req = new Api.messages.SendMessage({
+                    peer,
+                    message,
+                    entities,
+                    silent,
+                    scheduleDate: scheduleDateUnix,
+                    replyTo: new Api.InputReplyToMessage({ replyToMsgId: topicId, topMsgId: topicId }),
+                });
+                const apiResult = await client.invoke(req);
+                const m = (client as any)._getResponseMessage(req, apiResult, peer);
+                const msg = Array.isArray(m) ? m[0] : m;
+                msgId = (msg as Api.Message).id;
+            } else {
+                const sent = await client.sendMessage(entity, {
+                    message: text,
+                    parseMode: "html",
+                    silent,
+                    schedule: scheduleDateUnix,
+                });
+                const msg = Array.isArray(sent) ? sent[0] : sent;
+                msgId = msg.id;
+            }
+            result = { link: buildPostLinkFromChatId(channel.chatId, msgId, topicId), messageId: msgId };
         }
 
         if (treatMdEmbedsAsComments && result && mdEmbeds.length > 0 && !scheduleDate) {

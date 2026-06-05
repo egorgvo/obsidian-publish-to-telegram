@@ -6,14 +6,15 @@ import { t } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
 import { fetchConfig, startAuth, verifyAuth, CloudConfig } from "./auth";
 import { TelegramChannel, TelegramSecrets } from "./types";
-import { createClient } from "./telegram";
+import { createClient, ForumTopicData, checkIsForum, getForumTopics } from "./telegram";
 
 // ─── Channel resolution helpers ───────────────────────────────────────────────
 
 function findChannelByLink(channels: TelegramChannel[], link: string): TelegramChannel | null {
-    const msgIdMatch = link.match(/\/(?:t\.me\/|c\/|)([^/]+)\/(\d+)\/?$/);
-    if (!msgIdMatch) return null;
-    const identifier = msgIdMatch[1];
+    // Handles both 2-segment and 3-segment (forum topic) links
+    const match = link.match(/t\.me\/(?:c\/)?([^/]+)\/\d+(?:\/\d+)?\/?$/);
+    if (!match) return null;
+    const identifier = match[1];
     return channels.find(c => {
         const cleanChatId = c.chatId.replace(/^-100|^@/, "");
         return c.chatId === identifier ||
@@ -26,9 +27,9 @@ async function resolveChannelByLink(channels: TelegramChannel[], link: string, s
     const direct = findChannelByLink(channels, link);
     if (direct) return direct;
 
-    const msgIdMatch = link.match(/\/(?:t\.me\/|c\/|)([^/]+)\/(\d+)\/?$/);
-    if (!msgIdMatch || !secrets?.telegramSession) return null;
-    const identifier = msgIdMatch[1].toLowerCase();
+    const match = link.match(/t\.me\/(?:c\/)?([^/]+)\/\d+(?:\/\d+)?\/?$/);
+    if (!match || !secrets?.telegramSession) return null;
+    const identifier = match[1].toLowerCase();
 
     const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
     try {
@@ -111,6 +112,7 @@ export class MultiPresetModal extends Modal {
     plugin: SendToTelegramPlugin;
     selectedChannels: Set<string>;
     file: TFile;
+    private initialChannelId?: string;
 
     private silentToggle: ToggleComponent;
     private attachToggle: ToggleComponent;
@@ -120,25 +122,90 @@ export class MultiPresetModal extends Modal {
     private updateNameDescEl: HTMLElement | null = null;
     private resolvedUpdateChannel: TelegramChannel | null = null;
 
-    private channelRows: Array<{ id: string, container: HTMLElement, toggle: ToggleComponent }> = [];
+    private channelRows: Array<{ id: string, container: HTMLElement, toggle: ToggleComponent, topicSection: HTMLElement }> = [];
+    private clientReady: Promise<TelegramClient | null> = Promise.resolve(null);
+    private selectedTopics: Map<string, Set<number>> = new Map();
+    private forumTopicsCache: Map<string, ForumTopicData[]> = new Map();
 
-    constructor(app: App, plugin: SendToTelegramPlugin, file: TFile) {
+    constructor(app: App, plugin: SendToTelegramPlugin, file: TFile, initialChannelId?: string) {
         super(app);
         this.plugin = plugin;
         this.file = file;
         this.selectedChannels = new Set();
+        this.initialChannelId = initialChannelId;
     }
 
     private setChannelRowsDisabled(disabled: boolean) {
         this.channelRows.forEach(row => {
             if (disabled) {
                 row.container.addClass("is-disabled");
+                row.container.removeClass("has-topics");
                 row.toggle.setValue(false);
                 this.selectedChannels.delete(row.id);
+                this.selectedTopics.delete(row.id);
+                row.topicSection.hide();
+                row.topicSection.empty();
             } else {
                 row.container.removeClass("is-disabled");
             }
         });
+    }
+
+    private async handleForumExpansion(channel: TelegramChannel, itemEl: HTMLElement, topicSection: HTMLElement): Promise<void> {
+        topicSection.empty();
+        topicSection.show();
+        topicSection.createDiv({ text: t.MULTI_PRESET_TOPICS_LOADING, cls: "telegram-topic-loading" });
+
+        const client = await this.clientReady;
+
+        if (!this.selectedChannels.has(channel.id)) return;
+
+        if (!client) {
+            topicSection.hide();
+            return;
+        }
+
+        let topics = this.forumTopicsCache.get(channel.id);
+        if (!topics) {
+            const chatId = channel.chatId.trim();
+            const entity = /^-?\d+$/.test(chatId) ? parseInt(chatId) : (chatId.startsWith("@") ? chatId : `@${chatId}`);
+
+            const isForum = await checkIsForum(client, entity);
+            if (!this.selectedChannels.has(channel.id)) return;
+
+            if (!isForum) {
+                topicSection.hide();
+                return;
+            }
+
+            topics = await getForumTopics(client, entity);
+            if (!this.selectedChannels.has(channel.id)) return;
+
+            this.forumTopicsCache.set(channel.id, topics);
+        }
+
+        if (!topics || topics.length === 0) {
+            topicSection.hide();
+            return;
+        }
+
+        topicSection.empty();
+        itemEl.addClass("has-topics");
+        topicSection.createDiv({ text: t.MULTI_PRESET_TOPICS_HEADING, cls: "telegram-topic-heading" });
+
+        const topicSet = this.selectedTopics.get(channel.id) ?? new Set<number>();
+        this.selectedTopics.set(channel.id, topicSet);
+
+        for (const topic of topics) {
+            const topicEl = topicSection.createDiv("telegram-topic-item");
+            topicEl.createDiv({ text: topic.title, cls: "telegram-topic-name" });
+            new ToggleComponent(topicEl.createDiv())
+                .setValue(topicSet.has(topic.id))
+                .onChange(value => {
+                    if (value) topicSet.add(topic.id);
+                    else topicSet.delete(topic.id);
+                });
+        }
     }
 
     private setHint(text: string, isError: boolean) {
@@ -185,6 +252,14 @@ export class MultiPresetModal extends Modal {
             return;
         }
 
+        if (this.plugin.secrets.telegramSession) {
+            this.clientReady = createClient(
+                this.plugin.secrets.telegramSession,
+                this.plugin.secrets.telegramApiId,
+                this.plugin.secrets.telegramApiHash
+            ).catch(() => null);
+        }
+
         contentEl.createDiv({
             text: t.MULTI_PRESET_CHANNEL_SELECTION,
             cls: "telegram-modal-heading"
@@ -197,15 +272,33 @@ export class MultiPresetModal extends Modal {
             const nameEl = itemEl.createDiv("telegram-multi-preset-name");
             nameEl.setText(channel.name || t.UNTITLED_CHANNEL);
 
+            const topicSection = listContainer.createDiv("telegram-topic-section");
+            topicSection.hide();
+
+            const isPreToggled = this.initialChannelId === channel.id;
+            if (isPreToggled) this.selectedChannels.add(channel.id);
+
             const controlEl = itemEl.createDiv("telegram-multi-preset-control");
             const toggle = new ToggleComponent(controlEl)
-                .setValue(false)
-                .onChange(value => {
-                    if (value) this.selectedChannels.add(channel.id);
-                    else this.selectedChannels.delete(channel.id);
+                .setValue(isPreToggled)
+                .onChange(async value => {
+                    if (value) {
+                        this.selectedChannels.add(channel.id);
+                        await this.handleForumExpansion(channel, itemEl, topicSection);
+                    } else {
+                        this.selectedChannels.delete(channel.id);
+                        this.selectedTopics.delete(channel.id);
+                        itemEl.removeClass("has-topics");
+                        topicSection.hide();
+                        topicSection.empty();
+                    }
                 });
 
-            this.channelRows.push({ id: channel.id, container: itemEl, toggle });
+            if (isPreToggled) {
+                this.handleForumExpansion(channel, itemEl, topicSection);
+            }
+
+            this.channelRows.push({ id: channel.id, container: itemEl, toggle, topicSection });
         });
 
         contentEl.createDiv({
@@ -299,7 +392,8 @@ export class MultiPresetModal extends Modal {
                     scheduleDate = new Date(this.scheduleInput.value);
                 }
 
-                let channelsToPost: TelegramChannel[] = [];
+                interface PostTarget { channel: TelegramChannel; topicId?: number; }
+                const postsToSend: PostTarget[] = [];
 
                 if (isUpdating) {
                     const targetChannel = this.resolvedUpdateChannel
@@ -309,20 +403,40 @@ export class MultiPresetModal extends Modal {
                         new Notice(t.MULTI_PRESET_UPDATE_NO_MATCH_NOTICE);
                         return;
                     }
-                    channelsToPost = [targetChannel];
+                    postsToSend.push({ channel: targetChannel });
                 } else {
-                    channelsToPost = this.plugin.settings.channels.filter(c => this.selectedChannels.has(c.id));
+                    for (const channelId of this.selectedChannels) {
+                        const channel = this.plugin.settings.channels.find(c => c.id === channelId);
+                        if (!channel) continue;
+                        const topics = this.forumTopicsCache.get(channelId);
+                        const topicIds = this.selectedTopics.get(channelId);
+                        if (topics && topics.length > 0) {
+                            if (!topicIds || topicIds.size === 0) {
+                                postsToSend.push({ channel, topicId: 1 });
+                            } else {
+                                for (const topicId of topicIds) {
+                                    postsToSend.push({ channel, topicId });
+                                }
+                            }
+                        } else {
+                            postsToSend.push({ channel });
+                        }
+                    }
                 }
 
                 this.close();
 
-                for (const channel of channelsToPost) {
-                    await (this.plugin as any).sendNoteToTelegram(this.file, channel, silent, attachUnderText, updateLink, scheduleDate);
+                for (const { channel, topicId } of postsToSend) {
+                    const target: TelegramChannel = topicId ? { ...channel, topicId } : channel;
+                    await (this.plugin as any).sendNoteToTelegram(this.file, target, silent, attachUnderText, updateLink, scheduleDate);
                 }
             });
     }
 
-    onClose() { this.contentEl.empty(); }
+    onClose() {
+        this.clientReady.then(client => client?.destroy().catch(() => {}));
+        this.contentEl.empty();
+    }
 }
 
 // ─── Auth Modal ──────────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ export interface TelegramChannel {
     name: string;
     chatId: string;
     isDefault: boolean;
+    topicId?: number;
 }
 
 export interface TelegramSettings {

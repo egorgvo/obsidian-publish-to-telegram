@@ -1,7 +1,7 @@
 import { Plugin, Notice, TFile, TFolder, Menu } from "obsidian";
 import { t } from "./lang/helpers";
 import { TelegramChannel, TelegramSettings, TelegramSecrets, DEFAULT_SETTINGS } from "./src/types";
-import { sendNoteToTelegram } from "./src/telegram";
+import { sendNoteToTelegram, checkIsForum, createClient } from "./src/telegram";
 import { FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
 
 export default class SendToTelegramPlugin extends Plugin {
@@ -9,6 +9,7 @@ export default class SendToTelegramPlugin extends Plugin {
     secrets: TelegramSecrets = { telegramSession: "", telegramApiId: 0, telegramApiHash: "" };
 
     private channelCommandIds: string[] = [];
+    private forumCache: Map<string, boolean> = new Map();
 
     async onload(): Promise<void> {
         await this.loadSettings();
@@ -98,11 +99,35 @@ export default class SendToTelegramPlugin extends Plugin {
                 callback: async () => {
                     const file = this.app.workspace.getActiveFile();
                     if (!file) return;
-                    await this.sendNoteToTelegram(file, channel, false, false);
+                    const isForum = await this.isChannelForum(channel);
+                    if (isForum) {
+                        new MultiPresetModal(this.app, this, file, channel.id).open();
+                    } else {
+                        await this.sendNoteToTelegram(file, channel, false, false);
+                    }
                 }
             });
             this.channelCommandIds.push(`${this.manifest.id}:${commandId}`);
         });
+    }
+
+    private async isChannelForum(channel: TelegramChannel): Promise<boolean> {
+        if (this.forumCache.has(channel.id)) return this.forumCache.get(channel.id)!;
+        if (!this.secrets.telegramSession) return false;
+        try {
+            const chatId = channel.chatId.trim();
+            const entity = /^-?\d+$/.test(chatId) ? parseInt(chatId) : (chatId.startsWith("@") ? chatId : `@${chatId}`);
+            const client = await createClient(this.secrets.telegramSession, this.secrets.telegramApiId, this.secrets.telegramApiHash);
+            try {
+                const result = await checkIsForum(client, entity);
+                this.forumCache.set(channel.id, result);
+                return result;
+            } finally {
+                await client.destroy();
+            }
+        } catch {
+            return false;
+        }
     }
 
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string, scheduleDate?: Date): Promise<void> {
