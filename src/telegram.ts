@@ -240,10 +240,11 @@ export function findChannelByLink(channels: TelegramChannel[], link: string): Te
     const identifier = match[1];
 
     return channels.find(c => {
-        const cleanChatId = c.chatId.replace(/^-100|^@/, "");
-        return c.chatId === identifier ||
-               c.chatId === `@${identifier}` ||
-               cleanChatId === identifier;
+        const targets = c.chatTargets?.length > 0 ? c.chatTargets : (c.chatId ? [{ id: c.chatId }] : []);
+        return targets.some(t => {
+            const clean = t.id.replace(/^-100|^@/, "");
+            return t.id === identifier || t.id === `@${identifier}` || clean === identifier;
+        });
     }) || null;
 }
 
@@ -301,6 +302,43 @@ export async function getForumTopics(client: TelegramClient, entity: string | nu
         return result.topics
             .filter((t): t is Api.ForumTopic => t instanceof Api.ForumTopic)
             .map(t => ({ id: t.id, title: t.title }));
+    } catch {
+        return [];
+    }
+}
+
+// ─── Dialog listing ───────────────────────────────────────────────────────────
+
+export interface DialogData {
+    id: string;    // "@username" for public, "-100XXXX" for channels, numeric string for others
+    title: string;
+}
+
+export async function getUserDialogs(client: TelegramClient): Promise<DialogData[]> {
+    try {
+        const dialogs = await client.getDialogs({ limit: 200 });
+        const results: DialogData[] = [];
+        for (const dialog of dialogs) {
+            if (!dialog.title) continue;
+            const entity = dialog.entity as any;
+            if (!entity) continue;
+            let id: string;
+            if (entity.username) {
+                id = `@${entity.username}`;
+            } else if (entity instanceof Api.Channel) {
+                id = `-100${entity.id}`;
+            } else if (entity instanceof Api.Chat) {
+                id = `-${entity.id}`;
+            } else {
+                id = entity.id?.toString() ?? "";
+            }
+            if (!id) continue;
+            const title = entity.username
+                ? `${dialog.title} (@${entity.username})`
+                : dialog.title;
+            results.push({ id, title });
+        }
+        return results;
     } catch {
         return [];
     }

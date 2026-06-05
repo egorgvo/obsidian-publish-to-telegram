@@ -32,6 +32,8 @@ export default {
     SETTING_PLACE_HOLDER_NAME: "Preset name…",
 
     SETTING_PLACEHOLDER_CHAT: "@username or ID…",
+    SETTING_PLACEHOLDER_CHAT_SEARCH: "Search channels and chats…",
+    SETTING_CHAT_PICKER_LOADING: "Loading chats…",
     CHANNEL_DEFAULT_NAME: "Channel",
     UNTITLED_CHANNEL: "Unnamed",
 

@@ -153,9 +153,6 @@ body .telegram-logout-button:hover {
     margin-bottom: 8px;
 }
 
-.telegram-preset-chat-id.setting-item {
-}
-
 .telegram-preset-default.setting-item {
 }
 
@@ -346,12 +343,105 @@ body .telegram-auth-submit:disabled {
     color: var(--text-normal);
 }
 
-.telegram-preset-chat-id.setting-item {
-    padding-top: 16px;
-    padding-bottom: 16px;
-    padding-left: 0px;
-    padding-right: 0px;
+/* Chat Picker */
+
+.telegram-chat-picker {
+    margin-top: 12px;
     margin-bottom: 12px;
+}
+
+.telegram-chat-picker-label {
+    font-size: var(--font-ui-small);
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.telegram-chat-picker-field {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 3px 4px;
+    min-height: 28px;
+    cursor: text;
+    border-radius: var(--radius-s);
+    transition: background-color 0.1s ease;
+}
+
+.telegram-chat-picker-field:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.telegram-chat-picker-field:focus-within {
+    background-color: var(--background-modifier-form-field);
+    box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
+.telegram-chat-search {
+    flex: 1;
+    min-width: 80px;
+    border: none;
+    background: transparent;
+    color: var(--text-normal);
+    font-size: var(--font-ui-small);
+    outline: none;
+    font-family: inherit;
+    padding: 1px 4px;
+}
+
+.telegram-chat-search::placeholder {
+    color: var(--text-faint);
+}
+
+.telegram-chat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: var(--tag-padding-y) var(--tag-padding-x);
+    background-color: var(--tag-background);
+    color: var(--tag-color);
+    border-radius: var(--tag-radius);
+    font-size: var(--tag-size, var(--font-ui-smaller));
+    font-weight: var(--tag-weight, var(--font-medium));
+    max-width: 100%;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.telegram-chat-chip-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.telegram-chat-chip-remove {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: var(--tag-color);
+    opacity: 0.55;
+    cursor: pointer;
+    box-shadow: none;
+    border-radius: var(--radius-s);
+}
+
+.telegram-chat-chip-remove:hover {
+    opacity: 1;
+    background-color: var(--background-modifier-hover);
+}
+
+.telegram-chat-chip-remove svg {
+    width: 10px;
+    height: 10px;
 }
 
 .telegram-preset-default.setting-item {

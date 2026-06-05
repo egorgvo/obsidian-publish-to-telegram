@@ -1,4 +1,4 @@
-import { App, Modal, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent, setIcon } from "obsidian";
+import { App, Modal, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent, setIcon, AbstractInputSuggest } from "obsidian";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { Api } from "telegram";
@@ -6,7 +6,7 @@ import { t } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
 import QRCode from "qrcode";
 import { TelegramChannel, TelegramSecrets } from "./types";
-import { createClient, ForumTopicData, checkIsForum, getForumTopics, DEFAULT_TG_API_ID, DEFAULT_TG_API_HASH, AUTH_API_ID, AUTH_API_HASH } from "./telegram";
+import { createClient, ForumTopicData, checkIsForum, getForumTopics, getUserDialogs, DialogData, DEFAULT_TG_API_ID, DEFAULT_TG_API_HASH, AUTH_API_ID, AUTH_API_HASH } from "./telegram";
 
 // ─── Channel resolution helpers ───────────────────────────────────────────────
 
@@ -16,10 +16,11 @@ function findChannelByLink(channels: TelegramChannel[], link: string): TelegramC
     if (!match) return null;
     const identifier = match[1];
     return channels.find(c => {
-        const cleanChatId = c.chatId.replace(/^-100|^@/, "");
-        return c.chatId === identifier ||
-               c.chatId === `@${identifier}` ||
-               cleanChatId === identifier;
+        const targets = c.chatTargets?.length > 0 ? c.chatTargets : (c.chatId ? [{ id: c.chatId }] : []);
+        return targets.some(t => {
+            const clean = t.id.replace(/^-100|^@/, "");
+            return t.id === identifier || t.id === `@${identifier}` || clean === identifier;
+        });
     }) || null;
 }
 
@@ -34,11 +35,14 @@ async function resolveChannelByLink(channels: TelegramChannel[], link: string, s
     const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
     try {
         for (const channel of channels) {
-            if (!channel.chatId) continue;
+            const targets = channel.chatTargets?.length > 0 ? channel.chatTargets : (channel.chatId ? [{ id: channel.chatId }] : []);
+            if (targets.length === 0) continue;
             try {
-                const entity = await client.getEntity(channel.chatId) as any;
-                const username: string | undefined = entity?.username;
-                if (username && username.toLowerCase() === identifier) return channel;
+                for (const target of targets) {
+                    const entity = await client.getEntity(target.id) as any;
+                    const username: string | undefined = entity?.username;
+                    if (username && username.toLowerCase() === identifier) return channel;
+                }
             } catch { continue; }
         }
     } finally {
@@ -439,12 +443,41 @@ export class MultiPresetModal extends Modal {
     }
 }
 
+// ─── Chat suggest ─────────────────────────────────────────────────────────────
+
+class ChatSuggest extends AbstractInputSuggest<DialogData> {
+    private loader: () => Promise<DialogData[]>;
+    onPick: (dialog: DialogData) => Promise<void> = async () => {};
+
+    constructor(app: App, inputEl: HTMLInputElement, loader: () => Promise<DialogData[]>) {
+        super(app, inputEl);
+        this.loader = loader;
+    }
+
+    async getSuggestions(query: string): Promise<DialogData[]> {
+        const dialogs = await this.loader();
+        const q = query.toLowerCase();
+        return q
+            ? dialogs.filter(d => d.title.toLowerCase().includes(q)).slice(0, 20)
+            : dialogs.slice(0, 20);
+    }
+
+    renderSuggestion(dialog: DialogData, el: HTMLElement): void { el.setText(dialog.title); }
+
+    selectSuggestion(dialog: DialogData, _evt: MouseEvent | KeyboardEvent): void {
+        this.onPick(dialog);
+        this.setValue("");
+        this.close();
+    }
+}
+
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 export class TelegramSettingTab extends PluginSettingTab {
     plugin: SendToTelegramPlugin;
     private inlineQrClient: TelegramClient | null = null;
     private inlineLocalClient: TelegramClient | null = null;
+    private dialogsFetch: Promise<DialogData[]> | null = null;
 
     constructor(app: App, plugin: SendToTelegramPlugin) { super(app, plugin); this.plugin = plugin; }
 
@@ -459,6 +492,13 @@ export class TelegramSettingTab extends PluginSettingTab {
         }
         const { containerEl } = this;
         containerEl.empty();
+
+        if (this.plugin.secrets.telegramSession) {
+            if (!this.dialogsFetch) this.dialogsFetch = this.fetchDialogs();
+        } else {
+            this.dialogsFetch = null;
+        }
+
         new Setting(containerEl).setHeading().setName(t.SETTING_HEADER);
 
         containerEl.createEl("p", { text: t.SETTING_DESCRIPTION, cls: "telegram-plugin-description" });
@@ -529,7 +569,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_ADD_CHANNEL)
             .onClick(async () => {
-                this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: "", chatId: "", isDefault: false });
+                this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: "", chatTargets: [], chatId: "", isDefault: false });
                 await this.plugin.saveSettings();
                 this.display();
             }).buttonEl.addClass("telegram-add-button");
@@ -578,10 +618,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                     ).open();
                 }).buttonEl.addClass("telegram-delete-button");
 
-            new Setting(channelDiv).setName(t.SETTING_CHAT_ID_NAME).setDesc(t.SETTING_CHAT_ID_DESC)
-                .addText(text => text.setPlaceholder(t.SETTING_PLACEHOLDER_CHAT).setValue(channel.chatId)
-                    .onChange(async (v) => { channel.chatId = v; await this.plugin.saveSettings(); }))
-                .settingEl.addClass("telegram-preset-chat-id");
+            this.renderChatPicker(channelDiv, channel);
 
             new Setting(channelDiv).setName(t.SETTING_DEFAULT_CHANNEL).setDesc(t.SETTING_DEFAULT_DESC)
                 .addToggle(toggle => toggle.setValue(channel.isDefault || false)
@@ -593,6 +630,98 @@ export class TelegramSettingTab extends PluginSettingTab {
                     }))
                 .settingEl.addClass("telegram-preset-default");
         });
+    }
+
+    private renderChatPicker(container: HTMLElement, channel: TelegramChannel): void {
+        const pickerEl = container.createDiv("telegram-chat-picker");
+        pickerEl.createDiv({ text: t.SETTING_CHAT_ID_NAME, cls: "telegram-chat-picker-label" });
+        const fieldEl = pickerEl.createDiv("telegram-chat-picker-field");
+        let activeSuggest: ChatSuggest | null = null;
+
+        const renderField = () => {
+            activeSuggest?.close();
+            activeSuggest = null;
+            fieldEl.empty();
+
+            // Chips for each target
+            for (const target of (channel.chatTargets ?? [])) {
+                const chip = fieldEl.createEl("span", { cls: "telegram-chat-chip" });
+                chip.createSpan({ text: target.title || target.id, cls: "telegram-chat-chip-text" });
+                const removeBtn = chip.createEl("button", { cls: "telegram-chat-chip-remove" });
+                setIcon(removeBtn, "x");
+                removeBtn.addEventListener("click", async (e: MouseEvent) => {
+                    e.stopPropagation();
+                    channel.chatTargets = (channel.chatTargets ?? []).filter(t => t.id !== target.id);
+                    channel.chatId = channel.chatTargets[0]?.id ?? "";
+                    channel.chatTitle = channel.chatTargets[0]?.title;
+                    await this.plugin.saveSettings();
+                    renderField();
+                });
+            }
+
+            // Always-visible input at the end
+            const input = fieldEl.createEl("input", { cls: "telegram-chat-search" });
+            input.type = "text";
+            const hasChips = (channel.chatTargets?.length ?? 0) > 0;
+            input.placeholder = hasChips ? "" : (
+                this.plugin.secrets.telegramSession
+                    ? t.SETTING_PLACEHOLDER_CHAT_SEARCH
+                    : t.SETTING_PLACEHOLDER_CHAT
+            );
+
+            if (this.plugin.secrets.telegramSession) {
+                const suggest = new ChatSuggest(this.app, input, () =>
+                    this.dialogsFetch ?? Promise.resolve([])
+                );
+                activeSuggest = suggest;
+                suggest.onPick = async (dialog: DialogData) => {
+                    if (!(channel.chatTargets ?? []).some(t => t.id === dialog.id)) {
+                        if (!channel.chatTargets) channel.chatTargets = [];
+                        channel.chatTargets.push({ id: dialog.id, title: dialog.title });
+                        channel.chatId = channel.chatTargets[0]?.id ?? "";
+                        channel.chatTitle = channel.chatTargets[0]?.title;
+                        await this.plugin.saveSettings();
+                    }
+                    renderField();
+                };
+            } else {
+                // No auth: Enter key adds a manual chat ID chip
+                input.addEventListener("keydown", async (e: KeyboardEvent) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    const id = input.value.trim();
+                    if (!id || (channel.chatTargets ?? []).some(t => t.id === id)) return;
+                    if (!channel.chatTargets) channel.chatTargets = [];
+                    channel.chatTargets.push({ id });
+                    channel.chatId = channel.chatTargets[0]?.id ?? "";
+                    await this.plugin.saveSettings();
+                    renderField();
+                    fieldEl.querySelector<HTMLInputElement>(".telegram-chat-search")?.focus();
+                });
+            }
+        };
+
+        // Clicking the field background focuses the input
+        fieldEl.addEventListener("click", (e: MouseEvent) => {
+            if (!(e.target as HTMLElement).closest(".telegram-chat-chip-remove")) {
+                fieldEl.querySelector<HTMLInputElement>(".telegram-chat-search")?.focus();
+            }
+        });
+
+        renderField();
+    }
+
+    private fetchDialogs(): Promise<DialogData[]> {
+        return (async () => {
+            const client = await createClient(
+                this.plugin.secrets.telegramSession,
+                this.plugin.secrets.telegramApiId,
+                this.plugin.secrets.telegramApiHash
+            ).catch(() => null);
+            const dialogs = client ? await getUserDialogs(client) : [];
+            await client?.destroy().catch(() => {});
+            return dialogs;
+        })();
     }
 
     private buildAuthCard(

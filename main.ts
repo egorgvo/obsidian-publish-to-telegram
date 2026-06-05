@@ -115,7 +115,7 @@ export default class SendToTelegramPlugin extends Plugin {
         if (this.forumCache.has(channel.id)) return this.forumCache.get(channel.id)!;
         if (!this.secrets.telegramSession) return false;
         try {
-            const chatId = channel.chatId.trim();
+            const chatId = (channel.chatTargets?.[0]?.id ?? channel.chatId ?? "").trim();
             const entity = /^-?\d+$/.test(chatId) ? parseInt(chatId) : (chatId.startsWith("@") ? chatId : `@${chatId}`);
             const client = await createClient(this.secrets.telegramSession, this.secrets.telegramApiId, this.secrets.telegramApiHash);
             try {
@@ -131,45 +131,42 @@ export default class SendToTelegramPlugin extends Plugin {
     }
 
     async sendNoteToTelegram(file: TFile, channel: TelegramChannel, silent: boolean, attachUnderText: boolean, updateLink?: string, scheduleDate?: Date): Promise<void> {
-            if (!this.secrets.telegramSession) { new Notice(t.NOTICE_ERR_NOT_AUTHENTICATED); return; }
-            const progressNotice = new Notice(t.NOTICE_PUBLISHING, 0);
-            try {
+        if (!this.secrets.telegramSession) { new Notice(t.NOTICE_ERR_NOT_AUTHENTICATED); return; }
+
+        const targets = channel.chatTargets?.length > 0
+            ? channel.chatTargets
+            : (channel.chatId ? [{ id: channel.chatId, title: channel.chatTitle }] : []);
+
+        if (targets.length === 0) { new Notice(t.NOTICE_ERR_CONFIG); return; }
+
+        const progressNotice = new Notice(t.NOTICE_PUBLISHING, 0);
+        const allLinks: string[] = [];
+        const allErrors: Error[] = [];
+
+        try {
+            for (const target of targets) {
+                const singleChannel: TelegramChannel = { ...channel, chatId: target.id, chatTitle: target.title };
                 const { links, errors } = await sendNoteToTelegram(
-                    this.app, file, channel, this.settings, this.secrets, silent, attachUnderText,
+                    this.app, file, singleChannel, this.settings, this.secrets, silent, attachUnderText,
                     this.settings.treatMdEmbedsAsComments, updateLink, scheduleDate,
                     () => { progressNotice.setMessage(t.NOTICE_PUBLISHING_COMMENTS); }
                 );
+                allLinks.push(...links);
+                allErrors.push(...errors);
+            }
 
-                progressNotice.hide();
+            progressNotice.hide();
 
-                if (this.settings.savePostLinks && links.length > 0 && !scheduleDate) {
-                    await this.app.fileManager.processFrontMatter(file, (fm) => {
-                        if (!Array.isArray(fm.telegram_links)) fm.telegram_links = [];
-                        for (const link of links) {
-                            if (!fm.telegram_links.includes(link)) {
-                                fm.telegram_links.push(link);
-                            }
-                        }
-                    });
-                }
-
-                for (const err of errors) {
-                    const msg: string = (err.message ?? "").toUpperCase();
-                    if (msg.includes("MESSAGE_NOT_MODIFIED")) {
-                        new Notice(t.NOTICE_ERR_NOT_MODIFIED);
-                    } else if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
-                        new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
-                    } else if (msg.includes("MEDIA_CAPTION_TOO_LONG") || msg.includes("CAPTION IS TOO LONG")) {
-                        new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
-                    } else {
-                        new Notice(`${t.NOTICE_ERR_SEND}${err.message ?? ""}`);
+            if (this.settings.savePostLinks && allLinks.length > 0 && !scheduleDate) {
+                await this.app.fileManager.processFrontMatter(file, (fm) => {
+                    if (!Array.isArray(fm.telegram_links)) fm.telegram_links = [];
+                    for (const link of allLinks) {
+                        if (!fm.telegram_links.includes(link)) fm.telegram_links.push(link);
                     }
-                }
+                });
+            }
 
-                if (errors.length === 0) new Notice(scheduleDate ? t.NOTICE_SCHEDULED : t.NOTICE_SUCCESS);
-
-            } catch (err: any) {
-                progressNotice.hide();
+            for (const err of allErrors) {
                 const msg: string = (err.message ?? "").toUpperCase();
                 if (msg.includes("MESSAGE_NOT_MODIFIED")) {
                     new Notice(t.NOTICE_ERR_NOT_MODIFIED);
@@ -181,10 +178,35 @@ export default class SendToTelegramPlugin extends Plugin {
                     new Notice(`${t.NOTICE_ERR_SEND}${err.message ?? ""}`);
                 }
             }
+
+            if (allErrors.length === 0) new Notice(scheduleDate ? t.NOTICE_SCHEDULED : t.NOTICE_SUCCESS);
+
+        } catch (err: any) {
+            progressNotice.hide();
+            const msg: string = (err.message ?? "").toUpperCase();
+            if (msg.includes("MESSAGE_NOT_MODIFIED")) {
+                new Notice(t.NOTICE_ERR_NOT_MODIFIED);
+            } else if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
+                new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
+            } else if (msg.includes("MEDIA_CAPTION_TOO_LONG") || msg.includes("CAPTION IS TOO LONG")) {
+                new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
+            } else {
+                new Notice(`${t.NOTICE_ERR_SEND}${err.message ?? ""}`);
+            }
         }
+    }
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        // Migrate single chatId/chatTitle → chatTargets array
+        let migrated = false;
+        for (const ch of this.settings.channels) {
+            if (!ch.chatTargets) {
+                ch.chatTargets = ch.chatId ? [{ id: ch.chatId, title: ch.chatTitle }] : [];
+                migrated = true;
+            }
+        }
+        if (migrated) await this.saveData(this.settings);
         // Migrate secrets from data.json to SecretStorage
         const legacyData = await this.loadData() as any;
         if (legacyData?.telegramSession) {

@@ -32,6 +32,8 @@ export default {
     SETTING_PLACE_HOLDER_NAME: "Название пресета…",
 
     SETTING_PLACEHOLDER_CHAT: "@username или ID…",
+    SETTING_PLACEHOLDER_CHAT_SEARCH: "Поиск каналов и чатов…",
+    SETTING_CHAT_PICKER_LOADING: "Загрузка чатов…",
     CHANNEL_DEFAULT_NAME: "Канал",
     UNTITLED_CHANNEL: "Без названия",
 
