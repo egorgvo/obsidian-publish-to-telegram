@@ -307,11 +307,88 @@ async function sendCommentViaAccount(
     text: string,
     silent: boolean,
 ): Promise<void> {
-    // Determine whether there is a linked discussion group
+    // Determine whether the channel has a linked discussion group, and resolve the
+    // correct sendAs peer so the comment is attributed to the right identity.
+    //
+    // Rule: private channels (no public username) cannot post as themselves in a
+    // discussion group, so we use InputPeerSelf to post as the user's account
+    // instead of leaving sendAs undefined (which would let Telegram silently pick
+    // whatever channel the user last used in that group).
+    //
+    // For public channels we go through GetSendAs and match by channel ID to get
+    // the server-authoritative InputPeer (required — Telegram rejects a self-built
+    // one with SEND_AS_PEER_INVALID).
     let hasDiscussion = false;
+    let sendAsPeer: Api.TypeInputPeer | undefined;
     try {
         const full = await client.invoke(new Api.channels.GetFullChannel({ channel: channelEntity }));
-        hasDiscussion = !!(full.fullChat as Api.ChannelFull).linkedChatId;
+        const fullChat = full.fullChat as Api.ChannelFull;
+        const linkedChatId = fullChat.linkedChatId;
+        hasDiscussion = !!linkedChatId;
+
+        if (hasDiscussion && linkedChatId) {
+            const groupChat = full.chats.find(c => c.id.eq(linkedChatId)) as Api.Channel | undefined;
+            const sourceChannel = full.chats.find(c => !c.id.eq(linkedChatId)) as Api.Channel | undefined;
+            const isPrivate = !(sourceChannel as Api.Channel | undefined)?.username;
+
+            if (groupChat?.accessHash) {
+                try {
+                    const groupInputPeer = new Api.InputPeerChannel({
+                        channelId: groupChat.id,
+                        accessHash: groupChat.accessHash,
+                    });
+                    const sendAsResult = await client.invoke(
+                        new Api.channels.GetSendAs({ peer: groupInputPeer })
+                    );
+
+                    if (isPrivate) {
+                        // Private channel: post as the user's personal account.
+                        // Prefer the InputPeer from the GetSendAs list (server-authoritative
+                        // access hash). If the personal account is not in that list (it only
+                        // appears when the account is a direct group member/admin), fall back
+                        // to resolving it from the GramJS entity cache via getMe().
+                        const userPeer = sendAsResult.peers.find(p => p.peer instanceof Api.PeerUser);
+                        if (userPeer && userPeer.peer instanceof Api.PeerUser) {
+                            const userId = (userPeer.peer as Api.PeerUser).userId;
+                            const matchingUser = sendAsResult.users.find(u => u.id.eq(userId)) as Api.User | undefined;
+                            if (matchingUser) {
+                                sendAsPeer = new Api.InputPeerUser({
+                                    userId: matchingUser.id,
+                                    accessHash: matchingUser.accessHash!,
+                                });
+                            }
+                        }
+                        if (!sendAsPeer) {
+                            const me = await client.getMe() as Api.User | null;
+                            if (me) {
+                                const meInputPeer = await client.getInputEntity(me);
+                                if (meInputPeer instanceof Api.InputPeerUser) sendAsPeer = meInputPeer;
+                            }
+                        }
+                    } else {
+                        // Public channel: post as the channel itself.
+                        const channelInputPeer = await client.getInputEntity(channelEntity);
+                        const channelId = channelInputPeer instanceof Api.InputPeerChannel
+                            ? channelInputPeer.channelId : null;
+                        if (channelId) {
+                            const matchingPeer = sendAsResult.peers.find(p =>
+                                p.peer instanceof Api.PeerChannel && p.peer.channelId.eq(channelId)
+                            );
+                            if (matchingPeer && matchingPeer.peer instanceof Api.PeerChannel) {
+                                const peerId = (matchingPeer.peer as Api.PeerChannel).channelId;
+                                const matchingChat = sendAsResult.chats.find(c => c.id.eq(peerId)) as Api.Channel | undefined;
+                                if (matchingChat?.accessHash) {
+                                    sendAsPeer = new Api.InputPeerChannel({
+                                        channelId: matchingChat.id,
+                                        accessHash: matchingChat.accessHash,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                } catch { /* GetSendAs unavailable — comment will post as user default */ }
+            }
+        }
     } catch { /* not a channel or no access */ }
 
     if (hasDiscussion) {
@@ -320,21 +397,32 @@ async function sendCommentViaAccount(
         const DELAY_MS = 1500;
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
             if (attempt > 0) await new Promise(r => setTimeout(r, DELAY_MS));
+
+            // Only the discovery call is retried — a missing/not-yet-forwarded message is expected.
+            // Errors from the actual send must not be swallowed here so they surface to the caller.
+            let threadHead: Api.TypeMessage | undefined;
             try {
                 const discussion = await client.invoke(
                     new Api.messages.GetDiscussionMessage({ peer: channelEntity, msgId: channelMessageId })
                 );
                 if (!discussion.messages.length) continue;
                 // Messages are returned newest-first; the last element is the thread-opening forwarded post
-                const threadHead = discussion.messages[discussion.messages.length - 1];
-                await client.sendMessage(threadHead.peerId as any, {
-                    message: text,
-                    parseMode: "html",
-                    replyTo: threadHead.id,
-                    silent,
-                });
-                return;
-            } catch { /* not ready yet — retry */ }
+                threadHead = discussion.messages[discussion.messages.length - 1];
+            } catch { continue; /* not ready yet — retry */ }
+
+            // Use raw MTProto so sendAs (InputPeer) reaches the wire unambiguously;
+            // the high-level sendMessage wrapper does not reliably propagate it.
+            const [message, entities] = await _parseMessageText(client, text, "html");
+            const peer = await client.getInputEntity(threadHead.peerId as any);
+            await client.invoke(new Api.messages.SendMessage({
+                peer,
+                message,
+                entities,
+                replyTo: new Api.InputReplyToMessage({ replyToMsgId: threadHead.id }),
+                silent,
+                sendAs: sendAsPeer,
+            }));
+            return;
         }
     } else {
         // No discussion group: reply directly in the channel
