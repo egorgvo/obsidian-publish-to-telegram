@@ -10,6 +10,7 @@ export default {
     NOTICE_ERR_TOO_LONG_CAPTION: "Error: Post with media attachments must be less than 1025 symbols.",
     NOTICE_ERR_NO_DEFAULT: "Error: Default preset is not set up.",
     NOTICE_ERR_NOT_AUTHENTICATED: "Error: Authorize into your Telegram account in the plugin settings before publishing.",
+    NOTICE_ERR_NOT_MODIFIED: "Nothing to update: the post content hasn't changed.",
     SETTING_HEADER: "Publish to Telegram Settings",
     SECTION_GENERAL: "General",
     SECTION_PRESETS: "Presets",
@@ -241,7 +242,7 @@ You can open an advanced publishing settings window with command palette (\`Ctrl
 
 * Post to multiple channels/groups at once.
 
-* Post to specific topics in the groups. If topics option is enabled in the target group, the plugin will allow you to choose where to post.
+* Post to specific topics in groups. If topics option is enabled in the target group, the plugin will allow you to choose where to post.
 
 * Post without sound.
 

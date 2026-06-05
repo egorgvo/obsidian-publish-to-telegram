@@ -155,7 +155,9 @@ export default class SendToTelegramPlugin extends Plugin {
 
                 for (const err of errors) {
                     const msg: string = (err.message ?? "").toUpperCase();
-                    if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
+                    if (msg.includes("MESSAGE_NOT_MODIFIED")) {
+                        new Notice(t.NOTICE_ERR_NOT_MODIFIED);
+                    } else if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
                         new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
                     } else if (msg.includes("MEDIA_CAPTION_TOO_LONG") || msg.includes("CAPTION IS TOO LONG")) {
                         new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
@@ -169,7 +171,9 @@ export default class SendToTelegramPlugin extends Plugin {
             } catch (err: any) {
                 progressNotice.hide();
                 const msg: string = (err.message ?? "").toUpperCase();
-                if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
+                if (msg.includes("MESSAGE_NOT_MODIFIED")) {
+                    new Notice(t.NOTICE_ERR_NOT_MODIFIED);
+                } else if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
                     new Notice(t.NOTICE_ERR_TOO_LONG_TEXT);
                 } else if (msg.includes("MEDIA_CAPTION_TOO_LONG") || msg.includes("CAPTION IS TOO LONG")) {
                     new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);

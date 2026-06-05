@@ -18,7 +18,7 @@ This plugin allows you to post notes directly to Telegram channels, groups and p
 4. Advanced publishing settings:
 
   	* Post to multiple channels/groups at once.
-    * Post to specific topics in the groups.
+    * Post to specific topics in groups.
   	* Post without sound.
   	* Post with attached media under the text.
     * Schedule the publication.
@@ -191,7 +191,7 @@ A couple of notes:
 You can open an advanced publishing settings window with command palette (`Ctrl + P`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
 
 * Post to multiple channels/groups at once.
-* Post to specific topics in the groups. If topics option is enabled in the target group, the plugin will allow you to choose where to post.
+* Post to specific topics in groups. If topics option is enabled in the target group, the plugin will allow you to choose where to post.
 * Post without sound.
 * Post with attached media under the text.
 * Schedule the publication.
