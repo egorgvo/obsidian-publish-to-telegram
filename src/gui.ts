@@ -4,9 +4,9 @@ import { StringSession } from "telegram/sessions";
 import { Api } from "telegram";
 import { t } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
-import { fetchConfig, startAuth, verifyAuth, CloudConfig } from "./auth";
+import QRCode from "qrcode";
 import { TelegramChannel, TelegramSecrets } from "./types";
-import { createClient, ForumTopicData, checkIsForum, getForumTopics } from "./telegram";
+import { createClient, ForumTopicData, checkIsForum, getForumTopics, DEFAULT_TG_API_ID, DEFAULT_TG_API_HASH, AUTH_API_ID, AUTH_API_HASH } from "./telegram";
 
 // ─── Channel resolution helpers ───────────────────────────────────────────────
 
@@ -439,380 +439,20 @@ export class MultiPresetModal extends Modal {
     }
 }
 
-// ─── Auth Modal ──────────────────────────────────────────────────────────────
-
-export class AuthModal extends Modal {
-    private plugin: SendToTelegramPlugin;
-    private phone = "";
-    private userId = "";
-    private config: CloudConfig | null = null;
-    private onSuccess: () => void;
-
-    constructor(app: App, plugin: SendToTelegramPlugin, onSuccess: () => void) {
-        super(app);
-        this.plugin = plugin;
-        this.onSuccess = onSuccess;
-        this.userId = crypto.randomUUID();
-    }
-
-    onOpen() { this.renderPhoneStep(); }
-    onClose() { this.contentEl.empty(); }
-
-    private renderPhoneStep() {
-        const { contentEl, titleEl } = this;
-        contentEl.empty();
-        titleEl.setText(t.AUTH_TITLE);
-
-        let phoneValue = "";
-        new Setting(contentEl)
-            .setName(t.AUTH_PHONE_NAME)
-            .setDesc(t.AUTH_PHONE_DESC)
-            .addText(text => text
-                .setPlaceholder(t.AUTH_PHONE_PLACEHOLDER)
-                .onChange(v => { phoneValue = v; }));
-
-        const btnSetting = new Setting(contentEl);
-        btnSetting.addButton(btn => btn
-            .setButtonText(t.AUTH_SEND_CODE_BTN)
-            .setCta()
-            .onClick(async () => {
-                if (!phoneValue.trim()) return;
-                this.phone = phoneValue.trim();
-                btn.setDisabled(true);
-                btn.setButtonText(t.AUTH_LOADING);
-                try {
-                    this.config = await fetchConfig(
-                        this.plugin.settings.configUrl,
-                        this.plugin.manifest.version
-                    );
-                    await startAuth(
-                        this.config.auth_start_url,
-                        this.phone,
-                        this.userId,
-                        this.plugin.manifest.version
-                    );
-                    this.renderCodeStep();
-                } catch (err: any) {
-                    btn.setDisabled(false);
-                    btn.setButtonText(t.AUTH_SEND_CODE_BTN);
-                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
-                }
-            }));
-    }
-
-    private renderCodeStep() {
-        const { contentEl, titleEl } = this;
-        contentEl.empty();
-        titleEl.setText(t.AUTH_TITLE);
-
-        contentEl.createEl("p", { text: t.AUTH_CODE_SENT.replace("{phone}", this.phone) });
-
-        let codeValue = "";
-        new Setting(contentEl)
-            .setName(t.AUTH_CODE_NAME)
-            .addText(text => text
-                .setPlaceholder(t.AUTH_CODE_PLACEHOLDER)
-                .onChange(v => { codeValue = v; }));
-
-        const btnSetting = new Setting(contentEl);
-        btnSetting.addButton(btn => btn
-            .setButtonText(t.AUTH_VERIFY_BTN)
-            .setCta()
-            .onClick(async () => {
-                if (!codeValue.trim()) return;
-                btn.setDisabled(true);
-                btn.setButtonText(t.AUTH_LOADING);
-                try {
-                    const result = await verifyAuth(
-                        this.config!.auth_verify_url,
-                        this.userId,
-                        this.plugin.manifest.version,
-                        codeValue.trim()
-                    );
-                    if (result.session) {
-                        await this.saveSession(result.session);
-                    } else if (result.reason === "password_required") {
-                        this.renderPasswordStep();
-                    }
-                } catch (err: any) {
-                    btn.setDisabled(false);
-                    btn.setButtonText(t.AUTH_VERIFY_BTN);
-                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
-                }
-            }));
-    }
-
-    private renderPasswordStep() {
-        const { contentEl, titleEl } = this;
-        contentEl.empty();
-        titleEl.setText(t.AUTH_TITLE);
-
-        contentEl.createEl("p", { text: t.AUTH_PASSWORD_REQUIRED });
-
-        let passwordValue = "";
-        new Setting(contentEl)
-            .setName(t.AUTH_PASSWORD_NAME)
-            .addText(text => {
-                text.setPlaceholder(t.AUTH_PASSWORD_PLACEHOLDER)
-                    .onChange(v => { passwordValue = v; });
-                text.inputEl.type = "password";
-            });
-
-        const btnSetting = new Setting(contentEl);
-        btnSetting.addButton(btn => btn
-            .setButtonText(t.AUTH_VERIFY_BTN)
-            .setCta()
-            .onClick(async () => {
-                if (!passwordValue.trim()) return;
-                btn.setDisabled(true);
-                btn.setButtonText(t.AUTH_LOADING);
-                try {
-                    const result = await verifyAuth(
-                        this.config!.auth_verify_url,
-                        this.userId,
-                        this.plugin.manifest.version,
-                        undefined,
-                        passwordValue.trim()
-                    );
-                    if (result.session) {
-                        await this.saveSession(result.session);
-                    }
-                } catch (err: any) {
-                    btn.setDisabled(false);
-                    btn.setButtonText(t.AUTH_VERIFY_BTN);
-                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
-                }
-            }));
-    }
-
-    private async saveSession(session: string) {
-        this.plugin.secrets.telegramSession = session;
-        await this.plugin.saveSecrets();
-        try {
-            const client = await createClient(session);
-            const me = await client.getMe() as any;
-            const parts = [me.firstName, me.lastName].filter(Boolean).join(" ");
-            const username = me.username ? ` (@${me.username})` : "";
-            this.plugin.settings.telegramDisplayName = `${parts}${username}`;
-            await client.disconnect();
-        } catch {
-            this.plugin.settings.telegramDisplayName = this.phone;
-        }
-        await this.plugin.saveSettings();
-        new Notice(t.AUTH_SUCCESS);
-        this.onSuccess();
-        this.close();
-    }
-}
-
-// ─── Local Auth Modal ─────────────────────────────────────────────────────
-
-export class LocalAuthModal extends Modal {
-    private plugin: SendToTelegramPlugin;
-    private phone = "";
-    private apiId = 0;
-    private apiHash = "";
-    private client: TelegramClient | null = null;
-    private phoneCodeHash = "";
-    private onSuccess: () => void;
-
-    constructor(app: App, plugin: SendToTelegramPlugin, onSuccess: () => void) {
-        super(app);
-        this.plugin = plugin;
-        this.onSuccess = onSuccess;
-    }
-
-    onOpen() { this.renderPhoneStep(); }
-
-    onClose() {
-        if (this.client) {
-            this.client.disconnect();
-            this.client = null;
-        }
-        this.contentEl.empty();
-    }
-
-    private renderPhoneStep() {
-        const { contentEl, titleEl } = this;
-        contentEl.empty();
-        titleEl.setText(t.AUTH_TITLE);
-
-        let phoneValue = "";
-        let apiIdValue = "";
-        let apiHashValue = "";
-
-        new Setting(contentEl)
-            .setName(t.AUTH_PHONE_NAME)
-            .setDesc(t.AUTH_PHONE_DESC)
-            .addText(text => text
-                .setPlaceholder(t.AUTH_PHONE_PLACEHOLDER)
-                .onChange(v => { phoneValue = v; }));
-
-        new Setting(contentEl)
-            .setName(t.AUTH_LOCAL_API_ID_NAME)
-            .setDesc(t.AUTH_LOCAL_API_ID_DESC)
-            .addText(text => text
-                .setPlaceholder("12345")
-                .onChange(v => { apiIdValue = v; }));
-
-        new Setting(contentEl)
-            .setName(t.AUTH_LOCAL_API_HASH_NAME)
-            .setDesc(t.AUTH_LOCAL_API_HASH_DESC)
-            .addText(text => text
-                .setPlaceholder("0123456789abcdef...")
-                .onChange(v => { apiHashValue = v; }));
-
-        const btnSetting = new Setting(contentEl);
-        btnSetting.addButton(btn => btn
-            .setButtonText(t.AUTH_SEND_CODE_BTN)
-            .setCta()
-            .onClick(async () => {
-                if (!phoneValue.trim() || !apiIdValue.trim() || !apiHashValue.trim()) return;
-                this.phone = phoneValue.trim();
-                this.apiId = Number(apiIdValue.trim());
-                this.apiHash = apiHashValue.trim();
-
-                if (!this.apiId || isNaN(this.apiId)) {
-                    new Notice(t.AUTH_LOCAL_INVALID_API_ID);
-                    return;
-                }
-
-                btn.setDisabled(true);
-                btn.setButtonText(t.AUTH_LOADING);
-                try {
-                    this.client = new TelegramClient(
-                        new StringSession(""),
-                        this.apiId,
-                        this.apiHash,
-                        { connectionRetries: 3, useWSS: true }
-                    );
-                    await this.client.connect();
-                    const result = await this.client.sendCode(
-                        { apiId: this.apiId, apiHash: this.apiHash },
-                        this.phone
-                    );
-                    this.phoneCodeHash = result.phoneCodeHash;
-                    this.renderCodeStep();
-                } catch (err: any) {
-                    btn.setDisabled(false);
-                    btn.setButtonText(t.AUTH_SEND_CODE_BTN);
-                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
-                }
-            }));
-    }
-
-    private renderCodeStep() {
-        const { contentEl, titleEl } = this;
-        contentEl.empty();
-        titleEl.setText(t.AUTH_TITLE);
-
-        contentEl.createEl("p", { text: t.AUTH_CODE_SENT.replace("{phone}", this.phone) });
-
-        let codeValue = "";
-        new Setting(contentEl)
-            .setName(t.AUTH_CODE_NAME)
-            .addText(text => text
-                .setPlaceholder(t.AUTH_CODE_PLACEHOLDER)
-                .onChange(v => { codeValue = v; }));
-
-        const btnSetting = new Setting(contentEl);
-        btnSetting.addButton(btn => btn
-            .setButtonText(t.AUTH_VERIFY_BTN)
-            .setCta()
-            .onClick(async () => {
-                if (!codeValue.trim() || !this.client) return;
-                btn.setDisabled(true);
-                btn.setButtonText(t.AUTH_LOADING);
-                try {
-                    await this.client.invoke(
-                        new Api.auth.SignIn({
-                            phoneNumber: this.phone,
-                            phoneCodeHash: this.phoneCodeHash,
-                            phoneCode: codeValue.trim(),
-                        })
-                    );
-                    await this.saveSession();
-                } catch (err: any) {
-                    if (err instanceof Error && err.message.includes("SESSION_PASSWORD_NEEDED")) {
-                        this.renderPasswordStep();
-                    } else {
-                        btn.setDisabled(false);
-                        btn.setButtonText(t.AUTH_VERIFY_BTN);
-                        new Notice(`${t.AUTH_ERROR}: ${err.message}`);
-                    }
-                }
-            }));
-    }
-
-    private renderPasswordStep() {
-        const { contentEl, titleEl } = this;
-        contentEl.empty();
-        titleEl.setText(t.AUTH_TITLE);
-
-        contentEl.createEl("p", { text: t.AUTH_PASSWORD_REQUIRED });
-
-        let passwordValue = "";
-        new Setting(contentEl)
-            .setName(t.AUTH_PASSWORD_NAME)
-            .addText(text => {
-                text.setPlaceholder(t.AUTH_PASSWORD_PLACEHOLDER)
-                    .onChange(v => { passwordValue = v; });
-                text.inputEl.type = "password";
-            });
-
-        const btnSetting = new Setting(contentEl);
-        btnSetting.addButton(btn => btn
-            .setButtonText(t.AUTH_VERIFY_BTN)
-            .setCta()
-            .onClick(async () => {
-                if (!passwordValue.trim() || !this.client) return;
-                btn.setDisabled(true);
-                btn.setButtonText(t.AUTH_LOADING);
-                try {
-                    await this.client.signInWithPassword(
-                        { apiId: this.apiId, apiHash: this.apiHash },
-                        { password: () => passwordValue.trim() }
-                    );
-                    await this.saveSession();
-                } catch (err: any) {
-                    btn.setDisabled(false);
-                    btn.setButtonText(t.AUTH_VERIFY_BTN);
-                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
-                }
-            }));
-    }
-
-    private async saveSession() {
-        if (!this.client) return;
-        const session = this.client.session.save() as unknown as string;
-        this.plugin.secrets.telegramSession = session;
-        this.plugin.secrets.telegramApiId = this.apiId;
-        this.plugin.secrets.telegramApiHash = this.apiHash;
-        await this.plugin.saveSecrets();
-        try {
-            const me = await this.client.getMe() as any;
-            const parts = [me.firstName, me.lastName].filter(Boolean).join(" ");
-            const username = me.username ? ` (@${me.username})` : "";
-            this.plugin.settings.telegramDisplayName = `${parts}${username}`;
-        } catch {
-            this.plugin.settings.telegramDisplayName = this.phone;
-        }
-        await this.plugin.saveSettings();
-        new Notice(t.AUTH_SUCCESS);
-        this.onSuccess();
-        this.close();
-    }
-}
-
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 export class TelegramSettingTab extends PluginSettingTab {
     plugin: SendToTelegramPlugin;
+    private inlineQrClient: TelegramClient | null = null;
     private inlineLocalClient: TelegramClient | null = null;
 
     constructor(app: App, plugin: SendToTelegramPlugin) { super(app, plugin); this.plugin = plugin; }
 
     display(): void {
+        if (this.inlineQrClient) {
+            this.inlineQrClient.disconnect().catch(() => {});
+            this.inlineQrClient = null;
+        }
         if (this.inlineLocalClient) {
             this.inlineLocalClient.disconnect().catch(() => {});
             this.inlineLocalClient = null;
@@ -853,7 +493,7 @@ export class TelegramSettingTab extends PluginSettingTab {
             });
         } else {
             const authContainer = containerEl.createDiv({ cls: "telegram-auth-inline" });
-            this.renderInlineCloudPhoneStep(authContainer);
+            this.renderInlinePhoneStep(authContainer);
         }
 
         new Setting(containerEl).setName(t.SETTING_SAVE_POST_LINKS_NAME).setDesc(t.SETTING_SAVE_POST_LINKS_DESC)
@@ -982,7 +622,8 @@ export class TelegramSettingTab extends PluginSettingTab {
         return { fields, submitEl, noteEl, extraEl };
     }
 
-    private renderInlineCloudPhoneStep(container: HTMLElement): void {
+    // Primary auth entry point: phone number + code, using bundled API credentials.
+    private renderInlinePhoneStep(container: HTMLElement): void {
         const { fields, submitEl, noteEl, extraEl } = this.buildAuthCard(container, t.AUTH_STEP_1);
 
         let phoneValue = "";
@@ -997,10 +638,14 @@ export class TelegramSettingTab extends PluginSettingTab {
             submitEl.disabled = true;
             submitEl.textContent = t.AUTH_LOADING;
             try {
-                const config = await fetchConfig(this.plugin.settings.configUrl, this.plugin.manifest.version);
-                const userId = crypto.randomUUID();
-                await startAuth(config.auth_start_url, phoneValue.trim(), userId, this.plugin.manifest.version);
-                this.renderInlineCloudCodeStep(container, { phone: phoneValue.trim(), userId, config });
+                if (this.inlineLocalClient) {
+                    await this.inlineLocalClient.disconnect();
+                    this.inlineLocalClient = null;
+                }
+                this.inlineLocalClient = new TelegramClient(new StringSession(""), AUTH_API_ID, AUTH_API_HASH, { connectionRetries: 3, useWSS: true });
+                await this.inlineLocalClient.connect();
+                const result = await this.inlineLocalClient.sendCode({ apiId: AUTH_API_ID, apiHash: AUTH_API_HASH }, phoneValue.trim());
+                this.renderInlineLocalCodeStep(container, { phone: phoneValue.trim(), apiId: AUTH_API_ID, apiHash: AUTH_API_HASH, phoneCodeHash: result.phoneCodeHash });
             } catch (err: any) {
                 submitEl.disabled = false;
                 submitEl.textContent = t.AUTH_SEND_CODE_BTN;
@@ -1010,49 +655,153 @@ export class TelegramSettingTab extends PluginSettingTab {
 
         noteEl.textContent = t.AUTH_PHONE_NOTE;
 
-        const linkBtn = extraEl.createEl("button", { cls: "telegram-auth-link-btn", text: t.AUTH_USE_LOCAL });
-        linkBtn.addEventListener("click", () => this.renderInlineLocalPhoneStep(container));
+        const qrBtn = extraEl.createEl("button", { cls: "telegram-auth-link-btn", text: t.AUTH_PHONE_USE_QR });
+        qrBtn.addEventListener("click", () => this.renderInlineQrStep(container));
     }
 
-    private renderInlineCloudCodeStep(container: HTMLElement, state: { phone: string; userId: string; config: CloudConfig }): void {
-        const { fields, submitEl, noteEl } = this.buildAuthCard(
-            container, t.AUTH_STEP_2,
-            () => this.renderInlineCloudPhoneStep(container)
-        );
+    private renderInlineQrStep(container: HTMLElement): void {
+        if (this.inlineQrClient) {
+            this.inlineQrClient.disconnect().catch(() => {});
+            this.inlineQrClient = null;
+        }
 
-        let codeValue = "";
-        const codeInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "text", placeholder: t.AUTH_CODE_PLACEHOLDER } });
-        codeInput.addEventListener("input", () => { codeValue = codeInput.value; });
-        codeInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
-        setTimeout(() => codeInput.focus(), 50);
+        const { fields, submitEl, noteEl, extraEl } = this.buildAuthCard(container, t.AUTH_QR_TITLE,
+            () => this.renderInlinePhoneStep(container));
+        submitEl.style.display = "none";
 
-        submitEl.textContent = t.AUTH_VERIFY_BTN;
-        submitEl.addEventListener("click", async () => {
-            if (!codeValue.trim()) return;
-            submitEl.disabled = true;
-            submitEl.textContent = t.AUTH_LOADING;
-            try {
-                const result = await verifyAuth(state.config.auth_verify_url, state.userId, this.plugin.manifest.version, codeValue.trim());
-                if (result.session) {
-                    await this.saveInlineCloudSession(result.session);
-                } else if (result.reason === "password_required") {
-                    this.renderInlineCloudPasswordStep(container, state);
-                }
-            } catch (err: any) {
-                submitEl.disabled = false;
-                submitEl.textContent = t.AUTH_VERIFY_BTN;
-                new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+        const qrWrap = fields.createDiv({ cls: "telegram-qr-wrap" });
+        qrWrap.createSpan({ text: t.AUTH_LOADING, cls: "telegram-qr-loading" });
+
+        noteEl.textContent = t.AUTH_QR_NOTE;
+
+        const linkBtn = extraEl.createEl("button", { cls: "telegram-auth-link-btn", text: t.AUTH_QR_USE_PHONE });
+        linkBtn.addEventListener("click", () => {
+            if (this.inlineQrClient) {
+                this.inlineQrClient.disconnect().catch(() => {});
+                this.inlineQrClient = null;
             }
+            this.renderInlinePhoneStep(container);
         });
 
-        noteEl.textContent = t.AUTH_CODE_NOTE;
+        const client = new TelegramClient(new StringSession(""), AUTH_API_ID, AUTH_API_HASH, { connectionRetries: 5, useWSS: true });
+        client.setLogLevel("none" as any);
+        this.inlineQrClient = client;
+
+        // Renders a QR code SVG into qrWrap and updates the deep link.
+        const showQr = async (token: Buffer): Promise<void> => {
+            const tokenB64 = token.toString("base64")
+                .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+            const url = `tg://login?token=${tokenB64}`;
+            const svgStr = await QRCode.toString(url, { type: "svg", margin: 1 });
+            qrWrap.empty();
+            const parser = new DOMParser();
+            const svgDoc = parser.parseFromString(svgStr, "image/svg+xml");
+            qrWrap.appendChild(svgDoc.documentElement);
+        };
+
+        // Manual polling loop — replaces signInUserWithQrCode.
+        //
+        // Rationale: after the user scans, the Telegram server sends UpdateLoginToken
+        // and simultaneously closes the unauthenticated connection. GramJS's built-in
+        // helper races these two events and then tries to invoke ExportLoginToken on
+        // the now-closed socket, producing "Cannot send requests while disconnected".
+        // Polling detects the scan on the next tick and reconnects before the invoke.
+        const doAuth = async (): Promise<void> => {
+            const POLL_MS = 3000;
+            const TOKEN_TTL_MS = 27000; // tokens last 30 s; refresh 3 s early
+
+            while (this.inlineQrClient) {
+                // Ensure we have a live connection before invoking.
+                if (!client.connected) {
+                    try { await client.connect(); } catch {
+                        await new Promise(r => setTimeout(r, 2000));
+                        continue;
+                    }
+                }
+
+                // Fetch/refresh the login token.
+                let token: Buffer | null = null;
+                try {
+                    const res = await client.invoke(new Api.auth.ExportLoginToken({
+                        apiId: AUTH_API_ID,
+                        apiHash: AUTH_API_HASH,
+                        exceptIds: [],
+                    }));
+                    if (res instanceof Api.auth.LoginToken) {
+                        token = res.token;
+                    } else if (res instanceof Api.auth.LoginTokenSuccess) {
+                        return; // scan confirmed, no 2FA
+                    } else if (res instanceof Api.auth.LoginTokenMigrateTo) {
+                        await (client as any)._switchDC(res.dcId);
+                        if (!client.connected) await client.connect();
+                        await client.invoke(new Api.auth.ImportLoginToken({ token: res.token }));
+                        return; // done after DC migration
+                    }
+                } catch (err: any) {
+                    if (!this.inlineQrClient) return;
+                    if ((err.errorMessage ?? err.message ?? "") === "SESSION_PASSWORD_NEEDED") throw err;
+                    await new Promise(r => setTimeout(r, 2000));
+                    continue;
+                }
+
+                if (token) await showQr(token);
+
+                // Poll until the current token expires, checking for a successful scan.
+                const expiresAt = Date.now() + TOKEN_TTL_MS;
+                let dropped = false;
+                while (this.inlineQrClient && Date.now() < expiresAt) {
+                    await new Promise(r => setTimeout(r, POLL_MS));
+                    if (!this.inlineQrClient) return;
+                    try {
+                        if (!client.connected) await client.connect();
+                        const poll = await client.invoke(new Api.auth.ExportLoginToken({
+                            apiId: DEFAULT_TG_API_ID,
+                            apiHash: DEFAULT_TG_API_HASH,
+                            exceptIds: [],
+                        }));
+                        if (poll instanceof Api.auth.LoginTokenSuccess) return;
+                        if (poll instanceof Api.auth.LoginTokenMigrateTo) {
+                            await (client as any)._switchDC(poll.dcId);
+                            if (!client.connected) await client.connect();
+                            await client.invoke(new Api.auth.ImportLoginToken({ token: poll.token }));
+                            return;
+                        }
+                        // Still LoginToken — user hasn't scanned yet, keep polling.
+                    } catch (err: any) {
+                        if (!this.inlineQrClient) return;
+                        if ((err.errorMessage ?? err.message ?? "") === "SESSION_PASSWORD_NEEDED") throw err;
+                        dropped = true;
+                        break; // connection dropped; outer loop will reconnect
+                    }
+                }
+                if (dropped) continue;
+                // Token expired — outer loop fetches a fresh one.
+            }
+        };
+
+        client.connect()
+            .then(() => doAuth())
+            .then(async () => {
+                if (this.inlineQrClient) await this.saveInlineQrSession(client);
+            })
+            .catch(async (err: any) => {
+                if (!this.inlineQrClient) return;
+                if ((err.errorMessage ?? err.message ?? "") === "SESSION_PASSWORD_NEEDED") {
+                    this.renderInlineQrPasswordStep(container, client, async () => {
+                        if (this.inlineQrClient) await this.saveInlineQrSession(client);
+                    });
+                } else {
+                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                }
+            });
     }
 
-    private renderInlineCloudPasswordStep(container: HTMLElement, state: { phone: string; userId: string; config: CloudConfig }): void {
-        const { fields, submitEl, noteEl } = this.buildAuthCard(
-            container, t.AUTH_STEP_2,
-            () => this.renderInlineCloudCodeStep(container, state)
-        );
+    private renderInlineQrPasswordStep(
+        container: HTMLElement,
+        client: TelegramClient,
+        onSuccess: () => void,
+    ): void {
+        const { fields, submitEl, noteEl } = this.buildAuthCard(container, t.AUTH_STEP_2);
 
         let passwordValue = "";
         const passwordInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "password", placeholder: t.AUTH_PASSWORD_PLACEHOLDER } });
@@ -1066,10 +815,11 @@ export class TelegramSettingTab extends PluginSettingTab {
             submitEl.disabled = true;
             submitEl.textContent = t.AUTH_LOADING;
             try {
-                const result = await verifyAuth(state.config.auth_verify_url, state.userId, this.plugin.manifest.version, undefined, passwordValue.trim());
-                if (result.session) {
-                    await this.saveInlineCloudSession(result.session);
-                }
+                await client.signInWithPassword(
+                    { apiId: AUTH_API_ID, apiHash: AUTH_API_HASH },
+                    { password: async () => passwordValue.trim(), onError: async () => true }
+                );
+                onSuccess();
             } catch (err: any) {
                 submitEl.disabled = false;
                 submitEl.textContent = t.AUTH_VERIFY_BTN;
@@ -1080,52 +830,25 @@ export class TelegramSettingTab extends PluginSettingTab {
         noteEl.textContent = t.AUTH_PASSWORD_REQUIRED;
     }
 
-    private renderInlineLocalPhoneStep(container: HTMLElement): void {
-        const { fields, submitEl, noteEl } = this.buildAuthCard(
-            container, t.AUTH_STEP_1,
-            () => this.renderInlineCloudPhoneStep(container)
-        );
-
-        let apiIdValue = "";
-        let apiHashValue = "";
-        let phoneValue = "";
-
-        const appIdInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "text", placeholder: t.AUTH_APP_ID_PLACEHOLDER } });
-        appIdInput.addEventListener("input", () => { apiIdValue = appIdInput.value; });
-
-        const hashInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "text", placeholder: t.AUTH_HASH_PLACEHOLDER } });
-        hashInput.addEventListener("input", () => { apiHashValue = hashInput.value; });
-
-        const phoneInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "tel", placeholder: t.AUTH_PHONE_PLACEHOLDER } });
-        phoneInput.addEventListener("input", () => { phoneValue = phoneInput.value; });
-        phoneInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
-        setTimeout(() => appIdInput.focus(), 50);
-
-        submitEl.textContent = t.AUTH_SEND_CODE_BTN;
-        submitEl.addEventListener("click", async () => {
-            if (!phoneValue.trim() || !apiIdValue.trim() || !apiHashValue.trim()) return;
-            const apiId = Number(apiIdValue.trim());
-            if (!apiId || isNaN(apiId)) { new Notice(t.AUTH_LOCAL_INVALID_API_ID); return; }
-
-            submitEl.disabled = true;
-            submitEl.textContent = t.AUTH_LOADING;
-            try {
-                if (this.inlineLocalClient) {
-                    await this.inlineLocalClient.disconnect();
-                    this.inlineLocalClient = null;
-                }
-                this.inlineLocalClient = new TelegramClient(new StringSession(""), apiId, apiHashValue.trim(), { connectionRetries: 3, useWSS: true });
-                await this.inlineLocalClient.connect();
-                const result = await this.inlineLocalClient.sendCode({ apiId, apiHash: apiHashValue.trim() }, phoneValue.trim());
-                this.renderInlineLocalCodeStep(container, { phone: phoneValue.trim(), apiId, apiHash: apiHashValue.trim(), phoneCodeHash: result.phoneCodeHash });
-            } catch (err: any) {
-                submitEl.disabled = false;
-                submitEl.textContent = t.AUTH_SEND_CODE_BTN;
-                new Notice(`${t.AUTH_ERROR}: ${err.message}`);
-            }
-        });
-
-        noteEl.textContent = t.AUTH_PHONE_NOTE;
+    private async saveInlineQrSession(client: TelegramClient): Promise<void> {
+        const session = client.session.save() as unknown as string;
+        this.plugin.secrets.telegramSession = session;
+        this.plugin.secrets.telegramApiId = 0;
+        this.plugin.secrets.telegramApiHash = "";
+        await this.plugin.saveSecrets();
+        try {
+            const me = await client.getMe() as any;
+            const parts = [me.firstName, me.lastName].filter(Boolean).join(" ");
+            const username = me.username ? ` (@${me.username})` : "";
+            this.plugin.settings.telegramDisplayName = `${parts}${username}`;
+        } catch {
+            this.plugin.settings.telegramDisplayName = "";
+        }
+        await client.disconnect();
+        this.inlineQrClient = null;
+        await this.plugin.saveSettings();
+        new Notice(t.AUTH_SUCCESS);
+        this.display();
     }
 
     private renderInlineLocalCodeStep(
@@ -1139,7 +862,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                     this.inlineLocalClient.disconnect().catch(() => {});
                     this.inlineLocalClient = null;
                 }
-                this.renderInlineLocalPhoneStep(container);
+                this.renderInlinePhoneStep(container);
             }
         );
 
@@ -1211,30 +934,14 @@ export class TelegramSettingTab extends PluginSettingTab {
         noteEl.textContent = t.AUTH_PASSWORD_REQUIRED;
     }
 
-    private async saveInlineCloudSession(session: string): Promise<void> {
-        this.plugin.secrets.telegramSession = session;
-        await this.plugin.saveSecrets();
-        try {
-            const client = await createClient(session);
-            const me = await client.getMe() as any;
-            const parts = [me.firstName, me.lastName].filter(Boolean).join(" ");
-            const username = me.username ? ` (@${me.username})` : "";
-            this.plugin.settings.telegramDisplayName = `${parts}${username}`;
-            await client.disconnect();
-        } catch {
-            this.plugin.settings.telegramDisplayName = "";
-        }
-        await this.plugin.saveSettings();
-        new Notice(t.AUTH_SUCCESS);
-        this.display();
-    }
-
     private async saveInlineLocalSession(apiId: number, apiHash: string): Promise<void> {
         if (!this.inlineLocalClient) return;
         const session = this.inlineLocalClient.session.save() as unknown as string;
         this.plugin.secrets.telegramSession = session;
-        this.plugin.secrets.telegramApiId = apiId;
-        this.plugin.secrets.telegramApiHash = apiHash;
+        // Don't persist bundled credentials — session alone is enough for reconnection.
+        const isBundled = apiId === AUTH_API_ID;
+        this.plugin.secrets.telegramApiId = isBundled ? 0 : apiId;
+        this.plugin.secrets.telegramApiHash = isBundled ? "" : apiHash;
         await this.plugin.saveSecrets();
         try {
             const me = await this.inlineLocalClient.getMe() as any;

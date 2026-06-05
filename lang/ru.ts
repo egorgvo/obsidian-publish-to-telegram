@@ -81,31 +81,20 @@ export default {
     AUTH_STEP_2: "Авторизация: Шаг 2 из 2",
     AUTH_PHONE_NOTE: "*Номер, привязанный к аккаунту Telegram, с которого будут делаться публикации",
     AUTH_CODE_NOTE: "*Код придёт в Telegram",
-    AUTH_USE_LOCAL: "Использовать свои App ID и Hash ID",
-    AUTH_APP_ID_PLACEHOLDER: "Введите свой App ID",
-    AUTH_HASH_PLACEHOLDER: "Введите свой Hash ID",
+    AUTH_QR_TITLE: "Войти по QR-коду",
+    AUTH_QR_NOTE: "Откройте Telegram на телефоне → Настройки → Устройства → Подключить устройство и отсканируйте код.",
+    AUTH_QR_USE_PHONE: "Использовать номер телефона",
+    AUTH_PHONE_USE_QR: "Войти по QR-коду",
 
-    AUTH_TITLE: "Авторизация Telegram",
-    AUTH_PHONE_NAME: "Номер телефона",
-    AUTH_PHONE_DESC: "Введите номер телефона вашего аккаунта Telegram",
     AUTH_PHONE_PLACEHOLDER: "+79001234567",
     AUTH_SEND_CODE_BTN: "Отправить код",
-    AUTH_CODE_SENT: "Код авторизации отправлен на {phone}",
-    AUTH_CODE_NAME: "Код подтверждения",
     AUTH_CODE_PLACEHOLDER: "Введите код…",
     AUTH_VERIFY_BTN: "Подтвердить",
     AUTH_PASSWORD_REQUIRED: "В вашем телеграм-аккаунте включена двухфакторная аутентификация. Для входа необходим облачный пароль.",
-    AUTH_PASSWORD_NAME: "Облачный пароль",
     AUTH_PASSWORD_PLACEHOLDER: "Введите пароль…",
     AUTH_SUCCESS: "Успешная авторизация",
     AUTH_ERROR: "Ошибка авторизации",
     AUTH_LOADING: "Подождите…",
-
-    AUTH_LOCAL_API_ID_NAME: "API ID",
-    AUTH_LOCAL_API_ID_DESC: "Получите на my.telegram.org",
-    AUTH_LOCAL_API_HASH_NAME: "API Hash",
-    AUTH_LOCAL_API_HASH_DESC: "Получите на my.telegram.org",
-    AUTH_LOCAL_INVALID_API_ID: "Ошибка: API ID должен быть числом.",
 
     FORMATTING_HELP_CONTENT: `
 Данную справку можно вызвать из палитры команд, введя "Publish to Telegram: Открыть руководство пользователя".
@@ -114,7 +103,7 @@ export default {
 
 Для публикации заметок в Telegram необходимо настроить пресет.
 
-1. Находясь в настройках плагина, авторизуйтесь в свой аккаунт и убедитесь, что у вас есть соответствующие права для постинга в целевые каналы/группы. Доступна облачная авторизация (только номер телефона) или вход с собственными API-ключами, которые вы можете получить на [my.telegram.org](https://my.telegram.org).
+1. Находясь в настройках плагина, авторизуйтесь в свой аккаунт и убедитесь, что у вас есть соответствующие права для постинга в целевые каналы/группы. Доступна авторизация по номеру телефона или с помощью QR.
 
 2. Скопируйте \`@username\` целевого канала или пользователя. Если канал частный или публикация будет делаться в группу, вам необходимо узнать его \`ID\`. Узнать \`ID\` любого пользователя, канала или группы можно у [@userinfobot](https://t.me/userinfobot).
 

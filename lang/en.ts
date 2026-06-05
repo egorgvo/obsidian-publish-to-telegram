@@ -81,31 +81,20 @@ export default {
     AUTH_STEP_2: "Authorization: Step 2 of 2",
     AUTH_PHONE_NOTE: "*Phone number linked to your Telegram account from which publications will be made.",
     AUTH_CODE_NOTE: "*The code will arrive in Telegram",
-    AUTH_USE_LOCAL: "Use your own App ID and Hash ID",
-    AUTH_APP_ID_PLACEHOLDER: "Enter your own App ID",
-    AUTH_HASH_PLACEHOLDER: "Enter your own Hash ID",
+    AUTH_QR_TITLE: "Sign in with QR Code",
+    AUTH_QR_NOTE: "Open Telegram on your phone → Settings → Devices → Link Desktop Device, then scan the code.",
+    AUTH_QR_USE_PHONE: "Use phone number instead",
+    AUTH_PHONE_USE_QR: "Use QR code instead",
 
-    AUTH_TITLE: "Telegram Authorization",
-    AUTH_PHONE_NAME: "Phone number",
-    AUTH_PHONE_DESC: "Enter your Telegram account phone number",
     AUTH_PHONE_PLACEHOLDER: "+1234567890",
     AUTH_SEND_CODE_BTN: "Send code",
-    AUTH_CODE_SENT: "Authorization code has been sent to {phone}",
-    AUTH_CODE_NAME: "Verification code",
     AUTH_CODE_PLACEHOLDER: "Enter code…",
     AUTH_VERIFY_BTN: "Verify",
     AUTH_PASSWORD_REQUIRED: "Two-factor authentication is enabled. Enter your cloud password.",
-    AUTH_PASSWORD_NAME: "Cloud password",
     AUTH_PASSWORD_PLACEHOLDER: "Enter password…",
     AUTH_SUCCESS: "Successfully authorized",
     AUTH_ERROR: "Authorization error",
     AUTH_LOADING: "Please wait…",
-
-    AUTH_LOCAL_API_ID_NAME: "API ID",
-    AUTH_LOCAL_API_ID_DESC: "Get it at my.telegram.org",
-    AUTH_LOCAL_API_HASH_NAME: "API Hash",
-    AUTH_LOCAL_API_HASH_DESC: "Get it at my.telegram.org",
-    AUTH_LOCAL_INVALID_API_ID: "Error: API ID must be a number.",
 
     FORMATTING_HELP_CONTENT: `
 You can open these instructions from the command palette by typing "Publish to Telegram: Open user guide".
@@ -114,7 +103,7 @@ You can open these instructions from the command palette by typing "Publish to T
 
 To publish notes to Telegram, you need to configure a preset.
 
-1. In the plugin settings, log in to your account and make sure you have the relevant permissions to post to the target channels/groups. You can use the cloud authorization (phone number only) or provide your own API credentials from [my.telegram.org](https://my.telegram.org).
+1. In the plugin settings, log in to your account and make sure you have the relevant permissions to post to the target channels/groups. Phone number and QR authorizations are available.
 
 2. Copy the \`@username\` of the target channel or user. If the channel is private or you are posting to a group, you will need to get its \`ID\`. You can get the \`ID\` of any user, channel, or group with [@userinfobot](https://t.me/userinfobot).
 

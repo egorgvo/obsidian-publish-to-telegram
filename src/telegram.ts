@@ -250,8 +250,14 @@ export function findChannelByLink(channels: TelegramChannel[], link: string): Te
 // ─── Account (GramJS) sending ─────────────────────────────────────────────────
 
 // Telegram Desktop api credentials (public, used as fallback for initConnection with existing session)
-const DEFAULT_TG_API_ID = 2040;
-const DEFAULT_TG_API_HASH = "b18441a1ff607e10a989891a5462e627";
+export const DEFAULT_TG_API_ID = 2040;
+export const DEFAULT_TG_API_HASH = "b18441a1ff607e10a989891a5462e627";
+
+// Plugin-specific credentials for new session creation (QR and phone auth).
+// Register your own app at https://my.telegram.org → API Development Tools.
+// Using Telegram Desktop's credentials (above) for new auth is blocked server-side.
+export const AUTH_API_ID = 34009547;         // ← replace with your api_id
+export const AUTH_API_HASH = "5cef2ed2c6b22eb2079239e43c6c27da";      // ← replace with your api_hash
 
 export async function createClient(session: string, apiId?: number, apiHash?: string): Promise<TelegramClient> {
     const isLocalAuth = !!apiId;

@@ -270,6 +270,26 @@ body .telegram-auth-submit:disabled {
     margin: 0;
 }
 
+.telegram-qr-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 200px;
+    height: 200px;
+}
+
+.telegram-qr-wrap svg {
+    width: 200px;
+    height: 200px;
+    border-radius: var(--radius-s);
+}
+
+.telegram-qr-loading {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 .telegram-auth-card .telegram-auth-link-btn {
     background-color: transparent;
     background: transparent;

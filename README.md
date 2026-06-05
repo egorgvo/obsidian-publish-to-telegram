@@ -64,7 +64,7 @@ If you want to test beta-versions of the plugin or use previous versions, you ca
 
 To publish notes to Telegram, you need to configure a preset.
 
-1. In the plugin settings, log in to your account and make sure you have the relevant permissions to post to the target channels/groups. You can use the cloud authorization (phone number only) or provide your own API credentials from [my.telegram.org](https://my.telegram.org).
+1. In the plugin settings, log in to your account and make sure you have the relevant permissions to post to the target channels/groups. Phone number and QR authorizations are available.
 
 2. Copy the `@username` of the target channel or user. If the channel is private or you are posting to a group, you will need to get its `ID`. You can get the `ID` of any user, channel, or group with [@userinfobot](https://t.me/userinfobot).
 
