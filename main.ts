@@ -3,6 +3,7 @@ import { t } from "./lang/helpers";
 import { TelegramChannel, TelegramSettings, TelegramSecrets, DEFAULT_SETTINGS } from "./src/types";
 import { sendNoteToTelegram, checkIsForum, createClient } from "./src/telegram";
 import { FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
+import { errMessage } from "./src/util";
 
 export default class SendToTelegramPlugin extends Plugin {
     settings: TelegramSettings;
@@ -98,7 +99,7 @@ export default class SendToTelegramPlugin extends Plugin {
     }
 
     syncChannelCommands() {
-        const commands = (this.app as any).commands;
+        const commands = (this.app as unknown as { commands: { removeCommand(id: string): void } }).commands;
         this.channelCommandIds.forEach(id => commands.removeCommand(id));
         this.channelCommandIds = [];
 
@@ -169,11 +170,12 @@ export default class SendToTelegramPlugin extends Plugin {
             progressNotice.hide();
 
             if (this.settings.savePostLinks && allLinks.length > 0 && !scheduleDate) {
-                await this.app.fileManager.processFrontMatter(file, (fm) => {
-                    if (!Array.isArray(fm.telegram_links)) fm.telegram_links = [];
+                await this.app.fileManager.processFrontMatter(file, (fm: { telegram_links?: unknown }) => {
+                    const links = Array.isArray(fm.telegram_links) ? fm.telegram_links as string[] : [];
                     for (const link of allLinks) {
-                        if (!fm.telegram_links.includes(link)) fm.telegram_links.push(link);
+                        if (!links.includes(link)) links.push(link);
                     }
+                    fm.telegram_links = links;
                 });
             }
 
@@ -192,9 +194,9 @@ export default class SendToTelegramPlugin extends Plugin {
 
             if (allErrors.length === 0) new Notice(scheduleDate ? t.NOTICE_SCHEDULED : t.NOTICE_SUCCESS);
 
-        } catch (err: any) {
+        } catch (err) {
             progressNotice.hide();
-            const msg: string = (err.message ?? "").toUpperCase();
+            const msg: string = errMessage(err).toUpperCase();
             if (msg.includes("MESSAGE_NOT_MODIFIED")) {
                 new Notice(t.NOTICE_ERR_NOT_MODIFIED);
             } else if (msg.includes("MESSAGE_TOO_LONG") || msg.includes("MESSAGE IS TOO LONG")) {
@@ -202,13 +204,17 @@ export default class SendToTelegramPlugin extends Plugin {
             } else if (msg.includes("MEDIA_CAPTION_TOO_LONG") || msg.includes("CAPTION IS TOO LONG")) {
                 new Notice(t.NOTICE_ERR_TOO_LONG_CAPTION);
             } else {
-                new Notice(`${t.NOTICE_ERR_SEND}${err.message ?? ""}`);
+                new Notice(`${t.NOTICE_ERR_SEND}${errMessage(err)}`);
             }
         }
     }
 
     async loadSettings() {
-        const raw = await this.loadData();
+        const raw = (await this.loadData() ?? {}) as Partial<TelegramSettings> & {
+            telegramSession?: string;
+            telegramApiId?: number;
+            telegramApiHash?: string;
+        };
         this.settings = Object.assign({}, DEFAULT_SETTINGS, raw);
         // Migrate single chatId/chatTitle → chatTargets array
         let migrated = false;

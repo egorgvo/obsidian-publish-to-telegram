@@ -2,11 +2,19 @@ import { App, Modal, Component, ButtonComponent, ToggleComponent, Notice, TFile,
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { Api } from "telegram";
+import { LogLevel } from "telegram/extensions/Logger";
 import { t } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
-import QRCode from "qrcode";
+import * as QRCode from "qrcode";
 import { TelegramChannel, TelegramSecrets } from "./types";
 import { createClient, getUserDialogs, DialogData, DEFAULT_TG_API_ID, DEFAULT_TG_API_HASH, AUTH_API_ID, AUTH_API_HASH } from "./telegram";
+import { errMessage, errCode } from "./util";
+
+// Wraps an async handler so it can be used where a void-returning callback is
+// expected (e.g. addEventListener); the returned promise is explicitly discarded.
+function voidListener<E extends Event = Event>(handler: (evt: E) => Promise<void>): (evt: E) => void {
+    return (evt: E) => { void handler(evt); };
+}
 
 // ─── Channel resolution helpers ───────────────────────────────────────────────
 
@@ -39,8 +47,8 @@ async function resolveChannelByLink(channels: TelegramChannel[], link: string, s
             if (targets.length === 0) continue;
             try {
                 for (const target of targets) {
-                    const entity = await client.getEntity(target.id) as any;
-                    const username: string | undefined = entity?.username;
+                    const entity = await client.getEntity(target.id) as { username?: string };
+                    const username = entity.username;
                     if (username && username.toLowerCase() === identifier) return channel;
                 }
             } catch { continue; }
@@ -88,12 +96,12 @@ export class FormattingHelpModal extends Modal {
 // ─── Confirmation Modal ───────────────────────────────────────────────────────
 
 class ConfirmationModal extends Modal {
-    onSubmit: () => void;
+    onSubmit: () => void | Promise<void>;
     title: string;
     message: string;
     confirmText: string;
 
-    constructor(app: App, title: string, message: string, confirmText: string, onSubmit: () => void) {
+    constructor(app: App, title: string, message: string, confirmText: string, onSubmit: () => void | Promise<void>) {
         super(app);
         this.title = title;
         this.message = message;
@@ -108,7 +116,7 @@ class ConfirmationModal extends Modal {
         const btnContainer = contentEl.createDiv("telegram-modal-buttons");
         new ButtonComponent(btnContainer).setButtonText(t.CONFIRM_CANCEL_BTN).onClick(() => this.close());
         new ButtonComponent(btnContainer).setButtonText(this.confirmText).setWarning().onClick(() => {
-            this.onSubmit();
+            void this.onSubmit();
             this.close();
         });
     }
@@ -268,7 +276,7 @@ export class MultiPresetModal extends Modal {
         let telegramLinks: string[] = [];
 
         if (cache?.frontmatter?.telegram_links) {
-            const links = cache.frontmatter.telegram_links;
+            const links: unknown = cache.frontmatter.telegram_links;
             telegramLinks = Array.isArray(links) ? links.map(String) : [String(links)];
         }
 
@@ -336,7 +344,7 @@ export class MultiPresetModal extends Modal {
                 this.close();
 
                 for (const channel of postsToSend) {
-                    await (this.plugin as any).sendNoteToTelegram(this.file, channel, silent, attachUnderText, updateLink, scheduleDate);
+                    await this.plugin.sendNoteToTelegram(this.file, channel, silent, attachUnderText, updateLink, scheduleDate);
                 }
             });
     }
@@ -520,7 +528,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                     input.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
                         if (e.key === "Enter") { e.preventDefault(); void save(); }
                     });
-                    input.inputEl.addEventListener("blur", save);
+                    input.inputEl.addEventListener("blur", voidListener(save));
                 }).buttonEl.addClass("telegram-edit-button");
 
             new ButtonComponent(header.createDiv("telegram-delete-container"))
@@ -574,14 +582,14 @@ export class TelegramSettingTab extends PluginSettingTab {
                 chip.createSpan({ text: target.title || target.id, cls: "telegram-chat-chip-text" });
                 const removeBtn = chip.createEl("button", { cls: "telegram-chat-chip-remove" });
                 setIcon(removeBtn, "x");
-                removeBtn.addEventListener("click", async (e: MouseEvent) => {
+                removeBtn.addEventListener("click", voidListener(async (e: MouseEvent) => {
                     e.stopPropagation();
                     channel.chatTargets = (channel.chatTargets ?? []).filter(t => !(t.id === target.id && t.topicId === target.topicId));
                     channel.chatId = channel.chatTargets[0]?.id ?? "";
                     channel.chatTitle = channel.chatTargets[0]?.title;
                     await this.plugin.saveSettings();
                     renderField();
-                });
+                }));
             }
 
             // Always-visible input at the end
@@ -628,7 +636,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                 // Registered after the suggest's own keydown listener so it fires second.
                 // If the suggest selected an item it already called setValue(""), so input.value
                 // is empty by the time this runs — that's the signal to skip.
-                input.addEventListener("keydown", async (e: KeyboardEvent) => {
+                input.addEventListener("keydown", voidListener(async (e: KeyboardEvent) => {
                     if (e.key !== "Enter") return;
                     const id = input.value.trim();
                     if (!id) return;
@@ -640,10 +648,10 @@ export class TelegramSettingTab extends PluginSettingTab {
                     channel.chatTitle = channel.chatTargets[0]?.title;
                     await this.plugin.saveSettings();
                     renderField();
-                });
+                }));
             } else {
                 // No auth: Enter key adds a manual chat ID chip
-                input.addEventListener("keydown", async (e: KeyboardEvent) => {
+                input.addEventListener("keydown", voidListener(async (e: KeyboardEvent) => {
                     if (e.key !== "Enter") return;
                     e.preventDefault();
                     const id = input.value.trim();
@@ -654,7 +662,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                     renderField();
                     fieldEl.querySelector<HTMLInputElement>(".telegram-chat-search")?.focus();
-                });
+                }));
             }
         };
 
@@ -726,7 +734,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         window.setTimeout(() => phoneInput.focus(), 50);
 
         submitEl.textContent = t.AUTH_SEND_CODE_BTN;
-        submitEl.addEventListener("click", async () => {
+        submitEl.addEventListener("click", voidListener(async () => {
             if (!phoneValue.trim()) return;
             submitEl.disabled = true;
             submitEl.textContent = t.AUTH_LOADING;
@@ -736,17 +744,17 @@ export class TelegramSettingTab extends PluginSettingTab {
                     this.inlineLocalClient = null;
                 }
                 this.inlineLocalClient = new TelegramClient(new StringSession(""), AUTH_API_ID, AUTH_API_HASH, { connectionRetries: 3, useWSS: true });
-                this.inlineLocalClient.setLogLevel("none" as any);
-                (this.inlineLocalClient as any)._loopStarted = true;
+                this.inlineLocalClient.setLogLevel(LogLevel.NONE);
+                (this.inlineLocalClient as unknown as { _loopStarted: boolean })._loopStarted = true;
                 await this.inlineLocalClient.connect();
                 const result = await this.inlineLocalClient.sendCode({ apiId: AUTH_API_ID, apiHash: AUTH_API_HASH }, phoneValue.trim());
                 this.renderInlineLocalCodeStep(container, { phone: phoneValue.trim(), apiId: AUTH_API_ID, apiHash: AUTH_API_HASH, phoneCodeHash: result.phoneCodeHash });
-            } catch (err: any) {
+            } catch (err) {
                 submitEl.disabled = false;
                 submitEl.textContent = t.AUTH_SEND_CODE_BTN;
-                new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                new Notice(`${t.AUTH_ERROR}: ${errMessage(err)}`);
             }
-        });
+        }));
 
         noteEl.textContent = t.AUTH_PHONE_NOTE;
 
@@ -779,8 +787,8 @@ export class TelegramSettingTab extends PluginSettingTab {
         });
 
         const client = new TelegramClient(new StringSession(""), AUTH_API_ID, AUTH_API_HASH, { connectionRetries: 5, useWSS: true });
-        client.setLogLevel("none" as any);
-        (client as any)._loopStarted = true;
+        client.setLogLevel(LogLevel.NONE);
+        (client as unknown as { _loopStarted: boolean })._loopStarted = true;
         this.inlineQrClient = client;
 
         // Renders a QR code SVG into qrWrap and updates the deep link.
@@ -828,14 +836,14 @@ export class TelegramSettingTab extends PluginSettingTab {
                     } else if (res instanceof Api.auth.LoginTokenSuccess) {
                         return; // scan confirmed, no 2FA
                     } else if (res instanceof Api.auth.LoginTokenMigrateTo) {
-                        await (client as any)._switchDC(res.dcId);
+                        await (client as unknown as { _switchDC(newDc: number): Promise<boolean> })._switchDC(res.dcId);
                         if (!client.connected) await client.connect();
                         await client.invoke(new Api.auth.ImportLoginToken({ token: res.token }));
                         return; // done after DC migration
                     }
-                } catch (err: any) {
+                } catch (err) {
                     if (!this.inlineQrClient) return;
-                    if ((err.errorMessage ?? err.message ?? "") === "SESSION_PASSWORD_NEEDED") throw err;
+                    if (errCode(err) === "SESSION_PASSWORD_NEEDED") throw err;
                     await new Promise(r => window.setTimeout(r, 2000));
                     continue;
                 }
@@ -857,15 +865,15 @@ export class TelegramSettingTab extends PluginSettingTab {
                         }));
                         if (poll instanceof Api.auth.LoginTokenSuccess) return;
                         if (poll instanceof Api.auth.LoginTokenMigrateTo) {
-                            await (client as any)._switchDC(poll.dcId);
+                            await (client as unknown as { _switchDC(newDc: number): Promise<boolean> })._switchDC(poll.dcId);
                             if (!client.connected) await client.connect();
                             await client.invoke(new Api.auth.ImportLoginToken({ token: poll.token }));
                             return;
                         }
                         // Still LoginToken — user hasn't scanned yet, keep polling.
-                    } catch (err: any) {
+                    } catch (err) {
                         if (!this.inlineQrClient) return;
-                        if ((err.errorMessage ?? err.message ?? "") === "SESSION_PASSWORD_NEEDED") throw err;
+                        if (errCode(err) === "SESSION_PASSWORD_NEEDED") throw err;
                         dropped = true;
                         break; // connection dropped; outer loop will reconnect
                     }
@@ -880,14 +888,14 @@ export class TelegramSettingTab extends PluginSettingTab {
             .then(async () => {
                 if (this.inlineQrClient) await this.saveInlineQrSession(client);
             })
-            .catch(async (err: any) => {
+            .catch(async (err: unknown) => {
                 if (!this.inlineQrClient) return;
-                if ((err.errorMessage ?? err.message ?? "") === "SESSION_PASSWORD_NEEDED") {
+                if (errCode(err) === "SESSION_PASSWORD_NEEDED") {
                     this.renderInlineQrPasswordStep(container, client, async () => {
                         if (this.inlineQrClient) await this.saveInlineQrSession(client);
                     });
                 } else {
-                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                    new Notice(`${t.AUTH_ERROR}: ${errMessage(err)}`);
                 }
             });
     }
@@ -895,7 +903,7 @@ export class TelegramSettingTab extends PluginSettingTab {
     private renderInlineQrPasswordStep(
         container: HTMLElement,
         client: TelegramClient,
-        onSuccess: () => void,
+        onSuccess: () => void | Promise<void>,
     ): void {
         const { fields, submitEl, noteEl } = this.buildAuthCard(container, t.AUTH_STEP_2);
 
@@ -906,7 +914,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         window.setTimeout(() => passwordInput.focus(), 50);
 
         submitEl.textContent = t.AUTH_VERIFY_BTN;
-        submitEl.addEventListener("click", async () => {
+        submitEl.addEventListener("click", voidListener(async () => {
             if (!passwordValue.trim()) return;
             submitEl.disabled = true;
             submitEl.textContent = t.AUTH_LOADING;
@@ -915,13 +923,13 @@ export class TelegramSettingTab extends PluginSettingTab {
                     { apiId: AUTH_API_ID, apiHash: AUTH_API_HASH },
                     { password: async () => passwordValue.trim(), onError: async () => true }
                 );
-                onSuccess();
-            } catch (err: any) {
+                void onSuccess();
+            } catch (err) {
                 submitEl.disabled = false;
                 submitEl.textContent = t.AUTH_VERIFY_BTN;
-                new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                new Notice(`${t.AUTH_ERROR}: ${errMessage(err)}`);
             }
-        });
+        }));
 
         noteEl.textContent = t.AUTH_PASSWORD_REQUIRED;
     }
@@ -933,7 +941,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         this.plugin.secrets.telegramApiHash = "";
         await this.plugin.saveSecrets();
         try {
-            const me = await client.getMe() as any;
+            const me = await client.getMe();
             const parts = [me.firstName, me.lastName].filter(Boolean).join(" ");
             const username = me.username ? ` (@${me.username})` : "";
             this.plugin.settings.telegramDisplayName = `${parts}${username}`;
@@ -969,7 +977,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         window.setTimeout(() => codeInput.focus(), 50);
 
         submitEl.textContent = t.AUTH_VERIFY_BTN;
-        submitEl.addEventListener("click", async () => {
+        submitEl.addEventListener("click", voidListener(async () => {
             if (!codeValue.trim() || !this.inlineLocalClient) return;
             submitEl.disabled = true;
             submitEl.textContent = t.AUTH_LOADING;
@@ -980,16 +988,16 @@ export class TelegramSettingTab extends PluginSettingTab {
                     phoneCode: codeValue.trim(),
                 }));
                 await this.saveInlineLocalSession(state.apiId, state.apiHash);
-            } catch (err: any) {
+            } catch (err) {
                 if (err instanceof Error && err.message.includes("SESSION_PASSWORD_NEEDED")) {
                     this.renderInlineLocalPasswordStep(container, state);
                 } else {
                     submitEl.disabled = false;
                     submitEl.textContent = t.AUTH_VERIFY_BTN;
-                    new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                    new Notice(`${t.AUTH_ERROR}: ${errMessage(err)}`);
                 }
             }
-        });
+        }));
 
         noteEl.textContent = t.AUTH_CODE_NOTE;
     }
@@ -1010,7 +1018,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         window.setTimeout(() => passwordInput.focus(), 50);
 
         submitEl.textContent = t.AUTH_VERIFY_BTN;
-        submitEl.addEventListener("click", async () => {
+        submitEl.addEventListener("click", voidListener(async () => {
             if (!passwordValue.trim() || !this.inlineLocalClient) return;
             submitEl.disabled = true;
             submitEl.textContent = t.AUTH_LOADING;
@@ -1020,12 +1028,12 @@ export class TelegramSettingTab extends PluginSettingTab {
                     { password: () => passwordValue.trim() }
                 );
                 await this.saveInlineLocalSession(state.apiId, state.apiHash);
-            } catch (err: any) {
+            } catch (err) {
                 submitEl.disabled = false;
                 submitEl.textContent = t.AUTH_VERIFY_BTN;
-                new Notice(`${t.AUTH_ERROR}: ${err.message}`);
+                new Notice(`${t.AUTH_ERROR}: ${errMessage(err)}`);
             }
-        });
+        }));
 
         noteEl.textContent = t.AUTH_PASSWORD_REQUIRED;
     }
@@ -1040,7 +1048,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         this.plugin.secrets.telegramApiHash = isBundled ? "" : apiHash;
         await this.plugin.saveSecrets();
         try {
-            const me = await this.inlineLocalClient.getMe() as any;
+            const me = await this.inlineLocalClient.getMe();
             const parts = [me.firstName, me.lastName].filter(Boolean).join(" ");
             const username = me.username ? ` (@${me.username})` : "";
             this.plugin.settings.telegramDisplayName = `${parts}${username}`;
