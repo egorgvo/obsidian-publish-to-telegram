@@ -451,6 +451,7 @@ class ChatSuggest extends AbstractInputSuggest<DialogData> {
 
     constructor(app: App, inputEl: HTMLInputElement, loader: () => Promise<DialogData[]>) {
         super(app, inputEl);
+        this.limit = 200;
         this.loader = loader;
     }
 
@@ -458,8 +459,8 @@ class ChatSuggest extends AbstractInputSuggest<DialogData> {
         const dialogs = await this.loader();
         const q = query.toLowerCase();
         return q
-            ? dialogs.filter(d => d.title.toLowerCase().includes(q)).slice(0, 20)
-            : dialogs.slice(0, 20);
+            ? dialogs.filter(d => d.title.toLowerCase().includes(q))
+            : dialogs;
     }
 
     renderSuggestion(dialog: DialogData, el: HTMLElement): void { el.setText(dialog.title); }
@@ -673,6 +674,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                     this.dialogsFetch ?? Promise.resolve([])
                 );
                 activeSuggest = suggest;
+                input.addEventListener("focus", () => suggest.open());
                 suggest.onPick = async (dialog: DialogData) => {
                     if (!(channel.chatTargets ?? []).some(t => t.id === dialog.id)) {
                         if (!channel.chatTargets) channel.chatTargets = [];
