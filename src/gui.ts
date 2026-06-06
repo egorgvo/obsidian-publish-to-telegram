@@ -274,7 +274,7 @@ export class MultiPresetModal extends Modal {
         this.plugin.settings.channels.forEach(channel => {
             const itemEl = listContainer.createDiv("telegram-multi-preset-item");
             const nameEl = itemEl.createDiv("telegram-multi-preset-name");
-            nameEl.setText(channel.name || t.UNTITLED_CHANNEL);
+            nameEl.setText(channel.name || t.CHANNEL_DEFAULT_NAME);
 
             const topicSection = listContainer.createDiv("telegram-topic-section");
             topicSection.hide();
@@ -572,16 +572,21 @@ export class TelegramSettingTab extends PluginSettingTab {
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_ADD_CHANNEL)
             .onClick(async () => {
-                this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: "", chatTargets: [], chatId: "", isDefault: false });
+                const existingNames = new Set(this.plugin.settings.channels.map(c => c.name));
+                let idx = 1;
+                while (existingNames.has(`${t.CHANNEL_DEFAULT_NAME} ${idx}`)) idx++;
+                this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: `${t.CHANNEL_DEFAULT_NAME} ${idx}`, chatTargets: [], chatId: "", isDefault: false });
                 await this.plugin.saveSettings();
                 this.display();
             }).buttonEl.addClass("telegram-add-button");
+
+        const defaultToggles: ToggleComponent[] = [];
 
         this.plugin.settings.channels.forEach((channel, index) => {
             const channelDiv = containerEl.createDiv("telegram-channel-item");
             const header = channelDiv.createDiv("telegram-channel-header");
             const titleContainer = header.createDiv("telegram-header-title-container");
-            titleContainer.createEl("span", { text: channel.name || `${t.CHANNEL_DEFAULT_NAME} ${index + 1}`, cls: "telegram-header-name" });
+            titleContainer.createEl("span", { text: channel.name || t.CHANNEL_DEFAULT_NAME, cls: "telegram-header-name" });
 
             new ButtonComponent(titleContainer.createDiv("telegram-edit-container"))
                 .setIcon("pencil").onClick(() => {
@@ -611,7 +616,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                     new ConfirmationModal(
                         this.app,
                         t.CONFIRM_DELETE_TITLE,
-                        t.CONFIRM_DELETE_MSG.replace("{name}", channel.name || t.UNTITLED_CHANNEL),
+                        t.CONFIRM_DELETE_MSG.replace("{name}", channel.name || t.CHANNEL_DEFAULT_NAME),
                         t.CONFIRM_DELETE_BTN,
                         async () => {
                             this.plugin.settings.channels.splice(index, 1);
@@ -624,13 +629,19 @@ export class TelegramSettingTab extends PluginSettingTab {
             this.renderChatPicker(channelDiv, channel);
 
             new Setting(channelDiv).setName(t.SETTING_DEFAULT_CHANNEL).setDesc(t.SETTING_DEFAULT_DESC)
-                .addToggle(toggle => toggle.setValue(channel.isDefault || false)
-                    .onChange(async (v) => {
-                        if (v) this.plugin.settings.channels.forEach(c => c.isDefault = false);
-                        channel.isDefault = v;
-                        await this.plugin.saveSettings();
-                        this.display();
-                    }))
+                .addToggle(toggle => {
+                    defaultToggles.push(toggle);
+                    toggle.setValue(channel.isDefault || false)
+                        .onChange(async (v) => {
+                            if (v) {
+                                this.plugin.settings.channels.forEach(c => c.isDefault = false);
+                                defaultToggles.forEach(tc => tc.setValue(false));
+                            }
+                            channel.isDefault = v;
+                            toggle.setValue(v);
+                            await this.plugin.saveSettings();
+                        });
+                })
                 .settingEl.addClass("telegram-preset-default");
         });
     }

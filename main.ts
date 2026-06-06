@@ -106,7 +106,7 @@ export default class SendToTelegramPlugin extends Plugin {
             const commandId = `send-channel-${channel.id}`;
             this.addCommand({
                 id: commandId,
-                name: `${t.COMMAND_SEND_TO_PRESET} ${channel.name || t.UNTITLED_CHANNEL}`,
+                name: `${t.COMMAND_SEND_TO_PRESET} ${channel.name || t.CHANNEL_DEFAULT_NAME}`,
                 callback: async () => {
                     const file = this.app.workspace.getActiveFile();
                     if (!file) return;

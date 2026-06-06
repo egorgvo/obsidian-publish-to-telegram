@@ -35,7 +35,6 @@ export default {
     SETTING_PLACEHOLDER_CHAT_SEARCH: "Поиск каналов и чатов…",
     SETTING_CHAT_PICKER_LOADING: "Загрузка чатов…",
     CHANNEL_DEFAULT_NAME: "Канал",
-    UNTITLED_CHANNEL: "Без названия",
 
     CONFIRM_DELETE_TITLE: "Удалить пресет?",
     CONFIRM_DELETE_MSG: "Вы уверены, что хотите удалить пресет \"{name}\"? Это действие нельзя отменить.",

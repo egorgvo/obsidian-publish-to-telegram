@@ -33,8 +33,7 @@ export default {
     SETTING_PLACEHOLDER_CHAT: "@username or ID…",
     SETTING_PLACEHOLDER_CHAT_SEARCH: "Search target channels, groups, users or bots…",
     SETTING_CHAT_PICKER_LOADING: "Loading chats…",
-    CHANNEL_DEFAULT_NAME: "Channel",
-    UNTITLED_CHANNEL: "Unnamed",
+    CHANNEL_DEFAULT_NAME: "New Preset",
 
     CONFIRM_DELETE_TITLE: "Delete preset?",
     CONFIRM_DELETE_MSG: "Are you sure you want to delete \"{name}\" preset? This action is irreversible.",
