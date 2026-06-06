@@ -451,7 +451,7 @@ class ChatSuggest extends AbstractInputSuggest<DialogData> {
 
     constructor(app: App, inputEl: HTMLInputElement, loader: () => Promise<DialogData[]>) {
         super(app, inputEl);
-        this.limit = 200;
+        this.limit = 300;
         this.loader = loader;
     }
 
@@ -479,6 +479,7 @@ export class TelegramSettingTab extends PluginSettingTab {
     private inlineQrClient: TelegramClient | null = null;
     private inlineLocalClient: TelegramClient | null = null;
     private dialogsFetch: Promise<DialogData[]> | null = null;
+    private dialogsLoading = false;
 
     constructor(app: App, plugin: SendToTelegramPlugin) { super(app, plugin); this.plugin = plugin; }
 
@@ -498,6 +499,7 @@ export class TelegramSettingTab extends PluginSettingTab {
             if (!this.dialogsFetch) this.dialogsFetch = this.fetchDialogs();
         } else {
             this.dialogsFetch = null;
+            this.dialogsLoading = false;
         }
 
         new Setting(containerEl).setHeading().setName(t.SETTING_HEADER);
@@ -664,9 +666,9 @@ export class TelegramSettingTab extends PluginSettingTab {
             input.type = "text";
             const hasChips = (channel.chatTargets?.length ?? 0) > 0;
             input.placeholder = hasChips ? "" : (
-                this.plugin.secrets.telegramSession
-                    ? t.SETTING_PLACEHOLDER_CHAT_SEARCH
-                    : t.SETTING_PLACEHOLDER_CHAT
+                !this.plugin.secrets.telegramSession ? t.SETTING_PLACEHOLDER_CHAT :
+                this.dialogsLoading ? t.SETTING_CHAT_PICKER_LOADING :
+                t.SETTING_PLACEHOLDER_CHAT_SEARCH
             );
 
             if (this.plugin.secrets.telegramSession) {
@@ -713,6 +715,7 @@ export class TelegramSettingTab extends PluginSettingTab {
     }
 
     private fetchDialogs(): Promise<DialogData[]> {
+        this.dialogsLoading = true;
         return (async () => {
             const client = await createClient(
                 this.plugin.secrets.telegramSession,
@@ -721,6 +724,12 @@ export class TelegramSettingTab extends PluginSettingTab {
             ).catch(() => null);
             const dialogs = client ? await getUserDialogs(client) : [];
             await client?.destroy().catch(() => {});
+            this.dialogsLoading = false;
+            this.containerEl.querySelectorAll<HTMLInputElement>('.telegram-chat-search').forEach(input => {
+                if (input.placeholder === t.SETTING_CHAT_PICKER_LOADING) {
+                    input.placeholder = t.SETTING_PLACEHOLDER_CHAT_SEARCH;
+                }
+            });
             return dialogs;
         })();
     }
