@@ -344,20 +344,31 @@ export class MultiPresetModal extends Modal {
 
 class ChatSuggest extends AbstractInputSuggest<DialogData> {
     private loader: () => Promise<DialogData[]>;
+    private excluded: () => Array<{ id: string; topicId?: number }>;
     onPick: (dialog: DialogData) => Promise<void> = async () => {};
 
-    constructor(app: App, inputEl: HTMLInputElement, loader: () => Promise<DialogData[]>) {
+    constructor(
+        app: App,
+        inputEl: HTMLInputElement,
+        loader: () => Promise<DialogData[]>,
+        excluded: () => Array<{ id: string; topicId?: number }>,
+    ) {
         super(app, inputEl);
         this.limit = 300;
         this.loader = loader;
+        this.excluded = excluded;
     }
 
     async getSuggestions(query: string): Promise<DialogData[]> {
         const dialogs = await this.loader();
+        const targets = this.excluded();
+        const available = dialogs.filter(d =>
+            !targets.some(t => t.id === d.id && t.topicId === d.topicId)
+        );
         const q = query.toLowerCase();
         return q
-            ? dialogs.filter(d => d.title.toLowerCase().includes(q))
-            : dialogs;
+            ? available.filter(d => d.title.toLowerCase().includes(q))
+            : available;
     }
 
     renderSuggestion(dialog: DialogData, el: HTMLElement): void { el.setText(dialog.title); }
@@ -580,8 +591,10 @@ export class TelegramSettingTab extends PluginSettingTab {
             );
 
             if (this.plugin.secrets.telegramSession) {
-                const suggest = new ChatSuggest(this.app, input, () =>
-                    this.dialogsFetch ?? Promise.resolve([])
+                const suggest = new ChatSuggest(
+                    this.app, input,
+                    () => this.dialogsFetch ?? Promise.resolve([]),
+                    () => channel.chatTargets ?? [],
                 );
                 activeSuggest = suggest;
                 input.addEventListener("focus", () => {
