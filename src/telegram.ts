@@ -318,7 +318,7 @@ export interface DialogData {
 export async function getUserDialogs(client: TelegramClient): Promise<DialogData[]> {
     try {
         const results: DialogData[] = [];
-        for await (const dialog of client.iterDialogs({ limit: 300 })) {
+        for await (const dialog of client.iterDialogs({ limit: 300, folder: 0 })) {
             if (!dialog.title) continue;
             const entity = dialog.entity as any;
             if (!entity) continue;
