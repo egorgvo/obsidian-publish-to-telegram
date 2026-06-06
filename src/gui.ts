@@ -607,7 +607,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                     if (this.dialogsLoading) {
                         // Wait for data before opening — avoids showing an empty dropdown
                         void this.dialogsFetch?.then(() => {
-                            if (document.activeElement === input) suggest.open();
+                            if (activeDocument.activeElement === input) suggest.open();
                         });
                     } else {
                         suggest.open();
@@ -725,7 +725,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         const phoneInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "tel", placeholder: t.AUTH_PHONE_PLACEHOLDER } });
         phoneInput.addEventListener("input", () => { phoneValue = phoneInput.value; });
         phoneInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
-        setTimeout(() => phoneInput.focus(), 50);
+        window.setTimeout(() => phoneInput.focus(), 50);
 
         submitEl.textContent = t.AUTH_SEND_CODE_BTN;
         submitEl.addEventListener("click", async () => {
@@ -812,7 +812,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                 // Ensure we have a live connection before invoking.
                 if (!client.connected) {
                     try { await client.connect(); } catch {
-                        await new Promise(r => setTimeout(r, 2000));
+                        await new Promise(r => window.setTimeout(r, 2000));
                         continue;
                     }
                 }
@@ -838,7 +838,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                 } catch (err: any) {
                     if (!this.inlineQrClient) return;
                     if ((err.errorMessage ?? err.message ?? "") === "SESSION_PASSWORD_NEEDED") throw err;
-                    await new Promise(r => setTimeout(r, 2000));
+                    await new Promise(r => window.setTimeout(r, 2000));
                     continue;
                 }
 
@@ -848,7 +848,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                 const expiresAt = Date.now() + TOKEN_TTL_MS;
                 let dropped = false;
                 while (this.inlineQrClient && Date.now() < expiresAt) {
-                    await new Promise(r => setTimeout(r, POLL_MS));
+                    await new Promise(r => window.setTimeout(r, POLL_MS));
                     if (!this.inlineQrClient) return;
                     try {
                         if (!client.connected) await client.connect();
@@ -905,7 +905,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         const passwordInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "password", placeholder: t.AUTH_PASSWORD_PLACEHOLDER } });
         passwordInput.addEventListener("input", () => { passwordValue = passwordInput.value; });
         passwordInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
-        setTimeout(() => passwordInput.focus(), 50);
+        window.setTimeout(() => passwordInput.focus(), 50);
 
         submitEl.textContent = t.AUTH_VERIFY_BTN;
         submitEl.addEventListener("click", async () => {
@@ -968,7 +968,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         const codeInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "text", placeholder: t.AUTH_CODE_PLACEHOLDER } });
         codeInput.addEventListener("input", () => { codeValue = codeInput.value; });
         codeInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
-        setTimeout(() => codeInput.focus(), 50);
+        window.setTimeout(() => codeInput.focus(), 50);
 
         submitEl.textContent = t.AUTH_VERIFY_BTN;
         submitEl.addEventListener("click", async () => {
@@ -1009,7 +1009,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         const passwordInput = fields.createEl("input", { cls: "telegram-auth-input", attr: { type: "password", placeholder: t.AUTH_PASSWORD_PLACEHOLDER } });
         passwordInput.addEventListener("input", () => { passwordValue = passwordInput.value; });
         passwordInput.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); submitEl.click(); } });
-        setTimeout(() => passwordInput.focus(), 50);
+        window.setTimeout(() => passwordInput.focus(), 50);
 
         submitEl.textContent = t.AUTH_VERIFY_BTN;
         submitEl.addEventListener("click", async () => {

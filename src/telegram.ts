@@ -441,7 +441,7 @@ async function sendCommentViaAccount(
         const MAX_ATTEMPTS = 5;
         const DELAY_MS = 1500;
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-            if (attempt > 0) await new Promise(r => setTimeout(r, DELAY_MS));
+            if (attempt > 0) await new Promise(r => window.setTimeout(r, DELAY_MS));
 
             // Only the discovery call is retried — a missing/not-yet-forwarded message is expected.
             // Errors from the actual send must not be swallowed here so they surface to the caller.
