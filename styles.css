@@ -437,7 +437,8 @@ body .telegram-auth-submit:disabled {
     border-radius: var(--radius-s);
 }
 
-.telegram-chat-picker .telegram-chat-chip-remove:hover {
+.telegram-chat-picker .telegram-chat-chip-remove:hover,
+.telegram-chat-picker .telegram-chat-chip:has(.telegram-chat-chip-remove:hover) .telegram-chat-chip-text {
     opacity: 1;
     color: var(--pill-color-remove-hover);
 }

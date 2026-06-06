@@ -24,17 +24,28 @@ export default class SendToTelegramPlugin extends Plugin {
                 if (!(file instanceof TFile)) return;
                 if (this.settings.channels.length === 0) return;
 
+                menu.addSeparator();
+
                 menu.addItem((item) => {
                     item.setTitle(t.MENU_TITLE).setIcon("paper-plane");
                     item.onClick(async () => {
                         const defaultChannel = await this.resolveDefaultChannel();
                         if (!defaultChannel) {
-                            new Notice(t.NOTICE_ERR_NO_DEFAULT);
+                            new MultiPresetModal(this.app, this, file).open();
                             return;
                         }
                         this.sendNoteToTelegram(file, defaultChannel, false, false);
                     });
                 });
+
+                menu.addItem((item) => {
+                    item.setTitle(t.COMMAND_SEND_MULTIPLE).setIcon("sliders-horizontal");
+                    item.onClick(() => {
+                        new MultiPresetModal(this.app, this, file).open();
+                    });
+                });
+
+                menu.addSeparator();
             })
         );
     }
@@ -47,7 +58,7 @@ export default class SendToTelegramPlugin extends Plugin {
                 const file = this.app.workspace.getActiveFile();
                 if (!file) return;
                 const defaultChannel = await this.resolveDefaultChannel();
-                if (!defaultChannel) { new Notice(t.NOTICE_ERR_NO_DEFAULT); return; }
+                if (!defaultChannel) { new MultiPresetModal(this.app, this, file).open(); return; }
                 await this.sendNoteToTelegram(file, defaultChannel, false, false);
             }
         });
