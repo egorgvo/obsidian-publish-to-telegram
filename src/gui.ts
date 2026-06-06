@@ -676,7 +676,16 @@ export class TelegramSettingTab extends PluginSettingTab {
                     this.dialogsFetch ?? Promise.resolve([])
                 );
                 activeSuggest = suggest;
-                input.addEventListener("focus", () => suggest.open());
+                input.addEventListener("focus", () => {
+                    if (this.dialogsLoading) {
+                        // Wait for data before opening — avoids showing an empty dropdown
+                        this.dialogsFetch?.then(() => {
+                            if (document.activeElement === input) suggest.open();
+                        });
+                    } else {
+                        suggest.open();
+                    }
+                });
                 suggest.onPick = async (dialog: DialogData) => {
                     const isDupe = (channel.chatTargets ?? []).some(
                         t => t.id === dialog.id && t.topicId === dialog.topicId
