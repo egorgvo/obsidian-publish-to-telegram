@@ -81,7 +81,7 @@ export class FormattingHelpModal extends Modal {
 
 // ─── Confirmation Modal ───────────────────────────────────────────────────────
 
-export class ConfirmationModal extends Modal {
+class ConfirmationModal extends Modal {
     onSubmit: () => void;
     title: string;
     message: string;

@@ -230,24 +230,6 @@ function resolveChatId(value: string): string {
     return `@${trimmed}`;
 }
 
-// ── Finds a configured channel that matches the provided Telegram link
-// Handles both 2-segment (t.me/X/msgId) and 3-segment (t.me/X/topicId/msgId) links
-
-export function findChannelByLink(channels: TelegramChannel[], link: string): TelegramChannel | null {
-    const match = link.match(/t\.me\/(?:c\/)?([^/]+)\/\d+(?:\/\d+)?\/?$/);
-    if (!match) return null;
-
-    const identifier = match[1];
-
-    return channels.find(c => {
-        const targets = c.chatTargets?.length > 0 ? c.chatTargets : (c.chatId ? [{ id: c.chatId }] : []);
-        return targets.some(t => {
-            const clean = t.id.replace(/^-100|^@/, "");
-            return t.id === identifier || t.id === `@${identifier}` || clean === identifier;
-        });
-    }) || null;
-}
-
 // ─── Account (GramJS) sending ─────────────────────────────────────────────────
 
 // Telegram Desktop api credentials (public, used as fallback for initConnection with existing session)
@@ -274,36 +256,12 @@ export async function createClient(session: string, apiId?: number, apiHash?: st
 }
 
 
-// ─── Forum topic utilities ────────────────────────────────────────────────────
-
-export interface ForumTopicData {
-    id: number;
-    title: string;
-}
-
 export async function checkIsForum(client: TelegramClient, entity: string | number): Promise<boolean> {
     try {
         const full = await client.invoke(new Api.channels.GetFullChannel({ channel: entity }));
         return !!(full.chats[0] as Api.Channel)?.forum;
     } catch {
         return false;
-    }
-}
-
-export async function getForumTopics(client: TelegramClient, entity: string | number): Promise<ForumTopicData[]> {
-    try {
-        const result = await client.invoke(new Api.channels.GetForumTopics({
-            channel: entity,
-            offsetDate: 0,
-            offsetId: 0,
-            offsetTopic: 0,
-            limit: 100,
-        }));
-        return result.topics
-            .filter((t): t is Api.ForumTopic => t instanceof Api.ForumTopic)
-            .map(t => ({ id: t.id, title: t.title }));
-    } catch {
-        return [];
     }
 }
 

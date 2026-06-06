@@ -8,7 +8,6 @@ export default {
     NOTICE_ERR_SEND: "Publishing error: ",
     NOTICE_ERR_TOO_LONG_TEXT: "Error: Post must be less than 4097 symbols.",
     NOTICE_ERR_TOO_LONG_CAPTION: "Error: Post with media attachments must be less than 1025 symbols.",
-    NOTICE_ERR_NO_DEFAULT: "Error: Default preset is not set up.",
     NOTICE_ERR_NOT_AUTHENTICATED: "Error: Authorize into your Telegram account in the plugin settings before publishing.",
     NOTICE_ERR_NOT_MODIFIED: "Nothing to update: the post content hasn't changed.",
     SETTING_HEADER: "Publish to Telegram Settings",
@@ -24,7 +23,6 @@ export default {
     SETTING_ADD_CHANNEL: "Create new preset",
     SETTING_FORMATTING_HELP: "User guide",
     SETTING_OPEN_USERINFOBOT: "Open @userinfobot",
-    SETTING_CHAT_ID_DESC: "@username of the public channel or ID of the private one or any group",
 
     SETTING_DEFAULT_CHANNEL: "Set as the default preset",
     SETTING_DEFAULT_DESC: "Publish with the defualt preset from the context menu of with a keyboard shortcut",
