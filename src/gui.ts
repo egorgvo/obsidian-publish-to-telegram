@@ -1,4 +1,4 @@
-import { App, Modal, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent, setIcon, AbstractInputSuggest } from "obsidian";
+import { App, Modal, Component, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent, setIcon, AbstractInputSuggest } from "obsidian";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { Api } from "telegram";
@@ -56,27 +56,33 @@ async function resolveChannelByLink(channels: TelegramChannel[], link: string, s
 
 export class FormattingHelpModal extends Modal {
 
-    private plugin: SendToTelegramPlugin;
+    // Scoped to the modal lifecycle so MarkdownRenderer's child components are
+    // cleaned up on close — Modal isn't a Component, and the plugin instance
+    // lives too long to use here.
+    private readonly renderComponent = new Component();
 
-    constructor(app: App, plugin: SendToTelegramPlugin) {
+    constructor(app: App) {
         super(app);
-        this.plugin = plugin;
     }
 
     onOpen() {
         const { contentEl, titleEl } = this;
         titleEl.setText(t.SETTING_FORMATTING_HELP);
         contentEl.addClass("telegram-formatting-help-modal");
-        MarkdownRenderer.render(
+        this.renderComponent.load();
+        void MarkdownRenderer.render(
             this.app,
             t.FORMATTING_HELP_CONTENT,
             contentEl,
             "",
-            this
+            this.renderComponent
         );
     }
 
-    onClose() { this.contentEl.empty(); }
+    onClose() {
+        this.renderComponent.unload();
+        this.contentEl.empty();
+    }
 }
 
 // ─── Confirmation Modal ───────────────────────────────────────────────────────
@@ -281,7 +287,7 @@ export class MultiPresetModal extends Modal {
             this.updateLinkDropdown.setValue("none");
 
             this.updateLinkDropdown.onChange((value) => {
-                this.handleLinkSelection(value);
+                void this.handleLinkSelection(value);
             });
         } else {
             updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NO_LINKS, cls: "telegram-option-desc" });
@@ -374,7 +380,7 @@ class ChatSuggest extends AbstractInputSuggest<DialogData> {
     renderSuggestion(dialog: DialogData, el: HTMLElement): void { el.setText(dialog.title); }
 
     selectSuggestion(dialog: DialogData, _evt: MouseEvent | KeyboardEvent): void {
-        this.onPick(dialog);
+        void this.onPick(dialog);
         this.setValue("");
         this.close();
     }
@@ -474,7 +480,7 @@ export class TelegramSettingTab extends PluginSettingTab {
 
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_FORMATTING_HELP)
-            .onClick(() => { new FormattingHelpModal(this.app, this.plugin).open(); })
+            .onClick(() => { new FormattingHelpModal(this.app).open(); })
             .buttonEl.addClass("telegram-link-button");
 
         new ButtonComponent(buttonContainer)
@@ -514,7 +520,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                     };
 
                     input.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
-                        if (e.key === "Enter") { e.preventDefault(); save(); }
+                        if (e.key === "Enter") { e.preventDefault(); void save(); }
                     });
                     input.inputEl.addEventListener("blur", save);
                 }).buttonEl.addClass("telegram-edit-button");
@@ -600,7 +606,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                 input.addEventListener("focus", () => {
                     if (this.dialogsLoading) {
                         // Wait for data before opening — avoids showing an empty dropdown
-                        this.dialogsFetch?.then(() => {
+                        void this.dialogsFetch?.then(() => {
                             if (document.activeElement === input) suggest.open();
                         });
                     } else {
@@ -732,6 +738,8 @@ export class TelegramSettingTab extends PluginSettingTab {
                     this.inlineLocalClient = null;
                 }
                 this.inlineLocalClient = new TelegramClient(new StringSession(""), AUTH_API_ID, AUTH_API_HASH, { connectionRetries: 3, useWSS: true });
+                this.inlineLocalClient.setLogLevel("none" as any);
+                (this.inlineLocalClient as any)._loopStarted = true;
                 await this.inlineLocalClient.connect();
                 const result = await this.inlineLocalClient.sendCode({ apiId: AUTH_API_ID, apiHash: AUTH_API_HASH }, phoneValue.trim());
                 this.renderInlineLocalCodeStep(container, { phone: phoneValue.trim(), apiId: AUTH_API_ID, apiHash: AUTH_API_HASH, phoneCodeHash: result.phoneCodeHash });
@@ -774,6 +782,7 @@ export class TelegramSettingTab extends PluginSettingTab {
 
         const client = new TelegramClient(new StringSession(""), AUTH_API_ID, AUTH_API_HASH, { connectionRetries: 5, useWSS: true });
         client.setLogLevel("none" as any);
+        (client as any)._loopStarted = true;
         this.inlineQrClient = client;
 
         // Renders a QR code SVG into qrWrap and updates the deep link.

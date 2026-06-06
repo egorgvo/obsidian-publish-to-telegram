@@ -251,6 +251,11 @@ export async function createClient(session: string, apiId?: number, apiHash?: st
         { connectionRetries: 5, timeout: 60, ...(isLocalAuth && { useWSS: true }) }
     );
     client.setLogLevel("none" as any);
+    // This plugin is request-only (no addEventHandler / incoming updates), so
+    // GramJS's update loop serves no purpose — its sole job here is keepalive
+    // pings, and a failed ping throws an uncaught "TIMEOUT" that surfaces to the
+    // user. Pre-setting _loopStarted stops connect() from ever launching it.
+    (client as any)._loopStarted = true;
     await client.connect();
     return client;
 }

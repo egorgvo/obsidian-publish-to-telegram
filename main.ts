@@ -34,7 +34,7 @@ export default class SendToTelegramPlugin extends Plugin {
                             new MultiPresetModal(this.app, this, file).open();
                             return;
                         }
-                        this.sendNoteToTelegram(file, defaultChannel, false, false);
+                        void this.sendNoteToTelegram(file, defaultChannel, false, false);
                     });
                 });
 
