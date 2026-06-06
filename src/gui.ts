@@ -72,7 +72,7 @@ export class FormattingHelpModal extends Modal {
             t.FORMATTING_HELP_CONTENT,
             contentEl,
             "",
-            this.plugin
+            this
         );
     }
 
