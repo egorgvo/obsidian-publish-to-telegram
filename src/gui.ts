@@ -582,6 +582,9 @@ export class TelegramSettingTab extends PluginSettingTab {
                 chip.createSpan({ text: target.title || target.id, cls: "telegram-chat-chip-text" });
                 const removeBtn = chip.createEl("button", { cls: "telegram-chat-chip-remove" });
                 setIcon(removeBtn, "x");
+                // Mirror the X-button hover onto the chip text (replaces a :has() selector)
+                removeBtn.addEventListener("mouseenter", () => chip.classList.add("remove-hover"));
+                removeBtn.addEventListener("mouseleave", () => chip.classList.remove("remove-hover"));
                 removeBtn.addEventListener("click", voidListener(async (e: MouseEvent) => {
                     e.stopPropagation();
                     channel.chatTargets = (channel.chatTargets ?? []).filter(t => !(t.id === target.id && t.topicId === target.topicId));
@@ -596,6 +599,8 @@ export class TelegramSettingTab extends PluginSettingTab {
             const input = fieldEl.createEl("input", { cls: "telegram-chat-search" });
             input.type = "text";
             const hasChips = (channel.chatTargets?.length ?? 0) > 0;
+            // Shrink the input to sit inline after chips (replaces a :has() selector)
+            fieldEl.classList.toggle("has-chips", hasChips);
             input.placeholder = hasChips ? "" : (
                 !this.plugin.secrets.telegramSession ? t.SETTING_PLACEHOLDER_CHAT :
                 this.dialogsLoading ? t.SETTING_CHAT_PICKER_LOADING :

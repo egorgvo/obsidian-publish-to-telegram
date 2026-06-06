@@ -410,7 +410,7 @@ body .telegram-auth-submit:disabled {
 }
 
 /* Chips present: input shrinks to cursor width and sits inline after the last chip */
-.telegram-chat-picker .telegram-chat-picker-field:has(.telegram-chat-chip) .telegram-chat-search {
+.telegram-chat-picker .telegram-chat-picker-field.has-chips .telegram-chat-search {
     field-sizing: content;
     flex: 0 1 auto;
     min-width: 2ch;
@@ -462,7 +462,7 @@ body .telegram-auth-submit:disabled {
 }
 
 .telegram-chat-picker .telegram-chat-chip-remove:hover,
-.telegram-chat-picker .telegram-chat-chip:has(.telegram-chat-chip-remove:hover) .telegram-chat-chip-text {
+.telegram-chat-picker .telegram-chat-chip.remove-hover .telegram-chat-chip-text {
     opacity: 1;
     color: var(--pill-color-remove-hover);
 }
