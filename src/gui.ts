@@ -756,7 +756,7 @@ export class TelegramSettingTab extends PluginSettingTab {
 
         const { fields, submitEl, noteEl, extraEl } = this.buildAuthCard(container, t.AUTH_QR_TITLE,
             () => this.renderInlinePhoneStep(container));
-        submitEl.style.display = "none";
+        submitEl.addClass("is-hidden");
 
         const qrWrap = fields.createDiv({ cls: "telegram-qr-wrap" });
         qrWrap.createSpan({ text: t.AUTH_LOADING, cls: "telegram-qr-loading" });

@@ -203,6 +203,10 @@ body .telegram-logout-button:hover {
     pointer-events: none;
 }
 
+.telegram-auth-card .telegram-auth-submit.is-hidden {
+    display: none;
+}
+
 .telegram-auth-title {
     font-size: var(--font-ui-medium);
     font-weight: var(--font-semibold);
