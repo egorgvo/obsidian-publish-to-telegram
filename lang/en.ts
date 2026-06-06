@@ -13,23 +13,22 @@ export default {
     SETTING_HEADER: "Publish to Telegram Settings",
     SECTION_GENERAL: "General",
     SECTION_PRESETS: "Presets",
-    SETTING_DESCRIPTION: "This plugin allows you to post notes directly to Telegram channels, groups and personal messages. All Telegram formatting options are supported, as well as media and document attachments. Use advanced publishing settings menu to schedule posts, send them to multiple channels/groups at once and more.",
+    SETTING_DESCRIPTION: "This plugin allows you to post notes directly to Telegram channels, groups and personal messages. All Telegram formatting options are supported, as well as media and document attachments. Use advanced publishing settings menu to schedule posts, send them to multiple chats at once and more.",
     SETTING_ADD_CHANNEL_NAME: "Preset creation and usage",
-    SETTING_ADD_CHANNEL_DESC: `Note that the user guide describes all of the plugin’s features and supported formatting options in detail.
+    SETTING_ADD_CHANNEL_DESC: `1. Authorize into your account and make sure that you have relevant permissions to post to the target channels/groups.
+2. Create a new preset and click on the search field to load chat list. You can also enter @username or ID manually.
+3. Add one or multiple target channels, groups, forum topics, chats or bots to the preset.
 
-1. Authorize into your account and make sure that you have relevant permissions to post to the target channels/groups.
-2. Copy target @username or ID. You can get the ID of any user, channel, or group with the @userinfobot.
-3. Create a new preset and paste @username or ID into the "Target channel, group or user" field.`,
+* Note that the user guide describes all of the plugin’s features and supported formatting options in detail.
+** You can get the ID of any user, channel, group or bot with the @userinfobot.`,
     SETTING_ADD_CHANNEL: "Create new preset",
     SETTING_FORMATTING_HELP: "User guide",
     SETTING_OPEN_USERINFOBOT: "Open @userinfobot",
-
     SETTING_DEFAULT_CHANNEL: "Set as the default preset",
-    SETTING_DEFAULT_DESC: "Publish with the defualt preset from the context menu of with a keyboard shortcut",
+    SETTING_DEFAULT_DESC: "Publish with the defualt preset from the context menu of with a hotkey",
     SETTING_PLACE_HOLDER_NAME: "Preset name…",
-
     SETTING_PLACEHOLDER_CHAT: "@username or ID…",
-    SETTING_PLACEHOLDER_CHAT_SEARCH: "Search target channels, groups, users or bots…",
+    SETTING_PLACEHOLDER_CHAT_SEARCH: "Search target chats or enter @username or ID manually…",
     SETTING_CHAT_PICKER_LOADING: "Loading chats…",
     CHANNEL_DEFAULT_NAME: "New Preset",
 
@@ -45,8 +44,8 @@ export default {
     COMMAND_SEND_TO_PRESET: "Publish to",
     COMMAND_SHOW_FORMATTING_HELP: "Open user guide",
     MULTI_PRESET_TITLE: "Advanced publishing settings",
-    MULTI_PRESET_CHANNEL_SELECTION: "Choose channels/groups to post to",
-    MULTI_PRESET_ADVANCED_FORMATTING: "Advanced formatting",
+    MULTI_PRESET_CHANNEL_SELECTION: "Choose one or multiple presets",
+    MULTI_PRESET_ADVANCED_FORMATTING: "Advanced post settings",
     MULTI_PRESET_POST_BTN: "Publish",
     MULTI_PRESET_NO_SELECTION: "Choose at least one preset",
     MULTI_PRESET_SILENT_POST_NAME: "Publish silently",
@@ -100,9 +99,9 @@ To publish notes to Telegram, you need to configure a preset.
 
 1. In the plugin settings, log in to your account and make sure you have the relevant permissions to post to the target channels/groups. Phone number and QR authorizations are available.
 
-2. Copy the \`@username\` of the target channel or user. If the channel is private or you are posting to a group, you will need to get its \`ID\`. You can get the \`ID\` of any user, channel, or group with [@userinfobot](https://t.me/userinfobot).
+2. Create a new preset and click on the search field to load chat list. You can also enter \`@username\` or \`ID\` manually. You can get the \`ID\` of any user, channel, or group with [@userinfobot](https://t.me/userinfobot).
 
-3. Create a new preset and paste the \`@username\` or \`ID\` into the “Target channel, group, or user” field.
+3. Add one or multiple target channels, groups, forum topics, chats or bots to the preset.
 
 Now you can post notes to Telegram using your preset’s name via the command palette, the note’s context menu, or keyboard shortcuts.
 
@@ -224,9 +223,7 @@ A couple of notes:
 
 You can open an advanced publishing settings window with command palette (\`Ctrl + P\`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
 
-* Post to multiple channels/groups at once.
-
-* Post to specific topics in groups. If topics option is enabled in the target group, the plugin will allow you to choose where to post.
+* Post, using multiple presets at once.
 
 * Post without sound.
 

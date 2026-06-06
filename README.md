@@ -9,7 +9,7 @@ This plugin allows you to post notes directly to Telegram channels, groups and p
 
 ## Features
 
-1. Create multiple presets to post to different channels, groups and users.
+1. Create multiple presets to post to different channels, groups, forum topics and personal messages.
 
 2. Post in different ways: with hotkeys, command palette and context menus.
 
@@ -17,8 +17,7 @@ This plugin allows you to post notes directly to Telegram channels, groups and p
 
 4. Advanced publishing settings:
 
-  	* Post to multiple channels/groups at once.
-    * Post to specific topics in groups.
+  	* Post, using multiple presets at once.
   	* Post without sound.
   	* Post with attached media under the text.
     * Schedule the publication.
@@ -66,9 +65,9 @@ To publish notes to Telegram, you need to configure a preset.
 
 1. In the plugin settings, log in to your account and make sure you have the relevant permissions to post to the target channels/groups. Phone number and QR authorizations are available.
 
-2. Copy the `@username` of the target channel or user. If the channel is private or you are posting to a group, you will need to get its `ID`. You can get the `ID` of any user, channel, or group with [@userinfobot](https://t.me/userinfobot).
+2. Create a new preset and click on the search field to load chat list. You can also enter `@username` or `ID` manually. You can get the `ID` of any user, channel, or group with [@userinfobot](https://t.me/userinfobot).
 
-3. Create a new preset and paste the `@username` or `ID` into the “Target channel, group, or user” field.
+3. Add one or multiple target channels, groups, forum topics, chats or bots to the preset.
 
 Now you can post notes to Telegram using your preset’s name via the command palette, the note’s context menu, or keyboard shortcuts.
 
@@ -190,11 +189,14 @@ A couple of notes:
 
 You can open an advanced publishing settings window with command palette (`Ctrl + P`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
 
-* Post to multiple channels/groups at once.
-* Post to specific topics in groups. If topics option is enabled in the target group, the plugin will allow you to choose where to post.
+* Post, using multiple presets at once.
+
 * Post without sound.
+
 * Post with attached media under the text.
+
 * Schedule the publication.
+
 * Edit already existing post. Links to the posts are stored in the `telegram_links` property, which is filled automatically if the corresponding option is enabled in the settings. You can also create it and fill manually.
 
 ### Limits
