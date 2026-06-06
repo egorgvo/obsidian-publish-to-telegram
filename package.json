@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "node esbuild.config.mjs production"
+    "build": "node esbuild.config.mjs production",
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "pan4ratte",
@@ -13,8 +14,11 @@
   "type": "commonjs",
   "devDependencies": {
     "esbuild": "^0.27.3",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.3.0",
     "obsidian": "latest",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.60.1"
   },
   "dependencies": {
     "@types/qrcode": "^1.5.6",
