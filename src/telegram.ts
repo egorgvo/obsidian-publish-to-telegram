@@ -322,6 +322,18 @@ export async function getUserDialogs(client: TelegramClient): Promise<DialogData
             if (!dialog.title) continue;
             const entity = dialog.entity as any;
             if (!entity) continue;
+
+            // Skip entities where the user cannot post messages
+            if (entity instanceof Api.Channel) {
+                if (entity.broadcast) {
+                    // Broadcast channel: only creators/admins with postMessages right can post
+                    if (!entity.creator && !entity.adminRights?.postMessages) continue;
+                } else {
+                    // Supergroup: skip if non-admins are banned from sending messages
+                    if (!entity.creator && !entity.adminRights && entity.defaultBannedRights?.sendMessages) continue;
+                }
+            }
+
             let id: string;
             if (entity.username) {
                 id = `@${entity.username}`;
