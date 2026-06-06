@@ -5,7 +5,12 @@ const prod = process.argv[2] === "production";
 const nodeStubPlugin = {
     name: "node-stubs",
     setup(build) {
-        const stubModules = ["net", "tls", "fs", "dns", "child_process", "node-localstorage"];
+        // browserify-sign / create-ecdh are the only paths that pull in `elliptic`
+        // (ECDSA/ECDH). The plugin never signs or does ECDH — Telegram MTProto uses
+        // RSA + prime-field DH + AES — so stub them out to drop elliptic (and its
+        // advisory, GHSA-848j-6mx2-7j84) from the bundle. crypto-browserify still
+        // requires `browserify-sign/algos` (pure JSON), which is unaffected.
+        const stubModules = ["net", "tls", "fs", "dns", "child_process", "node-localstorage", "browserify-sign", "create-ecdh"];
         build.onResolve({ filter: new RegExp(`^(node:)?(${stubModules.join("|")})$`) }, (args) => ({
             path: args.path,
             namespace: "node-stub",
