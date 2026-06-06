@@ -1,6 +1,7 @@
 // telegram.ts
 import { App, TFile, requestUrl } from "obsidian";
 import { TelegramClient, Api } from "telegram";
+import { LogLevel } from "telegram/extensions/Logger";
 import { StringSession } from "telegram/sessions";
 import { CustomFile, _fileToMedia } from "telegram/client/uploads";
 import { _parseMessageText } from "telegram/client/messageParse";
@@ -58,18 +59,18 @@ function mdToTelegramHtml(body: string): string {
     // Protect code blocks and inline code from further processing
     const codeBlocks: string[] = [];
     let text = stripped
-        .replace(/```(\w*)\n([\s\S]*?)\n?```/g, (_, lang, code) => {
+        .replace(/```(\w*)\n([\s\S]*?)\n?```/g, (_, _lang: string, code: string) => {
             codeBlocks.push(`<pre>${escHtml(code)}</pre>`);
             return `\x00CB${codeBlocks.length - 1}\x00`;
         })
-        .replace(/`([^`\n]+)`/g, (_, c) => {
+        .replace(/`([^`\n]+)`/g, (_, c: string) => {
             codeBlocks.push(`<code>${escHtml(c)}</code>`);
             return `\x00CB${codeBlocks.length - 1}\x00`;
         });
 
     // Protect escaped characters (\* \_ \~ etc.) from formatting
     const escapes: string[] = [];
-    text = text.replace(/\\([\\*_~`|>\-[\](){}#+.!])/g, (_, ch) => {
+    text = text.replace(/\\([\\*_~`|>\-[\](){}#+.!])/g, (_, ch: string) => {
         escapes.push(ch);
         return `\x00ES${escapes.length - 1}\x00`;
     });
@@ -113,21 +114,21 @@ function mdToTelegramHtml(body: string): string {
     text = text.replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>');
 
     // Bold **text** (multiline: wrap each line separately)
-    text = text.replace(/\*\*([^\s*][\s\S]*?)\*\*/g, (_, content) =>
+    text = text.replace(/\*\*([^\s*][\s\S]*?)\*\*/g, (_, content: string) =>
         content.split('\n').map((line: string) => `<b>${line}</b>`).join('\n'));
 
     // Italic *text* or _text_  (multiline: wrap each line separately)
-    text = text.replace(/\*([^\s*][\s\S]*?)\*/g, (_, content) =>
+    text = text.replace(/\*([^\s*][\s\S]*?)\*/g, (_, content: string) =>
         content.split('\n').map((line: string) => `<i>${line}</i>`).join('\n'));
-    text = text.replace(/(?<![\\a-zA-Zа-яА-ЯёЁ])_([^\s_][\s\S]*?)_(?![a-zA-Zа-яА-ЯёЁ])/g, (_, content) =>
+    text = text.replace(/(?<![\\a-zA-Zа-яА-ЯёЁ])_([^\s_][\s\S]*?)_(?![a-zA-Zа-яА-ЯёЁ])/g, (_, content: string) =>
         content.split('\n').map((line: string) => `<i>${line}</i>`).join('\n'));
 
     // Strikethrough ~~text~~  (multiline: wrap each line separately)
-    text = text.replace(/~~([^\s~][\s\S]*?)~~/g, (_, content) =>
+    text = text.replace(/~~([^\s~][\s\S]*?)~~/g, (_, content: string) =>
         content.split('\n').map((line: string) => `<s>${line}</s>`).join('\n'));
 
     // Spoiler ||text||  (multiline: wrap each line separately)
-    text = text.replace(/\|\|([^\s|][\s\S]*?)\|\|/g, (_, content) =>
+    text = text.replace(/\|\|([^\s|][\s\S]*?)\|\|/g, (_, content: string) =>
         content.split('\n').map((line: string) => `<spoiler>${line}</spoiler>`).join('\n'));
 
     // Links [text](url)
@@ -135,11 +136,11 @@ function mdToTelegramHtml(body: string): string {
 
     // Restore escaped characters as literal text
     // eslint-disable-next-line no-control-regex -- \x00 sentinels delimit protected escape spans
-    text = text.replace(/\x00ES(\d+)\x00/g, (_, idx) => escHtml(escapes[parseInt(idx)]));
+    text = text.replace(/\x00ES(\d+)\x00/g, (_, idx: string) => escHtml(escapes[parseInt(idx)]));
 
     // Restore code blocks
     // eslint-disable-next-line no-control-regex -- \x00 sentinels delimit protected code spans
-    text = text.replace(/\x00CB(\d+)\x00/g, (_, idx) => codeBlocks[parseInt(idx)]);
+    text = text.replace(/\x00CB(\d+)\x00/g, (_, idx: string) => codeBlocks[parseInt(idx)]);
 
     // Collapse multiple blank lines into one
     text = text.replace(/\n{3,}/g, '\n\n');
@@ -252,12 +253,12 @@ export async function createClient(session: string, apiId?: number, apiHash?: st
         apiHash || DEFAULT_TG_API_HASH,
         { connectionRetries: 5, timeout: 60, ...(isLocalAuth && { useWSS: true }) }
     );
-    client.setLogLevel("none" as any);
+    client.setLogLevel(LogLevel.NONE);
     // This plugin is request-only (no addEventHandler / incoming updates), so
     // GramJS's update loop serves no purpose — its sole job here is keepalive
     // pings, and a failed ping throws an uncaught "TIMEOUT" that surfaces to the
     // user. Pre-setting _loopStarted stops connect() from ever launching it.
-    (client as any)._loopStarted = true;
+    (client as unknown as { _loopStarted: boolean })._loopStarted = true;
     await client.connect();
     return client;
 }
@@ -270,6 +271,20 @@ export async function checkIsForum(client: TelegramClient, entity: string | numb
     } catch {
         return false;
     }
+}
+
+// `_getResponseMessage` is a private GramJS method that resolves the sent
+// message(s) from a raw MTProto result. Typed wrapper around the private access.
+function getResponseMessage(
+    client: TelegramClient,
+    req: unknown,
+    result: unknown,
+    peer: unknown,
+): Api.TypeMessage | Map<number, Api.Message> | (Api.Message | undefined)[] | undefined {
+    return (client as unknown as {
+        _getResponseMessage(req: unknown, result: unknown, inputChat: unknown):
+            Api.TypeMessage | Map<number, Api.Message> | (Api.Message | undefined)[] | undefined;
+    })._getResponseMessage(req, result, peer);
 }
 
 // ─── Dialog listing ───────────────────────────────────────────────────────────
@@ -285,44 +300,49 @@ export async function getUserDialogs(client: TelegramClient): Promise<DialogData
         const results: DialogData[] = [];
         for await (const dialog of client.iterDialogs({ limit: 300, folder: 0 })) {
             if (!dialog.title) continue;
-            const entity = dialog.entity as any;
+            const entity = dialog.entity;
             if (!entity) continue;
 
+            // Narrow the entity union once; only channels/chats expose the fields we use.
+            const channel = entity instanceof Api.Channel ? entity : null;
+            const chat = entity instanceof Api.Chat ? entity : null;
+            const username = entity instanceof Api.User || entity instanceof Api.Channel
+                ? entity.username
+                : undefined;
+
             // Skip entities where the user cannot post messages
-            if (entity instanceof Api.Channel) {
-                if (entity.broadcast) {
+            if (channel) {
+                if (channel.broadcast) {
                     // Broadcast channel: only creators/admins with postMessages right can post
-                    if (!entity.creator && !entity.adminRights?.postMessages) continue;
+                    if (!channel.creator && !channel.adminRights?.postMessages) continue;
                 } else {
                     // Supergroup: skip if non-admins are banned from sending messages
-                    if (!entity.creator && !entity.adminRights && entity.defaultBannedRights?.sendMessages) continue;
+                    if (!channel.creator && !channel.adminRights && channel.defaultBannedRights?.sendMessages) continue;
                 }
             }
 
             let id: string;
-            if (entity.username) {
-                id = `@${entity.username}`;
-            } else if (entity instanceof Api.Channel) {
-                id = `-100${entity.id.toString()}`;
-            } else if (entity instanceof Api.Chat) {
-                id = `-${entity.id.toString()}`;
+            if (username) {
+                id = `@${username}`;
+            } else if (channel) {
+                id = `-100${channel.id.toString()}`;
+            } else if (chat) {
+                id = `-${chat.id.toString()}`;
             } else {
-                id = entity.id?.toString() ?? "";
+                id = "id" in entity ? entity.id.toString() : "";
             }
             if (!id) continue;
-            const title = entity.username
-                ? `${dialog.title} (@${entity.username})`
-                : dialog.title;
+            const title = username ? `${dialog.title} (@${username})` : dialog.title;
 
-            const isForum = entity instanceof Api.Channel && entity.forum && entity.accessHash;
+            const isForum = !!(channel && channel.forum && channel.accessHash);
             results.push({ id, title, topicId: isForum ? 1 : undefined });
 
             // Fetch topics for forum supergroups and append them as individual entries
-            if (isForum) {
+            if (isForum && channel) {
                 try {
                     const inputChannel = new Api.InputChannel({
-                        channelId: entity.id,
-                        accessHash: entity.accessHash!,
+                        channelId: channel.id,
+                        accessHash: channel.accessHash!,
                     });
                     const topicsResult = await client.invoke(new Api.channels.GetForumTopics({
                         channel: inputChannel,
@@ -460,7 +480,7 @@ async function sendCommentViaAccount(
             // Use raw MTProto so sendAs (InputPeer) reaches the wire unambiguously;
             // the high-level sendMessage wrapper does not reliably propagate it.
             const [message, entities] = await _parseMessageText(client, text, "html");
-            const peer = await client.getInputEntity(threadHead.peerId as any);
+            const peer = await client.getInputEntity(threadHead.peerId);
             await client.invoke(new Api.messages.SendMessage({
                 peer,
                 message,
@@ -523,7 +543,7 @@ async function sendMediaRaw(
             replyTo,
         });
         const apiResult = await client.invoke(req);
-        const msg = (client as any)._getResponseMessage(req, apiResult, peer);
+        const msg = getResponseMessage(client, req, apiResult, peer);
         const m = Array.isArray(msg) ? msg[0] : msg;
         return (m as Api.Message).id;
     }
@@ -564,8 +584,8 @@ async function sendMediaRaw(
         replyTo,
     });
     const apiResult = await client.invoke(req);
-    const randomIds = albumItems.map(m => (m as any).randomId);
-    const msgs = (client as any)._getResponseMessage(randomIds, apiResult, peer);
+    const randomIds = albumItems.map(m => m.randomId);
+    const msgs = getResponseMessage(client, randomIds, apiResult, peer);
     const first = Array.isArray(msgs) ? msgs[0] : msgs;
     return (first as Api.Message).id;
 }
@@ -652,7 +672,7 @@ async function sendPartViaAccount(
                     replyTo: new Api.InputReplyToMessage({ replyToMsgId: topicId, topMsgId: topicId }),
                 });
                 const apiResult = await client.invoke(req);
-                const m = (client as any)._getResponseMessage(req, apiResult, peer);
+                const m = getResponseMessage(client, req, apiResult, peer);
                 const msg = Array.isArray(m) ? m[0] : m;
                 msgId = (msg as Api.Message).id;
             } else {
@@ -662,8 +682,7 @@ async function sendPartViaAccount(
                     silent,
                     schedule: scheduleDateUnix,
                 });
-                const msg = Array.isArray(sent) ? sent[0] : sent;
-                msgId = msg.id;
+                msgId = sent.id;
             }
             result = { link: buildPostLinkFromChatId(channel.chatId, msgId, topicId), messageId: msgId };
         }
@@ -739,7 +758,7 @@ export async function sendNoteToTelegram(
         try {
             const result = await sendPartViaAccount(app, part, channel, secrets, silent, attachUnderText, file, treatMdEmbedsAsComments, scheduleDate, onProgress);
             if (result) links.push(result.link);
-        } catch (err: any) {
+        } catch (err) {
             errors.push(err instanceof Error ? err : new Error(String(err)));
         }
     }
