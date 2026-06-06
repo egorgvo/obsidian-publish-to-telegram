@@ -687,6 +687,22 @@ export class TelegramSettingTab extends PluginSettingTab {
                     }
                     renderField();
                 };
+                // Registered after the suggest's own keydown listener so it fires second.
+                // If the suggest selected an item it already called setValue(""), so input.value
+                // is empty by the time this runs — that's the signal to skip.
+                input.addEventListener("keydown", async (e: KeyboardEvent) => {
+                    if (e.key !== "Enter") return;
+                    const id = input.value.trim();
+                    if (!id) return;
+                    e.preventDefault();
+                    if ((channel.chatTargets ?? []).some(t => t.id === id)) { renderField(); return; }
+                    if (!channel.chatTargets) channel.chatTargets = [];
+                    channel.chatTargets.push({ id });
+                    channel.chatId = channel.chatTargets[0]?.id ?? "";
+                    channel.chatTitle = channel.chatTargets[0]?.title;
+                    await this.plugin.saveSettings();
+                    renderField();
+                });
             } else {
                 // No auth: Enter key adds a manual chat ID chip
                 input.addEventListener("keydown", async (e: KeyboardEvent) => {
