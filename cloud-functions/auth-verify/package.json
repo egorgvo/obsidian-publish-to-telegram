@@ -1,7 +1,0 @@
-{
-  "name": "auth-verify",
-  "version": "1.0.0",
-  "dependencies": {
-    "telegram": "^2.26.22"
-  }
-}
