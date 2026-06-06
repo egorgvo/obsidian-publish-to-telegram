@@ -208,7 +208,8 @@ export default class SendToTelegramPlugin extends Plugin {
     }
 
     async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        const raw = await this.loadData() as any;
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, raw);
         // Migrate single chatId/chatTitle → chatTargets array
         let migrated = false;
         for (const ch of this.settings.channels) {
@@ -218,25 +219,29 @@ export default class SendToTelegramPlugin extends Plugin {
             }
         }
         if (migrated) await this.saveData(this.settings);
-        // Migrate secrets from data.json to SecretStorage
-        const legacyData = await this.loadData() as any;
-        if (legacyData?.telegramSession) {
-            await this.app.secretStorage.setSecret("telegram-session", legacyData.telegramSession);
-            await this.app.secretStorage.setSecret("telegram-api-id", String(legacyData.telegramApiId || 0));
-            await this.app.secretStorage.setSecret("telegram-api-hash", legacyData.telegramApiHash || "");
-            delete legacyData.telegramSession;
-            delete legacyData.telegramApiId;
-            delete legacyData.telegramApiHash;
-            await this.saveData(legacyData);
+        // Migrate secrets from data.json to SecretStorage — reuse raw, no second loadData()
+        if (raw?.telegramSession) {
+            await this.app.secretStorage.setSecret("telegram-session", raw.telegramSession);
+            await this.app.secretStorage.setSecret("telegram-api-id", String(raw.telegramApiId || 0));
+            await this.app.secretStorage.setSecret("telegram-api-hash", raw.telegramApiHash || "");
+            delete raw.telegramSession;
+            delete raw.telegramApiId;
+            delete raw.telegramApiHash;
+            await this.saveData(raw);
         }
         await this.loadSecrets();
     }
 
     async loadSecrets() {
+        const [session, apiId, apiHash] = await Promise.all([
+            this.app.secretStorage.getSecret("telegram-session"),
+            this.app.secretStorage.getSecret("telegram-api-id"),
+            this.app.secretStorage.getSecret("telegram-api-hash"),
+        ]);
         this.secrets = {
-            telegramSession: await this.app.secretStorage.getSecret("telegram-session") ?? "",
-            telegramApiId: Number(await this.app.secretStorage.getSecret("telegram-api-id") ?? 0),
-            telegramApiHash: await this.app.secretStorage.getSecret("telegram-api-hash") ?? "",
+            telegramSession: session ?? "",
+            telegramApiId: Number(apiId ?? 0),
+            telegramApiHash: apiHash ?? "",
         };
     }
 
