@@ -653,7 +653,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                 setIcon(removeBtn, "x");
                 removeBtn.addEventListener("click", async (e: MouseEvent) => {
                     e.stopPropagation();
-                    channel.chatTargets = (channel.chatTargets ?? []).filter(t => t.id !== target.id);
+                    channel.chatTargets = (channel.chatTargets ?? []).filter(t => !(t.id === target.id && t.topicId === target.topicId));
                     channel.chatId = channel.chatTargets[0]?.id ?? "";
                     channel.chatTitle = channel.chatTargets[0]?.title;
                     await this.plugin.saveSettings();
