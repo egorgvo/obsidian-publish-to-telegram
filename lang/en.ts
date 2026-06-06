@@ -24,7 +24,6 @@ export default {
     SETTING_ADD_CHANNEL: "Create new preset",
     SETTING_FORMATTING_HELP: "User guide",
     SETTING_OPEN_USERINFOBOT: "Open @userinfobot",
-    SETTING_CHAT_ID_NAME: "Target channel, group, or user",
     SETTING_CHAT_ID_DESC: "@username of the public channel or ID of the private one or any group",
 
     SETTING_DEFAULT_CHANNEL: "Set as the default preset",
@@ -32,7 +31,7 @@ export default {
     SETTING_PLACE_HOLDER_NAME: "Preset name…",
 
     SETTING_PLACEHOLDER_CHAT: "@username or ID…",
-    SETTING_PLACEHOLDER_CHAT_SEARCH: "Search channels and chats…",
+    SETTING_PLACEHOLDER_CHAT_SEARCH: "Search target channels, groups, users or bots…",
     SETTING_CHAT_PICKER_LOADING: "Loading chats…",
     CHANNEL_DEFAULT_NAME: "Channel",
     UNTITLED_CHANNEL: "Unnamed",

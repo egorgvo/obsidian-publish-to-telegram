@@ -351,21 +351,24 @@ body .telegram-auth-submit:disabled {
 }
 
 .telegram-chat-picker-label {
-    font-size: var(--font-ui-small);
-    color: var(--text-muted);
-    margin-bottom: 4px;
+    font-size: var(--font-ui-smaller);
+    margin-bottom: 8px;
+    color: var(--text-normal);
+    font-size: var(--font-ui-medium);
 }
 
 .telegram-chat-picker-field {
+    border: 1px solid var(--setting-items-border-color);
+    background-color: transparent;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 4px;
-    padding: 3px 4px;
+    padding: 8px 8px;
     min-height: 28px;
     cursor: text;
+    overflow: hidden;
     border-radius: var(--radius-s);
-    transition: background-color 0.1s ease;
 }
 
 .telegram-chat-picker-field:hover {
@@ -377,19 +380,29 @@ body .telegram-auth-submit:disabled {
     box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
 
-.telegram-chat-search {
+/* No chips yet: input fills full width so the placeholder is visible */
+.telegram-chat-picker .telegram-chat-picker-field .telegram-chat-search {
     flex: 1;
-    min-width: 80px;
+    min-width: 60px;
     border: none;
     background: transparent;
     color: var(--text-normal);
     font-size: var(--font-ui-small);
     outline: none;
     font-family: inherit;
-    padding: 1px 4px;
+    padding: 0 2px;
+    box-shadow: none;
 }
 
-.telegram-chat-search::placeholder {
+/* Chips present: input shrinks to cursor width and sits inline after the last chip */
+.telegram-chat-picker .telegram-chat-picker-field:has(.telegram-chat-chip) .telegram-chat-search {
+    field-sizing: content;
+    flex: 0 1 auto;
+    min-width: 2ch;
+    padding: 0;
+}
+
+.telegram-chat-picker .telegram-chat-picker-field .telegram-chat-search::placeholder {
     color: var(--text-faint);
 }
 

@@ -634,7 +634,6 @@ export class TelegramSettingTab extends PluginSettingTab {
 
     private renderChatPicker(container: HTMLElement, channel: TelegramChannel): void {
         const pickerEl = container.createDiv("telegram-chat-picker");
-        pickerEl.createDiv({ text: t.SETTING_CHAT_ID_NAME, cls: "telegram-chat-picker-label" });
         const fieldEl = pickerEl.createDiv("telegram-chat-picker-field");
         let activeSuggest: ChatSuggest | null = null;
 
