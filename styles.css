@@ -381,13 +381,6 @@ body .telegram-auth-submit:disabled {
     margin-bottom: 12px;
 }
 
-.telegram-chat-picker-label {
-    font-size: var(--font-ui-smaller);
-    margin-bottom: 8px;
-    color: var(--text-normal);
-    font-size: var(--font-ui-medium);
-}
-
 .telegram-chat-picker .telegram-chat-picker-field {
     border: 1px solid var(--setting-items-border-color);
     background-color: transparent;

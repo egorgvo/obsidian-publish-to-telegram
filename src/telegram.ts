@@ -69,7 +69,7 @@ function mdToTelegramHtml(body: string): string {
 
     // Protect escaped characters (\* \_ \~ etc.) from formatting
     const escapes: string[] = [];
-    text = text.replace(/\\([\\*_~`|>\-\[\](){}#+.!])/g, (_, ch) => {
+    text = text.replace(/\\([\\*_~`|>\-[\](){}#+.!])/g, (_, ch) => {
         escapes.push(ch);
         return `\x00ES${escapes.length - 1}\x00`;
     });
@@ -134,9 +134,11 @@ function mdToTelegramHtml(body: string): string {
     text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
     // Restore escaped characters as literal text
+    // eslint-disable-next-line no-control-regex -- \x00 sentinels delimit protected escape spans
     text = text.replace(/\x00ES(\d+)\x00/g, (_, idx) => escHtml(escapes[parseInt(idx)]));
 
     // Restore code blocks
+    // eslint-disable-next-line no-control-regex -- \x00 sentinels delimit protected code spans
     text = text.replace(/\x00CB(\d+)\x00/g, (_, idx) => codeBlocks[parseInt(idx)]);
 
     // Collapse multiple blank lines into one
@@ -186,7 +188,7 @@ function collectMediaFiles(app: App, body: string, sourceFile: TFile): { attachm
             return;
         }
 
-        try { cleanPath = decodeURIComponent(cleanPath); } catch (e) {}
+        try { cleanPath = decodeURIComponent(cleanPath); } catch { /* keep raw path if not URI-encoded */ }
 
         const resolved = app.metadataCache.getFirstLinkpathDest(cleanPath, sourceFile.path);
         if (resolved instanceof TFile && !seen.has(resolved.path)) {
@@ -301,9 +303,9 @@ export async function getUserDialogs(client: TelegramClient): Promise<DialogData
             if (entity.username) {
                 id = `@${entity.username}`;
             } else if (entity instanceof Api.Channel) {
-                id = `-100${entity.id}`;
+                id = `-100${entity.id.toString()}`;
             } else if (entity instanceof Api.Chat) {
-                id = `-${entity.id}`;
+                id = `-${entity.id.toString()}`;
             } else {
                 id = entity.id?.toString() ?? "";
             }
@@ -374,7 +376,7 @@ async function sendCommentViaAccount(
         if (hasDiscussion && linkedChatId) {
             const groupChat = full.chats.find(c => c.id.eq(linkedChatId)) as Api.Channel | undefined;
             const sourceChannel = full.chats.find(c => !c.id.eq(linkedChatId)) as Api.Channel | undefined;
-            const isPrivate = !(sourceChannel as Api.Channel | undefined)?.username;
+            const isPrivate = !sourceChannel?.username;
 
             if (groupChat?.accessHash) {
                 try {
@@ -394,7 +396,7 @@ async function sendCommentViaAccount(
                         // to resolving it from the GramJS entity cache via getMe().
                         const userPeer = sendAsResult.peers.find(p => p.peer instanceof Api.PeerUser);
                         if (userPeer && userPeer.peer instanceof Api.PeerUser) {
-                            const userId = (userPeer.peer as Api.PeerUser).userId;
+                            const userId = userPeer.peer.userId;
                             const matchingUser = sendAsResult.users.find(u => u.id.eq(userId)) as Api.User | undefined;
                             if (matchingUser) {
                                 sendAsPeer = new Api.InputPeerUser({
@@ -420,7 +422,7 @@ async function sendCommentViaAccount(
                                 p.peer instanceof Api.PeerChannel && p.peer.channelId.eq(channelId)
                             );
                             if (matchingPeer && matchingPeer.peer instanceof Api.PeerChannel) {
-                                const peerId = (matchingPeer.peer as Api.PeerChannel).channelId;
+                                const peerId = matchingPeer.peer.channelId;
                                 const matchingChat = sendAsResult.chats.find(c => c.id.eq(peerId)) as Api.Channel | undefined;
                                 if (matchingChat?.accessHash) {
                                     sendAsPeer = new Api.InputPeerChannel({
@@ -547,7 +549,7 @@ async function sendMediaRaw(
         }
 
         albumItems.push(new Api.InputSingleMedia({
-            media: media as Api.TypeInputMedia,
+            media: media,
             message: i === 0 ? caption : "",
             entities: i === 0 ? msgEntities : [],
         }));

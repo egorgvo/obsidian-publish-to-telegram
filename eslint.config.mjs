@@ -18,6 +18,9 @@ export default [
         // TypeScript files but leaves the project wiring to the consumer.
         files: ["**/*.ts", "**/*.tsx"],
         languageOptions: {
+            // Buffer is a Node global made available at runtime by the esbuild
+            // buffer shim (see esbuild.config.mjs `inject`).
+            globals: { Buffer: "readonly" },
             parserOptions: {
                 projectService: true,
                 tsconfigRootDir: import.meta.dirname,

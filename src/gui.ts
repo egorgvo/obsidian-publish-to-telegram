@@ -319,7 +319,7 @@ export class MultiPresetModal extends Modal {
 
                 if (isUpdating) {
                     const targetChannel = this.resolvedUpdateChannel
-                        ?? await resolveChannelByLink(this.plugin.settings.channels, updateLinkRaw!, this.plugin.secrets);
+                        ?? await resolveChannelByLink(this.plugin.settings.channels, updateLinkRaw, this.plugin.secrets);
 
                     if (!targetChannel) {
                         new Notice(t.MULTI_PRESET_UPDATE_NO_MATCH_NOTICE);
@@ -494,8 +494,6 @@ export class TelegramSettingTab extends PluginSettingTab {
                 this.display();
             }).buttonEl.addClass("telegram-add-button");
 
-        const defaultToggles: ToggleComponent[] = [];
-
         this.plugin.settings.channels.forEach((channel, index) => {
             const channelDiv = containerEl.createDiv("telegram-channel-item");
             const header = channelDiv.createDiv("telegram-channel-header");
@@ -544,16 +542,16 @@ export class TelegramSettingTab extends PluginSettingTab {
 
             new Setting(channelDiv).setName(t.SETTING_DEFAULT_CHANNEL).setDesc(t.SETTING_DEFAULT_DESC)
                 .addToggle(toggle => {
-                    defaultToggles.push(toggle);
                     toggle.setValue(channel.isDefault || false)
                         .onChange(async (v) => {
-                            if (v) {
-                                this.plugin.settings.channels.forEach(c => c.isDefault = false);
-                                defaultToggles.forEach(tc => tc.setValue(false));
-                            }
+                            // Default is exclusive: clear every other preset, then set this one.
+                            if (v) this.plugin.settings.channels.forEach(c => c.isDefault = false);
                             channel.isDefault = v;
-                            toggle.setValue(v);
                             await this.plugin.saveSettings();
+                            // Re-render so all toggles reflect the new state. Calling
+                            // setValue() here instead would re-enter onChange (Obsidian
+                            // fires the change callback from setValue) and recurse.
+                            this.display();
                         });
                 })
                 .settingEl.addClass("telegram-preset-default");
