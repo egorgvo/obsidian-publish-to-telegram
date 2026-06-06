@@ -678,11 +678,15 @@ export class TelegramSettingTab extends PluginSettingTab {
                 activeSuggest = suggest;
                 input.addEventListener("focus", () => suggest.open());
                 suggest.onPick = async (dialog: DialogData) => {
-                    if (!(channel.chatTargets ?? []).some(t => t.id === dialog.id)) {
+                    const isDupe = (channel.chatTargets ?? []).some(
+                        t => t.id === dialog.id && t.topicId === dialog.topicId
+                    );
+                    if (!isDupe) {
                         if (!channel.chatTargets) channel.chatTargets = [];
-                        channel.chatTargets.push({ id: dialog.id, title: dialog.title });
+                        channel.chatTargets.push({ id: dialog.id, title: dialog.title, topicId: dialog.topicId });
                         channel.chatId = channel.chatTargets[0]?.id ?? "";
                         channel.chatTitle = channel.chatTargets[0]?.title;
+                        channel.topicId = channel.chatTargets[0]?.topicId;
                         await this.plugin.saveSettings();
                     }
                     renderField();

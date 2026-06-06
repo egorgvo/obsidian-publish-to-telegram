@@ -310,8 +310,9 @@ export async function getForumTopics(client: TelegramClient, entity: string | nu
 // ─── Dialog listing ───────────────────────────────────────────────────────────
 
 export interface DialogData {
-    id: string;    // "@username" for public, "-100XXXX" for channels, numeric string for others
+    id: string;       // "@username" for public, "-100XXXX" for channels, numeric string for others
     title: string;
+    topicId?: number; // set for forum topics; 1 = General (also set on the parent group entry)
 }
 
 export async function getUserDialogs(client: TelegramClient): Promise<DialogData[]> {
@@ -347,7 +348,33 @@ export async function getUserDialogs(client: TelegramClient): Promise<DialogData
             const title = entity.username
                 ? `${dialog.title} (@${entity.username})`
                 : dialog.title;
-            results.push({ id, title });
+
+            const isForum = entity instanceof Api.Channel && entity.forum && entity.accessHash;
+            results.push({ id, title, topicId: isForum ? 1 : undefined });
+
+            // Fetch topics for forum supergroups and append them as individual entries
+            if (isForum) {
+                try {
+                    const inputChannel = new Api.InputChannel({
+                        channelId: entity.id,
+                        accessHash: entity.accessHash!,
+                    });
+                    const topicsResult = await client.invoke(new Api.channels.GetForumTopics({
+                        channel: inputChannel,
+                        offsetDate: 0,
+                        offsetId: 0,
+                        offsetTopic: 0,
+                        limit: 100,
+                    }));
+                    for (const topic of topicsResult.topics) {
+                        if (!(topic instanceof Api.ForumTopic)) continue;
+                        if (topic.id === 1) continue; // skip General — covered by the group entry
+                        results.push({ id, title: `${title}: ${topic.title}`, topicId: topic.id });
+                    }
+                } catch {
+                    // topic fetch failed — group entry without topics is still usable
+                }
+            }
         }
         return results;
     } catch {

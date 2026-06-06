@@ -1,6 +1,7 @@
 export interface ChatTarget {
     id: string;
     title?: string;
+    topicId?: number;
 }
 
 export interface TelegramChannel {
