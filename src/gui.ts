@@ -405,7 +405,9 @@ export class TelegramSettingTab extends PluginSettingTab {
 
     constructor(app: App, plugin: SendToTelegramPlugin) { super(app, plugin); this.plugin = plugin; }
 
-    display(): void {
+    display(): void { this.render(); }
+
+    private render(): void {
         if (this.inlineQrClient) {
             this.inlineQrClient.disconnect().catch(() => {});
             this.inlineQrClient = null;
@@ -452,7 +454,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                         await this.plugin.clearSecrets();
                         this.plugin.settings.telegramDisplayName = "";
                         await this.plugin.saveSettings();
-                        this.display();
+                        this.render();
                     }
                 ).open();
             });
@@ -499,7 +501,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                 while (existingNames.has(`${t.CHANNEL_DEFAULT_NAME} ${idx}`)) idx++;
                 this.plugin.settings.channels.unshift({ id: Date.now().toString(), name: `${t.CHANNEL_DEFAULT_NAME} ${idx}`, chatTargets: [], chatId: "", isDefault: false });
                 await this.plugin.saveSettings();
-                this.display();
+                this.render();
             }).buttonEl.addClass("telegram-add-button");
 
         this.plugin.settings.channels.forEach((channel, index) => {
@@ -522,7 +524,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                         saved = true;
                         channel.name = input.getValue();
                         await this.plugin.saveSettings();
-                        this.display();
+                        this.render();
                     };
 
                     input.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
@@ -541,7 +543,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                         async () => {
                             this.plugin.settings.channels.splice(index, 1);
                             await this.plugin.saveSettings();
-                            this.display();
+                            this.render();
                         }
                     ).open();
                 }).buttonEl.addClass("telegram-delete-button");
@@ -559,7 +561,7 @@ export class TelegramSettingTab extends PluginSettingTab {
                             // Re-render so all toggles reflect the new state. Calling
                             // setValue() here instead would re-enter onChange (Obsidian
                             // fires the change callback from setValue) and recurse.
-                            this.display();
+                            this.render();
                         });
                 })
                 .settingEl.addClass("telegram-preset-default");
@@ -957,7 +959,7 @@ export class TelegramSettingTab extends PluginSettingTab {
         this.inlineQrClient = null;
         await this.plugin.saveSettings();
         new Notice(t.AUTH_SUCCESS);
-        this.display();
+        this.render();
     }
 
     private renderInlineLocalCodeStep(
@@ -1064,6 +1066,6 @@ export class TelegramSettingTab extends PluginSettingTab {
         this.inlineLocalClient = null;
         await this.plugin.saveSettings();
         new Notice(t.AUTH_SUCCESS);
-        this.display();
+        this.render();
     }
 }
