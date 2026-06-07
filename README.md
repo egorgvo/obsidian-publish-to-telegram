@@ -212,3 +212,7 @@ My name is Mark Ingram (Ingrem), I am a Religious Studies scholar. Apart from my
 Hello to every student that came across this page!
 
 Huge thanks to [Egor Gvozdikov](https://github.com/egorgvo), who wrote the first lines of code for this project and made numerous valuable commits.
+
+---
+
+In compliance to the Obsidian community guidelines, all external network calls should be disclosed in the plugin README and only made with user knowledge. This plugin makes network calls only to [t.me](t.me)
