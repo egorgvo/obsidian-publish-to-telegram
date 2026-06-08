@@ -84,18 +84,8 @@ export default class SendToTelegramPlugin extends Plugin {
         });
     }
 
-    // If no preset is set as default but only one exists, that preset is set as default
     async resolveDefaultChannel(): Promise<TelegramChannel | undefined> {
-        const explicit = this.settings.channels.find(c => c.isDefault);
-        if (explicit) return explicit;
-
-        if (this.settings.channels.length === 1) {
-            this.settings.channels[0].isDefault = true;
-            await this.saveSettings();
-            return this.settings.channels[0];
-        }
-
-        return undefined;
+        return this.settings.channels.find(c => c.isDefault);
     }
 
     syncChannelCommands() {
