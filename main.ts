@@ -141,7 +141,7 @@ export default class SendToTelegramPlugin extends Plugin {
 
         if (targets.length === 0) { new Notice(t.NOTICE_ERR_CONFIG); return; }
 
-        const progressNotice = new Notice(t.NOTICE_PUBLISHING, 0);
+        const progressNotice = new Notice(updateLink && updateLink !== "none" ? t.NOTICE_EDITING : t.NOTICE_PUBLISHING, 0);
         const allLinks: string[] = [];
         const allErrors: Error[] = [];
 
@@ -182,7 +182,7 @@ export default class SendToTelegramPlugin extends Plugin {
                 }
             }
 
-            if (allErrors.length === 0) new Notice(scheduleDate ? t.NOTICE_SCHEDULED : t.NOTICE_SUCCESS);
+            if (allErrors.length === 0) new Notice(scheduleDate ? t.NOTICE_SCHEDULED : (updateLink && updateLink !== "none" ? t.NOTICE_EDITED : t.NOTICE_SUCCESS));
 
         } catch (err) {
             progressNotice.hide();
