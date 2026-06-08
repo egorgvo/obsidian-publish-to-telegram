@@ -215,4 +215,4 @@ Huge thanks to [Egor Gvozdikov](https://github.com/egorgvo), who wrote the first
 
 ---
 
-In compliance to the Obsidian community guidelines, all external network calls should be disclosed in the plugin README and only made with user knowledge. This plugin makes network calls only to [t.me](t.me)
+In compliance with the Obsidian community guidelines, all external network calls should be disclosed in the plugin README and only made with user knowledge. This plugin makes network calls only to [t.me](https://t.me)

@@ -1,14 +1,16 @@
 # Security Policy
 
+English | [Русский](https://github.com/pan4ratte/obsidian-publish-to-telegram/blob/main/SECURITY_RU.md)
+
 ## Disclosures
 
 1. We do not collect or store any personal data of our users.
 
-2. As of public release version >3.0.0, there are no extrernal nerwork calls to any servers, other than [t.me](https://t.me).
+2. As of public release version >3.0.0, there are no external network calls to any servers, other than [t.me](https://t.me).
 
 3. Your Telegram session is not available to us and is stored locally on your device.
 
-4. Your Telegram session is stored securely in your Obsidian [Secret storage](https://docs.obsidian.md/plugins/guides/secret-storage). 
+4. Your Telegram session is stored securely in your Obsidian [Secret storage](https://docs.obsidian.md/plugins/guides/secret-storage).
 
 ## Supported Versions
 
