@@ -2,6 +2,26 @@ import esbuild from "esbuild";
 
 const prod = process.argv[2] === "production";
 
+// GramJS caches its TL API schema to localStorage when running in a browser/Electron
+// environment. Obsidian plugins must not use localStorage (only Obsidian data APIs).
+// There is no GramJS option to disable this, so we patch the constant at build time.
+const disableGramjsApiCachePlugin = {
+    name: "disable-gramjs-api-cache",
+    setup(build) {
+        build.onLoad({ filter: /telegram[/\\]tl[/\\]api\.js$/ }, async (args) => {
+            const { readFile } = await import("fs/promises");
+            const source = await readFile(args.path, "utf8");
+            return {
+                contents: source.replace(
+                    "const CACHING_SUPPORTED = typeof self !== \"undefined\" && self.localStorage !== undefined;",
+                    "const CACHING_SUPPORTED = false;"
+                ),
+                loader: "js",
+            };
+        });
+    },
+};
+
 const nodeStubPlugin = {
     name: "node-stubs",
     setup(build) {
@@ -45,7 +65,7 @@ const context = await esbuild.context({
         vm: "vm-browserify",
     },
     inject: ["./shims/buffer.js", "./shims/process.js"],
-    plugins: [nodeStubPlugin],
+    plugins: [disableGramjsApiCachePlugin, nodeStubPlugin],
 });
 
 if (prod) {
