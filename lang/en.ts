@@ -78,6 +78,10 @@ export default {
     SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Treat .md embeds as post comments",
     SETTING_MD_EMBEDS_AS_COMMENTS_DESC: "If enabled, the contents of .md-attachments will be sent as comments to the post discussion",
 
+    CHANGELOG_BANNER_PREFIX: "What's new in version ",
+    CHANGELOG_BANNER_DISMISS: "Dismiss until next update",
+    CHANGELOG_LOAD_ERROR: "Could not load changelog",
+
     AUTH_AUTHORIZED_AS: "Authorized as: {name}",
     AUTH_LOGOUT_BTN: "Log out",
     AUTH_STEP_1: "Authorization: Step 1 of 2",

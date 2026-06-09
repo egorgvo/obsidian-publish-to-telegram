@@ -19,6 +19,7 @@ export interface TelegramSettings {
     savePostLinks: boolean;
     treatMdEmbedsAsComments: boolean;
     telegramDisplayName: string;
+    dismissedChangelogVersion?: string;
 }
 
 export interface TelegramSecrets {

@@ -1,4 +1,4 @@
-import { App, Modal, Component, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent, setIcon, AbstractInputSuggest } from "obsidian";
+import { App, Modal, Component, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent, setIcon, AbstractInputSuggest, normalizePath } from "obsidian";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { Api } from "telegram";
@@ -75,6 +75,30 @@ export class FormattingHelpModal extends Modal {
             "",
             this.renderComponent
         );
+    }
+
+    onClose() {
+        this.renderComponent.unload();
+        this.contentEl.empty();
+    }
+}
+
+// ─── Changelog Modal ─────────────────────────────────────────────────────────
+
+export class ChangelogModal extends Modal {
+    private readonly content: string;
+    private readonly renderComponent = new Component();
+
+    constructor(app: App, content: string) {
+        super(app);
+        this.content = content;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.addClass("telegram-changelog-modal");
+        this.renderComponent.load();
+        void MarkdownRenderer.render(this.app, this.content, contentEl, "", this.renderComponent);
     }
 
     onClose() {
@@ -494,8 +518,41 @@ export class TelegramSettingTab extends PluginSettingTab {
 
         containerEl.createEl("p", { text: t.SETTING_DESCRIPTION, cls: "telegram-plugin-description" });
 
-        // ── General ──
-        new Setting(containerEl).setHeading().setName(t.SECTION_GENERAL);
+        // ── Changelog banner ──
+        const currentVersion = this.plugin.manifest.version;
+        if (this.plugin.settings.dismissedChangelogVersion !== currentVersion) {
+            const bannerEl = containerEl.createDiv({ cls: "telegram-changelog-banner" });
+            const textEl = bannerEl.createSpan({ cls: "telegram-changelog-banner-text" });
+            textEl.appendText(t.CHANGELOG_BANNER_PREFIX);
+            const versionBtn = textEl.createEl("button", {
+                text: currentVersion,
+                cls: "telegram-changelog-version-link",
+            });
+            versionBtn.addEventListener("click", voidListener(async () => {
+                try {
+                    const content = await this.plugin.app.vault.adapter.read(
+                        normalizePath(`${this.plugin.manifest.dir}/CHANGELOG.md`)
+                    );
+                    new ChangelogModal(this.app, content).open();
+                } catch {
+                    new Notice(t.CHANGELOG_LOAD_ERROR);
+                }
+            }));
+            const closeBtn = bannerEl.createEl("button", {
+                cls: "clickable-icon telegram-changelog-close",
+                attr: { "aria-label": t.CHANGELOG_BANNER_DISMISS },
+            });
+            setIcon(closeBtn, "x");
+            closeBtn.addEventListener("click", () => {
+                this.plugin.settings.dismissedChangelogVersion = currentVersion;
+                void this.plugin.saveSettings();
+                bannerEl.remove();
+            });
+        }
+
+
+      // ── General ──
+      new Setting(containerEl).setHeading().setName(t.SECTION_GENERAL);
 
         if (this.plugin.secrets.telegramSession) {
             const authStatusEl = containerEl.createDiv({ cls: "telegram-auth-status" });

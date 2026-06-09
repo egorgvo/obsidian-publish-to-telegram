@@ -78,6 +78,10 @@ export default {
     SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Считать .md-вложения комментариями к посту",
     SETTING_MD_EMBEDS_AS_COMMENTS_DESC: "Если включено, содержимое .md-вложений будет отправлено как комментарии в обсуждение поста",
 
+    CHANGELOG_BANNER_PREFIX: "Что нового в версии ",
+    CHANGELOG_BANNER_DISMISS: "Скрыть до следующего обновления",
+    CHANGELOG_LOAD_ERROR: "Не удалось загрузить список изменений",
+
     AUTH_AUTHORIZED_AS: "Вы авторизованы как: {name}",
     AUTH_LOGOUT_BTN: "Выйти",
     AUTH_STEP_1: "Авторизация: Шаг 1 из 2",

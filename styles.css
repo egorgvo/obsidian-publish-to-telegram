@@ -532,6 +532,106 @@ input.telegram-schedule-input {
     box-sizing: border-box;
 }
 
+/* Changelog Banner */
+
+.telegram-changelog-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    margin-bottom: 8px;
+    border: 1px solid var(--setting-items-border-color);
+    border-radius: var(--setting-items-radius);
+    background-color: var(--setting-items-background);
+    font-size: var(--font-ui-small);
+    color: var(--text-normal);
+}
+
+.telegram-changelog-banner-text {
+    flex: 1;
+}
+
+body .telegram-changelog-version-link {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+    outline: none;
+    color: var(--text-accent);
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: inherit;
+    font-family: inherit;
+    font-weight: var(--font-semibold);
+    height: auto;
+}
+
+body .telegram-changelog-version-link:hover {
+    color: var(--text-accent-hover);
+    background: none;
+    box-shadow: none;
+}
+
+body .telegram-changelog-close {
+    background: none;
+    box-shadow: none;
+    border: none;
+    padding: 2px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: var(--radius-s);
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+
+body .telegram-changelog-close:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+/* Changelog Modal */
+
+.telegram-changelog-modal {
+    max-width: 680px;
+}
+
+.telegram-changelog-modal h2 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: var(--font-ui-large);
+}
+
+.telegram-changelog-modal h3 {
+    margin-top: 20px;
+    margin-bottom: 8px;
+    font-size: var(--font-ui-medium);
+    color: var(--text-normal);
+}
+
+.telegram-changelog-modal p,
+.telegram-changelog-modal li {
+    font-size: var(--font-ui-small);
+    color: var(--text-muted);
+    line-height: var(--line-height-normal);
+}
+
+.telegram-changelog-modal ul,
+.telegram-changelog-modal ol {
+    padding-left: 20px;
+    margin-bottom: 12px;
+}
+
+.telegram-changelog-modal hr {
+    margin: 20px 0;
+    border-color: var(--background-modifier-border);
+}
+
 /* Formatting Help Modal */
 
 .telegram-formatting-help-modal {
