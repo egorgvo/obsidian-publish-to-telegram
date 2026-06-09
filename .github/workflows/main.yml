@@ -43,10 +43,21 @@ jobs:
             manifest.json
             styles.css
 
-      # Step 5: Create the GitHub Release and attach the attested files
+      # Step 5: Extract release notes from CHANGELOG.md for this tag
+      - name: Extract release notes
+        id: changelog
+        run: |
+          VERSION="${{ github.ref_name }}"
+          NOTES=$(awk "/^## $VERSION/{flag=1; next} /^## /{flag=0} flag" CHANGELOG.md)
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # Step 6: Create the GitHub Release and attach the attested files
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body: ${{ steps.changelog.outputs.notes }}
           files: |
             main.js
             manifest.json
