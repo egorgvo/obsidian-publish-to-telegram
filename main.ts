@@ -1,7 +1,7 @@
 import { Plugin, Notice, TFile, TFolder, Menu } from "obsidian";
 import { t } from "./lang/helpers";
 import { TelegramChannel, TelegramSettings, TelegramSecrets, DEFAULT_SETTINGS } from "./src/types";
-import { sendNoteToTelegram, checkIsForum, createClient } from "./src/telegram";
+import { sendNoteToTelegram, editNoteCommentsOnly, checkIsForum, createClient } from "./src/telegram";
 import { FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
 import { errMessage } from "./src/util";
 
@@ -143,39 +143,31 @@ export default class SendToTelegramPlugin extends Plugin {
 
         const progressNotice = new Notice(updateLink && updateLink !== "none" ? t.NOTICE_EDITING : t.NOTICE_PUBLISHING, 0);
         const allLinks: string[] = [];
-        const allCommentLinksByPostLink: Record<string, string[]> = {};
+        const allCommentLinks: string[] = [];
         const allErrors: Error[] = [];
 
         try {
             for (const target of targets) {
                 const singleChannel: TelegramChannel = { ...channel, chatId: target.id, chatTitle: target.title };
-                const { links, commentLinksByPostLink, errors } = await sendNoteToTelegram(
+                const { links, commentLinks, errors } = await sendNoteToTelegram(
                     this.app, file, singleChannel, this.settings, this.secrets, silent, attachUnderText,
                     this.settings.treatMdEmbedsAsComments, updateLink, scheduleDate,
                     () => { progressNotice.setMessage(t.NOTICE_PUBLISHING_COMMENTS); }
                 );
                 allLinks.push(...links);
-                Object.assign(allCommentLinksByPostLink, commentLinksByPostLink);
+                allCommentLinks.push(...commentLinks);
                 allErrors.push(...errors);
             }
 
             progressNotice.hide();
 
-            if (this.settings.savePostLinks && allLinks.length > 0 && !scheduleDate) {
-                await this.app.fileManager.processFrontMatter(file, (fm: { telegram_links?: unknown; telegram_comment_links?: unknown }) => {
-                    const links = Array.isArray(fm.telegram_links) ? fm.telegram_links as string[] : [];
-                    for (const link of allLinks) {
-                        if (!links.includes(link)) links.push(link);
+            if (this.settings.savePostLinks && (allLinks.length > 0 || allCommentLinks.length > 0) && !scheduleDate) {
+                await this.app.fileManager.processFrontMatter(file, (fm: { telegram_links?: unknown }) => {
+                    const existing = Array.isArray(fm.telegram_links) ? fm.telegram_links as string[] : [];
+                    for (const link of [...allLinks, ...allCommentLinks]) {
+                        if (!existing.includes(link)) existing.push(link);
                     }
-                    fm.telegram_links = links;
-
-                    if (Object.keys(allCommentLinksByPostLink).length > 0) {
-                        const existing = (fm.telegram_comment_links && typeof fm.telegram_comment_links === "object" && !Array.isArray(fm.telegram_comment_links))
-                            ? fm.telegram_comment_links as Record<string, string[]>
-                            : {};
-                        Object.assign(existing, allCommentLinksByPostLink);
-                        fm.telegram_comment_links = existing;
-                    }
+                    fm.telegram_links = existing;
                 });
             }
 
@@ -206,6 +198,24 @@ export default class SendToTelegramPlugin extends Plugin {
             } else {
                 new Notice(`${t.NOTICE_ERR_SEND}${errMessage(err)}`);
             }
+        }
+    }
+
+    async editNoteComments(file: TFile, commentLinks: string[], silent: boolean): Promise<void> {
+        if (!this.secrets.telegramSession) { new Notice(t.NOTICE_ERR_NOT_AUTHENTICATED); return; }
+        const progressNotice = new Notice(t.NOTICE_EDITING_COMMENTS, 0);
+        try {
+            const { errors } = await editNoteCommentsOnly(this.app, file, this.secrets, commentLinks, silent);
+            progressNotice.hide();
+            for (const err of errors) {
+                const msg = (err.message ?? "").toUpperCase();
+                if (msg.includes("MESSAGE_NOT_MODIFIED")) new Notice(t.NOTICE_ERR_NOT_MODIFIED);
+                else new Notice(`${t.NOTICE_ERR_SEND}${err.message ?? ""}`);
+            }
+            if (errors.length === 0) new Notice(t.NOTICE_COMMENTS_EDITED);
+        } catch (err) {
+            progressNotice.hide();
+            new Notice(`${t.NOTICE_ERR_SEND}${errMessage(err)}`);
         }
     }
 

@@ -2,9 +2,11 @@ export default {
     MENU_TITLE: "Опубликовать в Telegram",
     NOTICE_PUBLISHING: "Публикуем пост…",
     NOTICE_EDITING: "Редактируем пост…",
+    NOTICE_EDITING_COMMENTS: "Редактируем комментарий…",
     NOTICE_PUBLISHING_COMMENTS: "Публикуем заготовленные комментарии…",
     NOTICE_SUCCESS: "Успешно опубликовано ✅",
-    NOTICE_EDITED: "Успешно отредактировано ✅",
+    NOTICE_EDITED: "Пост отредактирован ✅",
+    NOTICE_COMMENTS_EDITED: "Комментарий отредактирован ✅",
     NOTICE_SCHEDULED: "Публикация запланирована ✅",
     NOTICE_ERR_CONFIG: "Ошибка: Настройте хотя бы один пресет.",
     NOTICE_ERR_SEND: "Ошибка отправки: ",
@@ -49,6 +51,7 @@ export default {
     MULTI_PRESET_CHANNEL_SELECTION: "Выберите один или несколько пресетов",
     MULTI_PRESET_ADVANCED_FORMATTING: "Расширенное форматирование",
     MULTI_PRESET_POST_BTN: "Опубликовать",
+    MULTI_PRESET_EDIT_BTN: "Редактировать",
     MULTI_PRESET_NO_SELECTION: "Выберите хотя бы один пресет",
     MULTI_PRESET_SILENT_POST_NAME: "Опубликовать без звука",
     MULTI_PRESET_SILENT_POST_DESC: "Подписчики получат уведомление без звука",
@@ -56,16 +59,20 @@ export default {
     MULTI_PRESET_ATTACHMENTS_DESC: "Отображать текст сообщения над прикреплёнными медиафайлами",
     MULTI_PRESET_SCHEDULE_NAME: "Запланировать публикацию",
     MULTI_PRESET_SCHEDULE_DESC: "Оставьте пустым, чтобы опубликовать сейчас",
-    MULTI_PRESET_UPDATE_HEADING: "Отредактировать пост",
-    MULTI_PRESET_UPDATE_NAME: "Обновить существующий пост",
+    MULTI_PRESET_UPDATE_HEADING: "Редактирование",
+    MULTI_PRESET_UPDATE_NAME: "Редактировать пост",
     MULTI_PRESET_UPDATE_NAME_DESC: "Ссылки хранятся в свойстве telegram_links",
-    MULTI_PRESET_UPDATE_NO_OPTION: "Выберите ссылку на пост",
+    MULTI_PRESET_UPDATE_NO_OPTION: "Выберите ссылку",
     MULTI_PRESET_UPDATE_LINK_LABEL: "{link}",
-    MULTI_PRESET_UPDATE_NO_LINKS: "Ссылки на пост не найдены в свойствах заметки",
-    MULTI_PRESET_UPDATE_RESOLVING: "Поиск канала…",
-    MULTI_PRESET_UPDATE_WILL_USE: "Пост будет обновлён в {name}",
-    MULTI_PRESET_UPDATE_NO_MATCH: "Подходящий пресет не найден!",
-    MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Подходящий к ссылке пресет не найден!",
+    MULTI_PRESET_UPDATE_NO_LINKS: "Ссылки на посты не найдены в свойствах заметки",
+    MULTI_PRESET_UPDATE_RESOLVING: "Загрузка…",
+    MULTI_PRESET_UPDATE_WILL_USE: "Будет отредактирован пост в {name}",
+    MULTI_PRESET_UPDATE_NO_MATCH: "Не удалось определить источник ссылки",
+    MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Не удалось определить источник ссылки!",
+    MULTI_PRESET_EDIT_COMMENTS_NAME: "Редактировать комментарий",
+    MULTI_PRESET_EDIT_COMMENTS_DESC: "Ссылки хранятся в свойстве telegram_links",
+    MULTI_PRESET_EDIT_COMMENTS_NO_LINKS: "Ссылки на комментарии не найдены в свойствах заметки",
+    MULTI_PRESET_EDIT_WILL_EDIT: "Будет отредактирован комментарий в {name}",
     SETTING_SAVE_POST_LINKS_NAME: "Сохранять ссылки на посты",
     SETTING_SAVE_POST_LINKS_DESC: "Если включено, ссылка на опубликованную запись будет сохранена в свойствах заметки",
     SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Считать .md-вложения комментариями к посту",
@@ -233,7 +240,7 @@ export default {
 
 * Запланировать пост.
 
-* Отредактировать уже существующий пост. Ссылки на посты хранятся в свойстве \`telegram_links\`, которое заполняется автоматически если включена соответствующая функция в настройках, а также его можно создать и заполнить вручную.
+* Отредактировать уже существующий пост или (заготовленный) комментарий. Ссылки хранятся в свойстве \`telegram_links\`, которое заполняется автоматически если включена соответствующая функция в настройках, а также его можно создать и заполнить вручную.
 
 ### Лимиты
 

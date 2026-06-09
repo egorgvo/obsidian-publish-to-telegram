@@ -228,7 +228,7 @@ function buildPostLinkFromChatId(chatId: string, messageId: number, topicId?: nu
     return `https://t.me/c/${channelId}/${messageId}`;
 }
 
-function parseLinkComponents(link: string): { chatId: string; messageId: number } | null {
+export function parseLinkComponents(link: string): { chatId: string; messageId: number } | null {
     const privateMatch = link.match(/t\.me\/c\/(\d+)\/(\d+)\/?$/);
     if (privateMatch) return { chatId: `-100${privateMatch[1]}`, messageId: parseInt(privateMatch[2], 10) };
     const publicMatch = link.match(/t\.me\/([^/]+)\/(\d+)\/?$/);
@@ -784,7 +784,7 @@ export async function sendNoteToTelegram(
     updateLink?: string,
     scheduleDate?: Date,
     onProgress?: () => void,
-): Promise<{ links: string[]; commentLinksByPostLink: Record<string, string[]>; errors: Error[] }> {
+): Promise<{ links: string[]; commentLinks: string[]; errors: Error[] }> {
     const channel = { ...tg_channel, chatId: resolveChatId(tg_channel.chatId) };
     const content = await app.vault.read(file);
     const { body } = extractFrontmatter(content);
@@ -797,38 +797,26 @@ export async function sendNoteToTelegram(
         const messageId = msgIdMatch ? parseInt(msgIdMatch[1], 10) : null;
 
         if (messageId) {
-            const { mdEmbeds } = collectMediaFiles(app, body, file);
             const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
             try {
                 const entity = /^-?\d+$/.test(channel.chatId) ? parseInt(channel.chatId) : channel.chatId;
 
-                let postChanged = false;
                 try {
                     await client.editMessage(entity, {
                         message: messageId,
                         text: formattedContent,
                         parseMode: "html",
                     });
-                    postChanged = true;
                 } catch (err) {
-                    if (!String((err as any)?.message ?? "").includes("MESSAGE_NOT_MODIFIED")) throw err;
-                }
-
-                let commentsChanged = false;
-                if (treatMdEmbedsAsComments && mdEmbeds.length > 0) {
-                    onProgress?.();
-                    const fileCache = app.metadataCache.getFileCache(file);
-                    const storedCommentLinks = ((fileCache?.frontmatter?.telegram_comment_links ?? {}) as Record<string, string[]>)[updateLink] ?? [];
-                    commentsChanged = await updateCommentsForPost(client, entity, channel.chatId, messageId, mdEmbeds, app, storedCommentLinks, silent);
-                }
-
-                if (!postChanged && !commentsChanged) {
-                    return { links: [updateLink], commentLinksByPostLink: {}, errors: [new Error("MESSAGE_NOT_MODIFIED")] };
+                    if (String((err as any)?.message ?? "").includes("MESSAGE_NOT_MODIFIED")) {
+                        return { links: [updateLink], commentLinks: [], errors: [new Error("MESSAGE_NOT_MODIFIED")] };
+                    }
+                    throw err;
                 }
             } finally {
                 await client.destroy();
             }
-            return { links: [updateLink], commentLinksByPostLink: {}, errors: [] };
+            return { links: [updateLink], commentLinks: [], errors: [] };
         }
     }
 
@@ -838,7 +826,7 @@ export async function sendNoteToTelegram(
     const effectiveParts = parts.length > 0 ? parts : [body];
 
     const links: string[] = [];
-    const commentLinksByPostLink: Record<string, string[]> = {};
+    const commentLinks: string[] = [];
     const errors: Error[] = [];
 
     for (const part of effectiveParts) {
@@ -846,12 +834,60 @@ export async function sendNoteToTelegram(
             const result = await sendPartViaAccount(app, part, channel, secrets, silent, attachUnderText, file, treatMdEmbedsAsComments, scheduleDate, onProgress);
             if (result) {
                 links.push(result.link);
-                if (result.commentLinks?.length) commentLinksByPostLink[result.link] = result.commentLinks;
+                if (result.commentLinks?.length) commentLinks.push(...result.commentLinks);
             }
         } catch (err) {
             errors.push(err instanceof Error ? err : new Error(String(err)));
         }
     }
 
-    return { links, commentLinksByPostLink, errors };
+    return { links, commentLinks, errors };
+}
+
+// Edits pre-written comments in-place using the provided stored comment links
+// (caller is responsible for filtering/ordering them). Does NOT touch the post.
+export async function editNoteCommentsOnly(
+    app: App,
+    file: TFile,
+    secrets: TelegramSecrets,
+    commentLinks: string[],
+    silent: boolean,
+): Promise<{ errors: Error[] }> {
+    const content = await app.vault.read(file);
+    const { body } = extractFrontmatter(content);
+    const { mdEmbeds } = collectMediaFiles(app, body, file);
+
+    const storedLinks = commentLinks;
+    if (storedLinks.length === 0 || mdEmbeds.length === 0) return { errors: [] };
+
+    const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
+    try {
+        let anyChanged = false;
+        const limit = Math.min(mdEmbeds.length, storedLinks.length);
+        for (let i = 0; i < limit; i++) {
+            const mdContent = await app.vault.read(mdEmbeds[i]);
+            const { body: mdBody } = extractFrontmatter(mdContent);
+            const formattedContent = mdToTelegramHtml(mdBody);
+            if (!formattedContent.length) continue;
+
+            const parsed = parseLinkComponents(storedLinks[i]);
+            if (!parsed) continue;
+
+            const peer: string | number = /^-?\d+$/.test(parsed.chatId) ? parseInt(parsed.chatId) : parsed.chatId;
+            try {
+                await client.editMessage(peer, {
+                    message: parsed.messageId,
+                    text: formattedContent,
+                    parseMode: "html",
+                });
+                anyChanged = true;
+            } catch (err) {
+                if (!String((err as any)?.message ?? "").includes("MESSAGE_NOT_MODIFIED")) throw err;
+            }
+        }
+        if (!anyChanged) return { errors: [new Error("MESSAGE_NOT_MODIFIED")] };
+        return { errors: [] };
+    } finally {
+        await client.destroy();
+    }
 }

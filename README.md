@@ -21,7 +21,7 @@ This plugin allows you to post notes directly to Telegram channels, groups and p
   	* Post without sound.
   	* Post with attached media under the text.
     * Schedule the publication.
-    * Edit already existing post.
+    * Edit already existing post or (pre-written comment).
 
 5. Publish pre-written commentaries to the post discussion (or as replies to the message if it was posted in a group or sent to a user).
 
@@ -197,7 +197,7 @@ You can open an advanced publishing settings window with command palette (`Ctrl 
 
 * Schedule the publication.
 
-* Edit already existing post. Links to the posts are stored in the `telegram_links` property, which is filled automatically if the corresponding option is enabled in the settings. You can also create it and fill manually.
+* Edit already existing post or (pre-written comment). Links are stored in the `telegram_links` property, which is filled automatically if the corresponding option is enabled in the settings. You can also create it and fill manually.
 
 ### Limits
 

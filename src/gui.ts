@@ -7,7 +7,7 @@ import { t } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
 import * as QRCode from "qrcode";
 import { TelegramChannel, TelegramSecrets } from "./types";
-import { createClient, getUserDialogs, DialogData, DEFAULT_TG_API_ID, DEFAULT_TG_API_HASH, AUTH_API_ID, AUTH_API_HASH } from "./telegram";
+import { createClient, getUserDialogs, DialogData, parseLinkComponents, DEFAULT_TG_API_ID, DEFAULT_TG_API_HASH, AUTH_API_ID, AUTH_API_HASH } from "./telegram";
 import { errMessage, errCode } from "./util";
 
 // Wraps an async handler so it can be used where a void-returning callback is
@@ -18,46 +18,36 @@ function voidListener<E extends Event = Event>(handler: (evt: E) => Promise<void
 
 // ─── Channel resolution helpers ───────────────────────────────────────────────
 
-function findChannelByLink(channels: TelegramChannel[], link: string): TelegramChannel | null {
-    // Handles both 2-segment and 3-segment (forum topic) links
-    const match = link.match(/t\.me\/(?:c\/)?([^/]+)\/\d+(?:\/\d+)?\/?$/);
-    if (!match) return null;
-    const identifier = match[1];
-    return channels.find(c => {
-        const targets = c.chatTargets?.length > 0 ? c.chatTargets : (c.chatId ? [{ id: c.chatId }] : []);
-        return targets.some(t => {
-            const clean = t.id.replace(/^-100|^@/, "");
-            return t.id === identifier || t.id === `@${identifier}` || clean === identifier;
-        });
-    }) || null;
-}
-
-async function resolveChannelByLink(channels: TelegramChannel[], link: string, secrets?: TelegramSecrets): Promise<TelegramChannel | null> {
-    const direct = findChannelByLink(channels, link);
-    if (direct) return direct;
-
-    const match = link.match(/t\.me\/(?:c\/)?([^/]+)\/\d+(?:\/\d+)?\/?$/);
-    if (!match || !secrets?.telegramSession) return null;
-    const identifier = match[1].toLowerCase();
-
+// Resolves the display title and entity type of any Telegram chat from its link.
+// isChannel is true for broadcast channels, false for groups (including discussion groups).
+async function fetchEntityInfo(link: string, secrets?: TelegramSecrets): Promise<{ title: string | null; isChannel: boolean } | null> {
+    const parsed = parseLinkComponents(link);
+    if (!parsed || !secrets?.telegramSession) return null;
+    const entity: string | number = /^-?\d+$/.test(parsed.chatId) ? parseInt(parsed.chatId) : parsed.chatId;
     const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
     try {
-        for (const channel of channels) {
-            const targets = channel.chatTargets?.length > 0 ? channel.chatTargets : (channel.chatId ? [{ id: channel.chatId }] : []);
-            if (targets.length === 0) continue;
-            try {
-                for (const target of targets) {
-                    const entity = await client.getEntity(target.id) as { username?: string };
-                    const username = entity.username;
-                    if (username && username.toLowerCase() === identifier) return channel;
-                }
-            } catch { continue; }
-        }
+        const resolved = await client.getEntity(entity) as { title?: string; username?: string; firstName?: string; broadcast?: boolean };
+        const title = resolved.title ?? (resolved.username ? `@${resolved.username}` : null) ?? resolved.firstName ?? null;
+        const isChannel = resolved.broadcast === true;
+        return { title, isChannel };
+    } catch {
+        return null;
     } finally {
         await client.destroy();
     }
+}
 
-    return null;
+// Builds a minimal TelegramChannel from a link's parsed chat ID (no preset needed).
+function channelFromLink(link: string, name: string): TelegramChannel | null {
+    const parsed = parseLinkComponents(link);
+    if (!parsed) return null;
+    return {
+        id: "update-temp",
+        name,
+        chatId: parsed.chatId,
+        chatTargets: [{ id: parsed.chatId, title: name }],
+        isDefault: false,
+    };
 }
 
 // ─── Formatting Help Modal ────────────────────────────────────────────────────
@@ -135,12 +125,20 @@ export class MultiPresetModal extends Modal {
     private silentToggle: ToggleComponent;
     private attachToggle: ToggleComponent;
     private scheduleInput: HTMLInputElement | null = null;
-    private updateLinkDropdown: DropdownComponent | null = null;
-    private updateChannelHintEl: HTMLElement | null = null;
-    private updateNameDescEl: HTMLElement | null = null;
-    private resolvedUpdateChannel: TelegramChannel | null = null;
 
+    private updateLinkDropdown: DropdownComponent | null = null;
+    private updateHintEl: HTMLElement | null = null;
+    private updateDescEl: HTMLElement | null = null;
+    private builtUpdateChannel: TelegramChannel | null = null;
+
+    private commentLinkDropdown: DropdownComponent | null = null;
+    private commentHintEl: HTMLElement | null = null;
+    private commentDescEl: HTMLElement | null = null;
+    private commentResolved: boolean = false;
+
+    private publishBtn: ButtonComponent | null = null;
     private channelRows: Array<{ id: string, container: HTMLElement, toggle: ToggleComponent }> = [];
+    private resolvedLinks = new Map<string, { title: string | null; isChannel: boolean }>();
 
     constructor(app: App, plugin: SendToTelegramPlugin, file: TFile, initialChannelId?: string) {
         super(app);
@@ -148,6 +146,16 @@ export class MultiPresetModal extends Modal {
         this.file = file;
         this.selectedChannels = new Set();
         this.initialChannelId = initialChannelId;
+    }
+
+    private anyLinkSelected(): boolean {
+        const post = this.updateLinkDropdown?.getValue() ?? "none";
+        const comment = this.commentLinkDropdown?.getValue() ?? "none";
+        return post !== "none" || comment !== "none";
+    }
+
+    private updatePublishBtn() {
+        this.publishBtn?.setButtonText(this.anyLinkSelected() ? t.MULTI_PRESET_EDIT_BTN : t.MULTI_PRESET_POST_BTN);
     }
 
     private setChannelRowsDisabled(disabled: boolean) {
@@ -162,38 +170,57 @@ export class MultiPresetModal extends Modal {
         });
     }
 
-    private setHint(text: string, isError: boolean) {
-        if (!this.updateChannelHintEl) return;
-        this.updateChannelHintEl.setText(text);
-        this.updateChannelHintEl.show();
-        this.updateNameDescEl?.hide();
-        if (isError) this.updateChannelHintEl.addClass("is-error");
-        else this.updateChannelHintEl.removeClass("is-error");
+    private showHint(el: HTMLElement | null, descEl: HTMLElement | null, text: string, isError: boolean) {
+        if (!el) return;
+        el.setText(text);
+        el.show();
+        descEl?.hide();
+        if (isError) el.addClass("is-error");
+        else el.removeClass("is-error");
     }
 
-    private hideHint() {
-        this.updateChannelHintEl?.hide();
-        this.updateNameDescEl?.show();
+    private hideHint(el: HTMLElement | null, descEl: HTMLElement | null) {
+        el?.hide();
+        descEl?.show();
     }
 
-    private async handleLinkSelection(value: string) {
+    private handleLinkSelection(value: string) {
+        this.updatePublishBtn();
         if (value === "none") {
-            this.resolvedUpdateChannel = null;
-            this.setChannelRowsDisabled(false);
-            this.hideHint();
+            this.builtUpdateChannel = null;
+            if (!this.anyLinkSelected()) this.setChannelRowsDisabled(false);
+            this.hideHint(this.updateHintEl, this.updateDescEl);
             return;
         }
 
         this.setChannelRowsDisabled(true);
-        this.setHint(t.MULTI_PRESET_UPDATE_RESOLVING, false);
-
-        const matched = await resolveChannelByLink(this.plugin.settings.channels, value, this.plugin.secrets);
-        this.resolvedUpdateChannel = matched;
-
-        if (matched) {
-            this.setHint(t.MULTI_PRESET_UPDATE_WILL_USE.replace("{name}", matched.name || matched.chatId), false);
+        const info = this.resolvedLinks.get(value);
+        if (info?.title) {
+            this.builtUpdateChannel = channelFromLink(value, info.title);
+            this.showHint(this.updateHintEl, this.updateDescEl, t.MULTI_PRESET_UPDATE_WILL_USE.replace("{name}", info.title), false);
         } else {
-            this.setHint(t.MULTI_PRESET_UPDATE_NO_MATCH, true);
+            this.builtUpdateChannel = null;
+            this.showHint(this.updateHintEl, this.updateDescEl, t.MULTI_PRESET_UPDATE_NO_MATCH, true);
+        }
+    }
+
+    private handleCommentLinkSelection(value: string) {
+        this.updatePublishBtn();
+        if (value === "none") {
+            this.commentResolved = false;
+            if (!this.anyLinkSelected()) this.setChannelRowsDisabled(false);
+            this.hideHint(this.commentHintEl, this.commentDescEl);
+            return;
+        }
+
+        this.setChannelRowsDisabled(true);
+        const info = this.resolvedLinks.get(value);
+        if (info?.title) {
+            this.commentResolved = true;
+            this.showHint(this.commentHintEl, this.commentDescEl, t.MULTI_PRESET_EDIT_WILL_EDIT.replace("{name}", info.title), false);
+        } else {
+            this.commentResolved = false;
+            this.showHint(this.commentHintEl, this.commentDescEl, t.MULTI_PRESET_UPDATE_NO_MATCH, true);
         }
     }
 
@@ -258,93 +285,130 @@ export class MultiPresetModal extends Modal {
         this.scheduleInput = scheduleOptionEl.createDiv("telegram-option-control").createEl("input", { cls: "telegram-schedule-input" });
         this.scheduleInput.type = "datetime-local";
 
-        // ─── Update Existing Post Section ─────────────────────────────────────────────
+        // ─── Edit Post & Comments Section ─────────────────────────────────────────────
 
-        contentEl.createDiv({
-            text: t.MULTI_PRESET_UPDATE_HEADING,
-            cls: "telegram-modal-heading"
-        });
+        const cache = this.app.metadataCache.getFileCache(this.file);
+        const allStoredLinks: string[] = (() => {
+            const raw: unknown = cache?.frontmatter?.telegram_links;
+            return Array.isArray(raw) ? raw.map(String) : (raw ? [String(raw)] : []);
+        })();
 
+        contentEl.createDiv({ text: t.MULTI_PRESET_UPDATE_HEADING, cls: "telegram-modal-heading" });
+
+        // "Update existing post" row
         const updateOptionEl = contentEl.createDiv("telegram-option-item");
         const updateTextEl = updateOptionEl.createDiv("telegram-option-text");
         updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NAME, cls: "telegram-option-name" });
-        this.updateNameDescEl = updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NAME_DESC, cls: "telegram-option-desc" });
-        this.updateChannelHintEl = updateTextEl.createDiv({ cls: "telegram-update-channel-hint" });
-        this.updateChannelHintEl.hide();
+        this.updateDescEl = updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NAME_DESC, cls: "telegram-option-desc" });
+        this.updateHintEl = updateTextEl.createDiv({ cls: "telegram-update-channel-hint" });
+        this.updateHintEl.hide();
+        const updateControlEl = updateOptionEl.createDiv("telegram-option-control");
 
-        const cache = this.app.metadataCache.getFileCache(this.file);
-        let telegramLinks: string[] = [];
+        // "Edit existing comments" row
+        const commentOptionEl = contentEl.createDiv("telegram-option-item");
+        const commentTextEl = commentOptionEl.createDiv("telegram-option-text");
+        commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_NAME, cls: "telegram-option-name" });
+        this.commentDescEl = commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_DESC, cls: "telegram-option-desc" });
+        this.commentHintEl = commentTextEl.createDiv({ cls: "telegram-update-channel-hint" });
+        this.commentHintEl.hide();
+        const commentControlEl = commentOptionEl.createDiv("telegram-option-control");
 
-        if (cache?.frontmatter?.telegram_links) {
-            const links: unknown = cache.frontmatter.telegram_links;
-            telegramLinks = Array.isArray(links) ? links.map(String) : [String(links)];
-        }
-
-        if (telegramLinks.length > 0) {
-            this.updateLinkDropdown = new DropdownComponent(updateOptionEl.createDiv("telegram-option-control"));
-            this.updateLinkDropdown.addOption("none", t.MULTI_PRESET_UPDATE_NO_OPTION);
-
-            telegramLinks.forEach((link, idx) => {
-                this.updateLinkDropdown!.addOption(
-                    link,
-                    t.MULTI_PRESET_UPDATE_LINK_LABEL
-                        .replace("{idx}", String(idx + 1))
-                        .replace("{link}", link)
-                );
-            });
-            this.updateLinkDropdown.setValue("none");
-
-            this.updateLinkDropdown.onChange((value) => {
-                void this.handleLinkSelection(value);
-            });
-        } else {
+        if (allStoredLinks.length === 0 || !this.plugin.secrets.telegramSession) {
             updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NO_LINKS, cls: "telegram-option-desc" });
+            commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_NO_LINKS, cls: "telegram-option-desc" });
+        } else {
+            const updateLoadingEl = updateControlEl.createSpan({ text: t.MULTI_PRESET_UPDATE_RESOLVING, cls: "telegram-update-channel-hint" });
+            const commentLoadingEl = commentControlEl.createSpan({ text: t.MULTI_PRESET_UPDATE_RESOLVING, cls: "telegram-update-channel-hint" });
+
+            void (async () => {
+                const results = await Promise.all(
+                    allStoredLinks.map(link => fetchEntityInfo(link, this.plugin.secrets))
+                );
+
+                if (!updateLoadingEl.isConnected) return; // modal was closed before resolution
+
+                const postLinks: string[] = [];
+                const commentLinks: string[] = [];
+                results.forEach((info, i) => {
+                    if (info === null) return;
+                    this.resolvedLinks.set(allStoredLinks[i], info);
+                    if (info.isChannel) postLinks.push(allStoredLinks[i]);
+                    else commentLinks.push(allStoredLinks[i]);
+                });
+
+                updateLoadingEl.remove();
+                if (postLinks.length > 0) {
+                    this.updateLinkDropdown = new DropdownComponent(updateControlEl);
+                    this.updateLinkDropdown.addOption("none", t.MULTI_PRESET_UPDATE_NO_OPTION);
+                    postLinks.forEach(link => this.updateLinkDropdown!.addOption(link, t.MULTI_PRESET_UPDATE_LINK_LABEL.replace("{link}", link)));
+                    this.updateLinkDropdown.setValue("none");
+                    this.updateLinkDropdown.onChange(value => { this.handleLinkSelection(value); });
+                } else {
+                    updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NO_LINKS, cls: "telegram-option-desc" });
+                }
+
+                commentLoadingEl.remove();
+                if (commentLinks.length > 0) {
+                    this.commentLinkDropdown = new DropdownComponent(commentControlEl);
+                    this.commentLinkDropdown.addOption("none", t.MULTI_PRESET_UPDATE_NO_OPTION);
+                    commentLinks.forEach(link => this.commentLinkDropdown!.addOption(link, t.MULTI_PRESET_UPDATE_LINK_LABEL.replace("{link}", link)));
+                    this.commentLinkDropdown.setValue("none");
+                    this.commentLinkDropdown.onChange(value => { this.handleCommentLinkSelection(value); });
+                } else {
+                    commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_NO_LINKS, cls: "telegram-option-desc" });
+                }
+            })();
         }
+
+        // ─── Publish Button ───────────────────────────────────────────────────────────
 
         const btnContainer = contentEl.createDiv("telegram-modal-buttons");
-        new ButtonComponent(btnContainer)
+        this.publishBtn = new ButtonComponent(btnContainer)
             .setButtonText(t.MULTI_PRESET_POST_BTN)
             .setCta()
             .onClick(async () => {
                 const updateLinkRaw = this.updateLinkDropdown?.getValue();
-                const isUpdating = updateLinkRaw && updateLinkRaw !== "none";
+                const isUpdatingPost = !!updateLinkRaw && updateLinkRaw !== "none";
+                const commentLinkRaw = this.commentLinkDropdown?.getValue();
+                const isEditingComments = !!commentLinkRaw && commentLinkRaw !== "none";
 
-                if (!isUpdating && this.selectedChannels.size === 0) {
+                if (!isUpdatingPost && !isEditingComments && this.selectedChannels.size === 0) {
                     new Notice(t.MULTI_PRESET_NO_SELECTION);
+                    return;
+                }
+                if (isUpdatingPost && !this.builtUpdateChannel) {
+                    new Notice(t.MULTI_PRESET_UPDATE_NO_MATCH_NOTICE);
                     return;
                 }
 
                 const silent = this.silentToggle?.getValue() ?? false;
                 const attachUnderText = this.attachToggle?.getValue() ?? false;
-                const updateLink = isUpdating ? updateLinkRaw : undefined;
 
                 let scheduleDate: Date | undefined;
-                if (this.scheduleInput?.value) {
+                if (!isUpdatingPost && !isEditingComments && this.scheduleInput?.value) {
                     scheduleDate = new Date(this.scheduleInput.value);
-                }
-
-                const postsToSend: TelegramChannel[] = [];
-
-                if (isUpdating) {
-                    const targetChannel = this.resolvedUpdateChannel
-                        ?? await resolveChannelByLink(this.plugin.settings.channels, updateLinkRaw, this.plugin.secrets);
-
-                    if (!targetChannel) {
-                        new Notice(t.MULTI_PRESET_UPDATE_NO_MATCH_NOTICE);
-                        return;
-                    }
-                    postsToSend.push(targetChannel);
-                } else {
-                    for (const channelId of this.selectedChannels) {
-                        const channel = this.plugin.settings.channels.find(c => c.id === channelId);
-                        if (channel) postsToSend.push(channel);
-                    }
                 }
 
                 this.close();
 
-                for (const channel of postsToSend) {
-                    await this.plugin.sendNoteToTelegram(this.file, channel, silent, attachUnderText, updateLink, scheduleDate);
+                if (isUpdatingPost) {
+                    await this.plugin.sendNoteToTelegram(this.file, this.builtUpdateChannel!, silent, attachUnderText, updateLinkRaw!, undefined);
+                }
+                if (isEditingComments) {
+                    // Find all comment links that belong to the same discussion group as the selected one
+                    const selectedParsed = parseLinkComponents(commentLinkRaw!);
+                    const filteredLinks = selectedParsed
+                        ? allStoredLinks
+                            .filter(l => parseLinkComponents(l)?.chatId === selectedParsed.chatId)
+                            .sort((a, b) => (parseLinkComponents(a)?.messageId ?? 0) - (parseLinkComponents(b)?.messageId ?? 0))
+                        : [];
+                    await this.plugin.editNoteComments(this.file, filteredLinks, silent);
+                }
+                if (!isUpdatingPost && !isEditingComments) {
+                    for (const channelId of this.selectedChannels) {
+                        const channel = this.plugin.settings.channels.find(c => c.id === channelId);
+                        if (channel) await this.plugin.sendNoteToTelegram(this.file, channel, silent, attachUnderText, undefined, scheduleDate);
+                    }
                 }
             });
     }

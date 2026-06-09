@@ -2,9 +2,11 @@ export default {
     MENU_TITLE: "Publish to Telegram",
     NOTICE_PUBLISHING: "Publishing the post…",
     NOTICE_EDITING: "Editing the post…",
+    NOTICE_EDITING_COMMENTS: "Editing the comment…",
     NOTICE_PUBLISHING_COMMENTS: "Publishing pre-written comments…",
     NOTICE_SUCCESS: "Successfully published ✅",
-    NOTICE_EDITED: "Successfully edited ✅",
+    NOTICE_EDITED: "Post edited ✅",
+    NOTICE_COMMENTS_EDITED: "Comment edited ✅",
     NOTICE_SCHEDULED: "Post scheduled ✅",
     NOTICE_ERR_CONFIG: "Error: Set up at least one preset.",
     NOTICE_ERR_SEND: "Publishing error: ",
@@ -49,6 +51,7 @@ export default {
     MULTI_PRESET_CHANNEL_SELECTION: "Choose one or multiple presets",
     MULTI_PRESET_ADVANCED_FORMATTING: "Advanced post settings",
     MULTI_PRESET_POST_BTN: "Publish",
+    MULTI_PRESET_EDIT_BTN: "Edit",
     MULTI_PRESET_NO_SELECTION: "Choose at least one preset",
     MULTI_PRESET_SILENT_POST_NAME: "Publish silently",
     MULTI_PRESET_SILENT_POST_DESC: "Subscribers will receive a notification without sound",
@@ -56,16 +59,20 @@ export default {
     MULTI_PRESET_ATTACHMENTS_DESC: "Display post text above the attached media files",
     MULTI_PRESET_SCHEDULE_NAME: "Schedule the post",
     MULTI_PRESET_SCHEDULE_DESC: "Leave empty to publish immediately",
-    MULTI_PRESET_UPDATE_HEADING: "Edit post",
-    MULTI_PRESET_UPDATE_NAME: "Update existing post",
+    MULTI_PRESET_UPDATE_HEADING: "Editing",
+    MULTI_PRESET_UPDATE_NAME: "Edit existing post",
     MULTI_PRESET_UPDATE_NAME_DESC: "Links are stored in the telegram_links property",
-    MULTI_PRESET_UPDATE_NO_OPTION: "Choose a link to the post",
+    MULTI_PRESET_UPDATE_NO_OPTION: "Choose a link",
     MULTI_PRESET_UPDATE_LINK_LABEL: "{link}",
-    MULTI_PRESET_UPDATE_NO_LINKS: "No links found in properties of the current note",
-    MULTI_PRESET_UPDATE_RESOLVING: "Resolving channel…",
-    MULTI_PRESET_UPDATE_WILL_USE: "Will update the post in {name}",
-    MULTI_PRESET_UPDATE_NO_MATCH: "Matching preset not found!",
-    MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Matching preset not found for this link!",
+    MULTI_PRESET_UPDATE_NO_LINKS: "No post links found in properties of the note",
+    MULTI_PRESET_UPDATE_RESOLVING: "Loading…",
+    MULTI_PRESET_UPDATE_WILL_USE: "Will edit the post in {name}",
+    MULTI_PRESET_UPDATE_NO_MATCH: "Could not resolve this link",
+    MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Could not resolve this link!",
+    MULTI_PRESET_EDIT_COMMENTS_NAME: "Edit existing comments",
+    MULTI_PRESET_EDIT_COMMENTS_DESC: "Links are stored in the telegram_links property",
+    MULTI_PRESET_EDIT_COMMENTS_NO_LINKS: "No comment links found in properties of the note",
+    MULTI_PRESET_EDIT_WILL_EDIT: "Will edit the comment in {name}",
     SETTING_SAVE_POST_LINKS_NAME: "Save posts links",
     SETTING_SAVE_POST_LINKS_DESC: "If enabled, the link to the published post will be saved to the note's properties",
     SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Treat .md embeds as post comments",
@@ -233,7 +240,7 @@ You can open an advanced publishing settings window with command palette (\`Ctrl
 
 * Schedule the publication.
 
-* Edit already existing post. Links to the posts are stored in the \`telegram_links\` property, which is filled automatically if the corresponding option is enabled in the settings. You can also create it and fill manually.
+* Edit already existing post or (pre-written comment). Links are stored in the \`telegram_links\` property, which is filled automatically if the corresponding option is enabled in the settings. You can also create it and fill manually.
 
 ### Limits
 
