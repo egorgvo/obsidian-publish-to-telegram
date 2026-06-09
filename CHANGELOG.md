@@ -1,21 +1,10 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-
-
 ## 3.0.1
 
 * This 3.0.1 release is a security and stability hotfix. See changelog for the vesrion 3.0.0 to get more information about the latest major update.
 
 **Full Changelog**: https://github.com/pan4ratte/obsidian-publish-to-telegram/compare/3.0.0...3.0.1
-
----
-
-* Данный релиз 3.0.1 является патчем, улучшающим стабильность и безопасность плагина. Смотрите список изменений версии 3.0.0, ччтобы узнать больше о последнем крупном обнолении.
-
-**Полный лог изменений**: https://github.com/pan4ratte/obsidian-publish-to-telegram/compare/3.0.0...3.0.1
-
 
 ## 3.0.0
 
