@@ -290,7 +290,7 @@ export class MultiPresetModal extends Modal {
         const cache = this.app.metadataCache.getFileCache(this.file);
         const allStoredLinks: string[] = (() => {
             const raw: unknown = cache?.frontmatter?.telegram_links;
-            return Array.isArray(raw) ? raw.map(String) : (raw ? [String(raw)] : []);
+            return Array.isArray(raw) ? raw.map(String) : (typeof raw === 'string' ? [raw] : []);
         })();
 
         contentEl.createDiv({ text: t.MULTI_PRESET_UPDATE_HEADING, cls: "telegram-modal-heading" });
@@ -340,7 +340,7 @@ export class MultiPresetModal extends Modal {
                 if (postLinks.length > 0) {
                     this.updateLinkDropdown = new DropdownComponent(updateControlEl);
                     this.updateLinkDropdown.addOption("none", t.MULTI_PRESET_UPDATE_NO_OPTION);
-                    postLinks.forEach(link => this.updateLinkDropdown!.addOption(link, t.MULTI_PRESET_UPDATE_LINK_LABEL.replace("{link}", link)));
+                    postLinks.forEach(link => { this.updateLinkDropdown!.addOption(link, t.MULTI_PRESET_UPDATE_LINK_LABEL.replace("{link}", link)); });
                     this.updateLinkDropdown.setValue("none");
                     this.updateLinkDropdown.onChange(value => { this.handleLinkSelection(value); });
                 } else {
@@ -351,7 +351,7 @@ export class MultiPresetModal extends Modal {
                 if (commentLinks.length > 0) {
                     this.commentLinkDropdown = new DropdownComponent(commentControlEl);
                     this.commentLinkDropdown.addOption("none", t.MULTI_PRESET_UPDATE_NO_OPTION);
-                    commentLinks.forEach(link => this.commentLinkDropdown!.addOption(link, t.MULTI_PRESET_UPDATE_LINK_LABEL.replace("{link}", link)));
+                    commentLinks.forEach(link => { this.commentLinkDropdown!.addOption(link, t.MULTI_PRESET_UPDATE_LINK_LABEL.replace("{link}", link)); });
                     this.commentLinkDropdown.setValue("none");
                     this.commentLinkDropdown.onChange(value => { this.handleCommentLinkSelection(value); });
                 } else {
@@ -392,11 +392,11 @@ export class MultiPresetModal extends Modal {
                 this.close();
 
                 if (isUpdatingPost) {
-                    await this.plugin.sendNoteToTelegram(this.file, this.builtUpdateChannel!, silent, attachUnderText, updateLinkRaw!, undefined);
+                    await this.plugin.sendNoteToTelegram(this.file, this.builtUpdateChannel!, silent, attachUnderText, updateLinkRaw, undefined);
                 }
                 if (isEditingComments) {
                     // Find all comment links that belong to the same discussion group as the selected one
-                    const selectedParsed = parseLinkComponents(commentLinkRaw!);
+                    const selectedParsed = parseLinkComponents(commentLinkRaw);
                     const filteredLinks = selectedParsed
                         ? allStoredLinks
                             .filter(l => parseLinkComponents(l)?.chatId === selectedParsed.chatId)

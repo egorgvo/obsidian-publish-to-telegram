@@ -7,6 +7,7 @@ import { CustomFile, _fileToMedia } from "telegram/client/uploads";
 import { _parseMessageText } from "telegram/client/messageParse";
 import { getInputMedia } from "telegram/Utils";
 import { TelegramChannel, TelegramSettings, TelegramSecrets } from "./types";
+import { errMessage } from "./util";
 
 // ─── Internal result & media types ────────────────────────────────────────────
 
@@ -521,49 +522,6 @@ async function sendCommentViaAccount(
     }
 }
 
-// Edits existing pre-written comments using stored links, or sends new ones for
-// embeds that have no stored link yet. Returns true if any comment changed.
-async function updateCommentsForPost(
-    client: TelegramClient,
-    channelEntity: string | number,
-    channelChatId: string,
-    channelMessageId: number,
-    mdEmbeds: TFile[],
-    app: App,
-    existingCommentLinks: string[],
-    silent: boolean,
-): Promise<boolean> {
-    let anyChanged = false;
-
-    for (let i = 0; i < mdEmbeds.length; i++) {
-        const mdContent = await app.vault.read(mdEmbeds[i]);
-        const { body: mdBody } = extractFrontmatter(mdContent);
-        const formattedContent = mdToTelegramHtml(mdBody);
-        if (!formattedContent.length) continue;
-
-        if (i < existingCommentLinks.length) {
-            const parsed = parseLinkComponents(existingCommentLinks[i]);
-            if (parsed) {
-                const peer: string | number = /^-?\d+$/.test(parsed.chatId) ? parseInt(parsed.chatId) : parsed.chatId;
-                try {
-                    await client.editMessage(peer, {
-                        message: parsed.messageId,
-                        text: formattedContent,
-                        parseMode: "html",
-                    });
-                    anyChanged = true;
-                } catch (err) {
-                    if (!String((err as any)?.message ?? "").includes("MESSAGE_NOT_MODIFIED")) throw err;
-                }
-            }
-        } else {
-            await sendCommentViaAccount(client, channelEntity, channelChatId, channelMessageId, formattedContent, silent);
-            anyChanged = true;
-        }
-    }
-
-    return anyChanged;
-}
 
 // Sends one or more files with proper invertMedia support via raw MTProto API.
 // GramJS's high-level sendMessage/sendFile/sendAlbum do not forward invertMedia,
@@ -808,7 +766,7 @@ export async function sendNoteToTelegram(
                         parseMode: "html",
                     });
                 } catch (err) {
-                    if (String((err as any)?.message ?? "").includes("MESSAGE_NOT_MODIFIED")) {
+                    if (errMessage(err).includes("MESSAGE_NOT_MODIFIED")) {
                         return { links: [updateLink], commentLinks: [], errors: [new Error("MESSAGE_NOT_MODIFIED")] };
                     }
                     throw err;
@@ -882,7 +840,7 @@ export async function editNoteCommentsOnly(
                 });
                 anyChanged = true;
             } catch (err) {
-                if (!String((err as any)?.message ?? "").includes("MESSAGE_NOT_MODIFIED")) throw err;
+                if (!errMessage(err).includes("MESSAGE_NOT_MODIFIED")) throw err;
             }
         }
         if (!anyChanged) return { errors: [new Error("MESSAGE_NOT_MODIFIED")] };
