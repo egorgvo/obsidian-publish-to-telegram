@@ -13,6 +13,7 @@ import { TelegramChannel, TelegramSettings, TelegramSecrets } from "./types";
 interface SendResult {
     link: string;
     messageId: number;
+    commentLinks?: string[];
 }
 
 interface MediaFile {
@@ -227,6 +228,14 @@ function buildPostLinkFromChatId(chatId: string, messageId: number, topicId?: nu
     return `https://t.me/c/${channelId}/${messageId}`;
 }
 
+function parseLinkComponents(link: string): { chatId: string; messageId: number } | null {
+    const privateMatch = link.match(/t\.me\/c\/(\d+)\/(\d+)\/?$/);
+    if (privateMatch) return { chatId: `-100${privateMatch[1]}`, messageId: parseInt(privateMatch[2], 10) };
+    const publicMatch = link.match(/t\.me\/([^/]+)\/(\d+)\/?$/);
+    if (publicMatch) return { chatId: `@${publicMatch[1]}`, messageId: parseInt(publicMatch[2], 10) };
+    return null;
+}
+
 function resolveChatId(value: string): string {
     const trimmed = value.trim();
     if (trimmed.startsWith("@") || /^-?\d+$/.test(trimmed)) return trimmed;
@@ -370,10 +379,11 @@ export async function getUserDialogs(client: TelegramClient): Promise<DialogData
 async function sendCommentViaAccount(
     client: TelegramClient,
     channelEntity: string | number,
+    channelChatId: string,
     channelMessageId: number,
     text: string,
     silent: boolean,
-): Promise<void> {
+): Promise<string | null> {
     // Determine whether the channel has a linked discussion group, and resolve the
     // correct sendAs peer so the comment is attributed to the right identity.
     //
@@ -387,6 +397,7 @@ async function sendCommentViaAccount(
     // one with SEND_AS_PEER_INVALID).
     let hasDiscussion = false;
     let sendAsPeer: Api.TypeInputPeer | undefined;
+    let linkedGroupChatId: string | undefined;
     try {
         const full = await client.invoke(new Api.channels.GetFullChannel({ channel: channelEntity }));
         const fullChat = full.fullChat as Api.ChannelFull;
@@ -394,6 +405,7 @@ async function sendCommentViaAccount(
         hasDiscussion = !!linkedChatId;
 
         if (hasDiscussion && linkedChatId) {
+            linkedGroupChatId = `-100${linkedChatId.toString()}`;
             const groupChat = full.chats.find(c => c.id.eq(linkedChatId)) as Api.Channel | undefined;
             const sourceChannel = full.chats.find(c => !c.id.eq(linkedChatId)) as Api.Channel | undefined;
             const isPrivate = !sourceChannel?.username;
@@ -481,25 +493,76 @@ async function sendCommentViaAccount(
             // the high-level sendMessage wrapper does not reliably propagate it.
             const [message, entities] = await _parseMessageText(client, text, "html");
             const peer = await client.getInputEntity(threadHead.peerId);
-            await client.invoke(new Api.messages.SendMessage({
+            const req = new Api.messages.SendMessage({
                 peer,
                 message,
                 entities,
                 replyTo: new Api.InputReplyToMessage({ replyToMsgId: threadHead.id }),
                 silent,
                 sendAs: sendAsPeer,
-            }));
-            return;
+            });
+            const apiResult = await client.invoke(req);
+            const m = getResponseMessage(client, req, apiResult, peer);
+            const sent = Array.isArray(m) ? m[0] : m;
+            const sentMsgId = (sent as Api.Message | undefined)?.id;
+            if (sentMsgId && linkedGroupChatId) return buildPostLinkFromChatId(linkedGroupChatId, sentMsgId);
+            return null;
         }
+        return null;
     } else {
         // No discussion group: reply directly in the channel
-        await client.sendMessage(channelEntity, {
+        const sent = await client.sendMessage(channelEntity, {
             message: text,
             parseMode: "html",
             replyTo: channelMessageId,
             silent,
         });
+        return buildPostLinkFromChatId(channelChatId, sent.id);
     }
+}
+
+// Edits existing pre-written comments using stored links, or sends new ones for
+// embeds that have no stored link yet. Returns true if any comment changed.
+async function updateCommentsForPost(
+    client: TelegramClient,
+    channelEntity: string | number,
+    channelChatId: string,
+    channelMessageId: number,
+    mdEmbeds: TFile[],
+    app: App,
+    existingCommentLinks: string[],
+    silent: boolean,
+): Promise<boolean> {
+    let anyChanged = false;
+
+    for (let i = 0; i < mdEmbeds.length; i++) {
+        const mdContent = await app.vault.read(mdEmbeds[i]);
+        const { body: mdBody } = extractFrontmatter(mdContent);
+        const formattedContent = mdToTelegramHtml(mdBody);
+        if (!formattedContent.length) continue;
+
+        if (i < existingCommentLinks.length) {
+            const parsed = parseLinkComponents(existingCommentLinks[i]);
+            if (parsed) {
+                const peer: string | number = /^-?\d+$/.test(parsed.chatId) ? parseInt(parsed.chatId) : parsed.chatId;
+                try {
+                    await client.editMessage(peer, {
+                        message: parsed.messageId,
+                        text: formattedContent,
+                        parseMode: "html",
+                    });
+                    anyChanged = true;
+                } catch (err) {
+                    if (!String((err as any)?.message ?? "").includes("MESSAGE_NOT_MODIFIED")) throw err;
+                }
+            }
+        } else {
+            await sendCommentViaAccount(client, channelEntity, channelChatId, channelMessageId, formattedContent, silent);
+            anyChanged = true;
+        }
+    }
+
+    return anyChanged;
 }
 
 // Sends one or more files with proper invertMedia support via raw MTProto API.
@@ -689,13 +752,16 @@ async function sendPartViaAccount(
 
         if (treatMdEmbedsAsComments && result && mdEmbeds.length > 0 && !scheduleDate) {
             onProgress?.();
+            const commentLinks: string[] = [];
             for (const mdFile of mdEmbeds) {
                 const mdContent = await app.vault.read(mdFile);
                 const { body: mdBody } = extractFrontmatter(mdContent);
                 const formattedMdContent = mdToTelegramHtml(mdBody);
                 if (!formattedMdContent.length) continue;
-                await sendCommentViaAccount(client, entity, result.messageId, formattedMdContent, silent);
+                const commentLink = await sendCommentViaAccount(client, entity, channel.chatId, result.messageId, formattedMdContent, silent);
+                if (commentLink) commentLinks.push(commentLink);
             }
+            if (commentLinks.length > 0) result = { ...result, commentLinks };
         }
 
         return result;
@@ -718,7 +784,7 @@ export async function sendNoteToTelegram(
     updateLink?: string,
     scheduleDate?: Date,
     onProgress?: () => void,
-): Promise<{ links: string[]; errors: Error[] }> {
+): Promise<{ links: string[]; commentLinksByPostLink: Record<string, string[]>; errors: Error[] }> {
     const channel = { ...tg_channel, chatId: resolveChatId(tg_channel.chatId) };
     const content = await app.vault.read(file);
     const { body } = extractFrontmatter(content);
@@ -731,18 +797,38 @@ export async function sendNoteToTelegram(
         const messageId = msgIdMatch ? parseInt(msgIdMatch[1], 10) : null;
 
         if (messageId) {
+            const { mdEmbeds } = collectMediaFiles(app, body, file);
             const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
             try {
                 const entity = /^-?\d+$/.test(channel.chatId) ? parseInt(channel.chatId) : channel.chatId;
-                await client.editMessage(entity, {
-                    message: messageId,
-                    text: formattedContent,
-                    parseMode: "html",
-                });
+
+                let postChanged = false;
+                try {
+                    await client.editMessage(entity, {
+                        message: messageId,
+                        text: formattedContent,
+                        parseMode: "html",
+                    });
+                    postChanged = true;
+                } catch (err) {
+                    if (!String((err as any)?.message ?? "").includes("MESSAGE_NOT_MODIFIED")) throw err;
+                }
+
+                let commentsChanged = false;
+                if (treatMdEmbedsAsComments && mdEmbeds.length > 0) {
+                    onProgress?.();
+                    const fileCache = app.metadataCache.getFileCache(file);
+                    const storedCommentLinks = ((fileCache?.frontmatter?.telegram_comment_links ?? {}) as Record<string, string[]>)[updateLink] ?? [];
+                    commentsChanged = await updateCommentsForPost(client, entity, channel.chatId, messageId, mdEmbeds, app, storedCommentLinks, silent);
+                }
+
+                if (!postChanged && !commentsChanged) {
+                    return { links: [updateLink], commentLinksByPostLink: {}, errors: [new Error("MESSAGE_NOT_MODIFIED")] };
+                }
             } finally {
                 await client.destroy();
             }
-            return { links: [updateLink], errors: [] };
+            return { links: [updateLink], commentLinksByPostLink: {}, errors: [] };
         }
     }
 
@@ -752,16 +838,20 @@ export async function sendNoteToTelegram(
     const effectiveParts = parts.length > 0 ? parts : [body];
 
     const links: string[] = [];
+    const commentLinksByPostLink: Record<string, string[]> = {};
     const errors: Error[] = [];
 
     for (const part of effectiveParts) {
         try {
             const result = await sendPartViaAccount(app, part, channel, secrets, silent, attachUnderText, file, treatMdEmbedsAsComments, scheduleDate, onProgress);
-            if (result) links.push(result.link);
+            if (result) {
+                links.push(result.link);
+                if (result.commentLinks?.length) commentLinksByPostLink[result.link] = result.commentLinks;
+            }
         } catch (err) {
             errors.push(err instanceof Error ? err : new Error(String(err)));
         }
     }
 
-    return { links, errors };
+    return { links, commentLinksByPostLink, errors };
 }

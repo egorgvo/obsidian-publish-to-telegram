@@ -143,29 +143,39 @@ export default class SendToTelegramPlugin extends Plugin {
 
         const progressNotice = new Notice(updateLink && updateLink !== "none" ? t.NOTICE_EDITING : t.NOTICE_PUBLISHING, 0);
         const allLinks: string[] = [];
+        const allCommentLinksByPostLink: Record<string, string[]> = {};
         const allErrors: Error[] = [];
 
         try {
             for (const target of targets) {
                 const singleChannel: TelegramChannel = { ...channel, chatId: target.id, chatTitle: target.title };
-                const { links, errors } = await sendNoteToTelegram(
+                const { links, commentLinksByPostLink, errors } = await sendNoteToTelegram(
                     this.app, file, singleChannel, this.settings, this.secrets, silent, attachUnderText,
                     this.settings.treatMdEmbedsAsComments, updateLink, scheduleDate,
                     () => { progressNotice.setMessage(t.NOTICE_PUBLISHING_COMMENTS); }
                 );
                 allLinks.push(...links);
+                Object.assign(allCommentLinksByPostLink, commentLinksByPostLink);
                 allErrors.push(...errors);
             }
 
             progressNotice.hide();
 
             if (this.settings.savePostLinks && allLinks.length > 0 && !scheduleDate) {
-                await this.app.fileManager.processFrontMatter(file, (fm: { telegram_links?: unknown }) => {
+                await this.app.fileManager.processFrontMatter(file, (fm: { telegram_links?: unknown; telegram_comment_links?: unknown }) => {
                     const links = Array.isArray(fm.telegram_links) ? fm.telegram_links as string[] : [];
                     for (const link of allLinks) {
                         if (!links.includes(link)) links.push(link);
                     }
                     fm.telegram_links = links;
+
+                    if (Object.keys(allCommentLinksByPostLink).length > 0) {
+                        const existing = (fm.telegram_comment_links && typeof fm.telegram_comment_links === "object" && !Array.isArray(fm.telegram_comment_links))
+                            ? fm.telegram_comment_links as Record<string, string[]>
+                            : {};
+                        Object.assign(existing, allCommentLinksByPostLink);
+                        fm.telegram_comment_links = existing;
+                    }
                 });
             }
 
