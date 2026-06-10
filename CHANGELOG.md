@@ -5,8 +5,8 @@
 
 ### What's new
 
-* New feature: Edit pre-written comments after their publication in the advanced publishing settings. Comments links are now stored in the tg_posts property next to the posts links.
-* New feature: View changelog in the settings.
+* New feature: Edit pre-written comments after their publication with the advanced publishing settings menu. Comments links are now stored in the `tg_comments` property. Note: `telegram_links` property was renamed to `tg_posts`. If you used feature of saving posts links to properties, be sure to change the name of already existing property with Obsidian core plugin [Properties view](https://obsidian.md/help/plugins/properties).
+* New feature: View changelog in the settings, in the user guide, or via palette command.
 
 ### UI/UX enhancements
 
