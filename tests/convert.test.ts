@@ -227,3 +227,31 @@ test('Thematic break with ___', () => {
   const expected = 'before\n\n───\n\nafter';
   expect(mdToTelegramHtml(markdown)).toBe(expected);
 });
+
+test('Mixed-level headings, blockquotes, and inline formatting', () => {
+  const markdown = `### Aristotle
+
+> Aristotle was a student of [Plato](https://example.com/plato) and tutored Alexander the Great for several years.
+
+> His work on _Poetics_ studies the nature of writing and poetry in great detail.
+# Legacy
+
+His ideas shaped Western thought for centuries.
+### Legacy
+
+His writings remain a cornerstone of Western philosophy.`;
+  const expected = `<b>Aristotle</b>
+
+<blockquote>Aristotle was a student of <a href="https://example.com/plato">Plato</a> and tutored Alexander the Great for several years.</blockquote>
+
+<blockquote>His work on <i>Poetics</i> studies the nature of writing and poetry in great detail.</blockquote>
+
+<b>Legacy</b>
+
+His ideas shaped Western thought for centuries.
+
+<b>Legacy</b>
+
+His writings remain a cornerstone of Western philosophy.`;
+  expect(mdToTelegramHtml(markdown)).toBe(expected);
+});

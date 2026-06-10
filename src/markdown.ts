@@ -52,7 +52,7 @@ export function mdToTelegramHtml(body: string): string {
         if (/^>/.test(line)) {
             inQuote = true;
             quoteLines.push(line.replace(/^>[ \t]?/, ''));
-        } else if (inQuote && line.trim() !== '') {
+        } else if (inQuote && line.trim() !== '' && !/^#{1,6}\s/.test(line)) {
             quoteLines.push(line);
         } else {
             if (inQuote) {
@@ -96,8 +96,8 @@ export function mdToTelegramHtml(body: string): string {
     }
     text = olist.join('\n');
 
-    // Headings → bold, separated from the following block by a blank line
-    text = text.replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>\n');
+    // Headings → bold, set off by a blank line before and after
+    text = text.replace(/^#{1,6}\s+(.+)$/gm, '\n<b>$1</b>\n');
 
     // Bold **text** (multiline: wrap each line separately)
     text = text.replace(/\*\*([^\s*][\s\S]*?)\*\*/g, (_, content: string) =>
@@ -131,5 +131,5 @@ export function mdToTelegramHtml(body: string): string {
     // Collapse multiple blank lines into one
     text = text.replace(/\n{3,}/g, '\n\n');
 
-    return text.replace(/\n+$/, '');
+    return text.replace(/^\n+|\n+$/g, '');
 }
