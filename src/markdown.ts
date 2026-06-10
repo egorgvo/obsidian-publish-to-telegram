@@ -10,6 +10,7 @@ export function stripObsidianSyntax(body: string): string {
         .replace(/!\[[^\]]*\]\([^)]*\)/g, "")      // Strip standard MD embeds ![]()
         .replace(/!\([^)]*\)\[[^\]]*\]/g, "")      // Strip reversed MD embeds !()[]
         .replace(/<!--[\s\S]*?-->/g, "")           // Strip HTML comments
+        .replace(/<!--/g, "")                      // Strip any orphaned comment openers left after the pass above
         .replace(/[ \t]+\n/g, "\n")
         .trim();
 }
