@@ -315,6 +315,21 @@ body .telegram-auth-submit:disabled {
     margin-top: 16px;
 }
 
+.telegram-modal-buttons .mod-cta {
+    width: 100%;
+}
+
+@media (max-width: 520px) {
+    .telegram-option-item.telegram-option-item--edit {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .telegram-modal-buttons {
+        margin-bottom: 16px;
+    }
+}
+
 .telegram-multi-preset-item {
     display: flex;
     justify-content: space-between;
@@ -506,6 +521,10 @@ body .telegram-auth-submit:disabled {
     font-size: var(--font-ui-smaller);
     color: var(--text-muted);
     margin-top: 4px;
+}
+
+.telegram-option-control {
+    margin-top: 16px;
 }
 
 .telegram-modal-heading {

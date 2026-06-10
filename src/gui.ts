@@ -318,7 +318,7 @@ export class MultiPresetModal extends Modal {
         contentEl.createDiv({ text: t.MULTI_PRESET_UPDATE_HEADING, cls: "telegram-modal-heading" });
 
         // "Update existing post" row
-        const updateOptionEl = contentEl.createDiv("telegram-option-item");
+        const updateOptionEl = contentEl.createDiv("telegram-option-item telegram-option-item--edit");
         const updateTextEl = updateOptionEl.createDiv("telegram-option-text");
         updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NAME, cls: "telegram-option-name" });
         this.updateDescEl = updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NAME_DESC, cls: "telegram-option-desc" });
@@ -327,7 +327,7 @@ export class MultiPresetModal extends Modal {
         const updateControlEl = updateOptionEl.createDiv("telegram-option-control");
 
         // "Edit existing comments" row
-        const commentOptionEl = contentEl.createDiv("telegram-option-item");
+        const commentOptionEl = contentEl.createDiv("telegram-option-item telegram-option-item--edit");
         const commentTextEl = commentOptionEl.createDiv("telegram-option-text");
         commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_NAME, cls: "telegram-option-name" });
         commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_DESC, cls: "telegram-option-desc" });
