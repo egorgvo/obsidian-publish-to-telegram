@@ -14,12 +14,24 @@ export interface TelegramChannel {
     topicId?: number;
 }
 
+export interface PendingScheduledLink {
+    notePath: string;
+    noteTitle: string;
+    chatId: string;         // resolved peer (@username or -100…), used for matching + link building
+    topicId?: number;
+    scheduledMsgId: number; // id in the scheduled queue
+    scheduledDate: number;  // unix seconds; equals published message .date
+    text: string;           // plain-text body for matching ("" for media-only posts)
+    createdAt: number;
+}
+
 export interface TelegramSettings {
     channels: TelegramChannel[];
     savePostLinks: boolean;
     treatMdEmbedsAsComments: boolean;
     telegramDisplayName: string;
     dismissedChangelogVersion?: string;
+    pendingScheduledLinks: PendingScheduledLink[];
 }
 
 export interface TelegramSecrets {
@@ -33,4 +45,5 @@ export const DEFAULT_SETTINGS: TelegramSettings = {
     savePostLinks: false,
     treatMdEmbedsAsComments: false,
     telegramDisplayName: "",
+    pendingScheduledLinks: [],
 }

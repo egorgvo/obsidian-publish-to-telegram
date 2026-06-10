@@ -8,6 +8,8 @@ export default {
     NOTICE_EDITED: "Пост отредактирован ✅",
     NOTICE_COMMENTS_EDITED: "Комментарий отредактирован ✅",
     NOTICE_SCHEDULED: "Публикация запланирована ✅",
+    NOTICE_SCHEDULED_LINK_SAVED: 'Ссылка на запланированный пост «{title}» добавлена в свойства',
+    NOTICE_SCHEDULED_LINK_FAILED: 'Не удалось получить ссылку на запланированный пост «{title}»',
     NOTICE_ERR_CONFIG: "Ошибка: Настройте хотя бы один пресет.",
     NOTICE_ERR_SEND: "Ошибка отправки: ",
     NOTICE_ERR_TOO_LONG_TEXT: "Ошибка: Пост должен быть менее 4097 символов.",

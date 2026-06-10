@@ -8,6 +8,8 @@ export default {
     NOTICE_EDITED: "Post edited ✅",
     NOTICE_COMMENTS_EDITED: "Comment edited ✅",
     NOTICE_SCHEDULED: "Post scheduled ✅",
+    NOTICE_SCHEDULED_LINK_SAVED: 'A link to the scheduled post "{title}" was added to the properties',
+    NOTICE_SCHEDULED_LINK_FAILED: 'Couldn\'t fetch the link for the scheduled post "{title}"',
     NOTICE_ERR_CONFIG: "Error: Set up at least one preset.",
     NOTICE_ERR_SEND: "Publishing error: ",
     NOTICE_ERR_TOO_LONG_TEXT: "Error: Post must be less than 4097 symbols.",

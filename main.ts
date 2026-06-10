@@ -1,7 +1,7 @@
 import { Plugin, Notice, TFile, TFolder, Menu, normalizePath } from "obsidian";
 import { t } from "./lang/helpers";
-import { TelegramChannel, TelegramSettings, TelegramSecrets, DEFAULT_SETTINGS } from "./src/types";
-import { sendNoteToTelegram, editNoteCommentsOnly, checkIsForum, createClient } from "./src/telegram";
+import { TelegramChannel, TelegramSettings, TelegramSecrets, DEFAULT_SETTINGS, PendingScheduledLink } from "./src/types";
+import { sendNoteToTelegram, editNoteCommentsOnly, checkIsForum, createClient, resolveScheduledLinks } from "./src/telegram";
 import { ChangelogModal, FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
 import { errMessage } from "./src/util";
 
@@ -11,6 +11,7 @@ export default class SendToTelegramPlugin extends Plugin {
 
     private channelCommandIds: string[] = [];
     private forumCache: Map<string, boolean> = new Map();
+    private resolvingScheduledLinks = false;
 
     async onload(): Promise<void> {
         await this.loadSettings();
@@ -19,6 +20,11 @@ export default class SendToTelegramPlugin extends Plugin {
         this.registerStaticCommands();
 
         this.syncChannelCommands();
+
+        // Resolve links for scheduled posts that may have been published while
+        // Obsidian was closed (on startup), and periodically while it is open.
+        this.app.workspace.onLayoutReady(() => void this.resolvePendingScheduledLinks());
+        this.registerInterval(window.setInterval(() => void this.resolvePendingScheduledLinks(), 60_000));
 
         this.registerEvent(
             this.app.workspace.on("file-menu", (menu: Menu, file: TFile | TFolder) => {
@@ -156,11 +162,12 @@ export default class SendToTelegramPlugin extends Plugin {
         const allLinks: string[] = [];
         const allCommentLinks: string[] = [];
         const allErrors: Error[] = [];
+        const allScheduled: PendingScheduledLink[] = [];
 
         try {
             for (const target of targets) {
                 const singleChannel: TelegramChannel = { ...channel, chatId: target.id, chatTitle: target.title };
-                const { links, commentLinks, errors } = await sendNoteToTelegram(
+                const { links, commentLinks, errors, scheduled } = await sendNoteToTelegram(
                     this.app, file, singleChannel, this.settings, this.secrets, silent, attachUnderText,
                     this.settings.treatMdEmbedsAsComments, updateLink, scheduleDate,
                     () => { progressNotice.setMessage(t.NOTICE_PUBLISHING_COMMENTS); }
@@ -168,9 +175,19 @@ export default class SendToTelegramPlugin extends Plugin {
                 allLinks.push(...links);
                 allCommentLinks.push(...commentLinks);
                 allErrors.push(...errors);
+                for (const s of scheduled) {
+                    allScheduled.push({ ...s, notePath: file.path, noteTitle: file.basename, createdAt: Date.now() });
+                }
             }
 
             progressNotice.hide();
+
+            // Scheduled posts: persist a task so the published link can be fetched later
+            // (the link isn't known until the post actually goes live). Gated on savePostLinks.
+            if (this.settings.savePostLinks && allScheduled.length > 0) {
+                this.settings.pendingScheduledLinks.push(...allScheduled);
+                await this.saveSettings();
+            }
 
             if (this.settings.savePostLinks && (allLinks.length > 0 || allCommentLinks.length > 0) && !scheduleDate) {
                 await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
@@ -218,6 +235,63 @@ export default class SendToTelegramPlugin extends Plugin {
             } else {
                 new Notice(`${t.NOTICE_ERR_SEND}${errMessage(err)}`);
             }
+        }
+    }
+
+    // Checks pending scheduled posts whose send time has passed: writes the published
+    // link into the note's tg_posts when found, drops the task (notifying) when the
+    // scheduled message was cancelled/deleted, and keeps tasks that haven't sent yet.
+    async resolvePendingScheduledLinks(): Promise<void> {
+        if (this.resolvingScheduledLinks) return;
+        if (!this.secrets.telegramSession) return;
+        if (this.settings.pendingScheduledLinks.length === 0) return;
+
+        const nowSec = Math.floor(Date.now() / 1000);
+        const due = this.settings.pendingScheduledLinks.filter(task => task.scheduledDate <= nowSec);
+        if (due.length === 0) return;
+
+        this.resolvingScheduledLinks = true;
+        try {
+            const resolutions = await resolveScheduledLinks(this.secrets, due);
+            const settled = new Set<PendingScheduledLink>();
+
+            for (const { task, status, link, updatedScheduledDate } of resolutions) {
+                if (status === "pending") {
+                    // Sync the stored send time if the message was rescheduled in Telegram.
+                    // This prevents the task being "always due" after its original date passes.
+                    if (updatedScheduledDate !== undefined) {
+                        task.scheduledDate = updatedScheduledDate;
+                    }
+                    continue;
+                }
+
+                if (status === "resolved" && link) {
+                    const noteFile = this.app.vault.getAbstractFileByPath(task.notePath);
+                    if (noteFile instanceof TFile) {
+                        await this.app.fileManager.processFrontMatter(noteFile, (fm: Record<string, unknown>) => {
+                            const existing = Array.isArray(fm.tg_posts) ? fm.tg_posts as string[] : [];
+                            if (!existing.includes(link)) existing.push(link);
+                            fm.tg_posts = existing;
+                        });
+                        new Notice(t.NOTICE_SCHEDULED_LINK_SAVED.replace("{title}", task.noteTitle));
+                    }
+                    // Note was deleted/renamed away — drop the task silently.
+                } else if (status === "unresolved") {
+                    new Notice(t.NOTICE_SCHEDULED_LINK_FAILED.replace("{title}", task.noteTitle));
+                }
+                settled.add(task);
+            }
+
+            const anyUpdated = resolutions.some(r => r.status === "pending" && r.updatedScheduledDate !== undefined);
+            if (settled.size > 0 || anyUpdated) {
+                this.settings.pendingScheduledLinks = this.settings.pendingScheduledLinks.filter(task => !settled.has(task));
+                await this.saveSettings();
+            }
+        } catch (err) {
+            // Connection/network failure — leave tasks in place to retry next tick.
+            console.error("Failed to resolve scheduled post links:", errMessage(err));
+        } finally {
+            this.resolvingScheduledLinks = false;
         }
     }
 

@@ -1,12 +1,12 @@
 // telegram.ts
 import { App, TFile, requestUrl } from "obsidian";
-import { TelegramClient, Api } from "telegram";
+import { TelegramClient, Api, helpers } from "telegram";
 import { LogLevel } from "telegram/extensions/Logger";
 import { StringSession } from "telegram/sessions";
 import { CustomFile, _fileToMedia } from "telegram/client/uploads";
 import { _parseMessageText } from "telegram/client/messageParse";
 import { getInputMedia } from "telegram/Utils";
-import { TelegramChannel, TelegramSettings, TelegramSecrets } from "./types";
+import { TelegramChannel, TelegramSettings, TelegramSecrets, PendingScheduledLink } from "./types";
 import { errMessage } from "./util";
 import { mdToTelegramHtml } from "./markdown";
 
@@ -16,6 +16,18 @@ interface SendResult {
     link: string;
     messageId: number;
     commentLinks?: string[];
+    scheduled?: ScheduledSendInfo;
+}
+
+// Captured at scheduling time so the published post can later be matched back to
+// this note. `scheduledDate` (== published message .date) and `text` (plain body)
+// are the correlation keys; `scheduledMsgId` lets us check the scheduled queue.
+export interface ScheduledSendInfo {
+    chatId: string;
+    topicId?: number;
+    scheduledMsgId: number;
+    scheduledDate: number;
+    text: string;
 }
 
 interface MediaFile {
@@ -423,7 +435,7 @@ async function sendMediaRaw(
     invertMedia: boolean,
     scheduleDate?: number,
     topicId?: number,
-): Promise<number> {
+): Promise<Api.Message> {
     const peer = await client.getInputEntity(entity);
     const [caption, msgEntities] = await _parseMessageText(client, text, "html");
     const replyTo = topicId
@@ -453,7 +465,7 @@ async function sendMediaRaw(
         const apiResult = await client.invoke(req);
         const msg = getResponseMessage(client, req, apiResult, peer);
         const m = Array.isArray(msg) ? msg[0] : msg;
-        return (m as Api.Message).id;
+        return m as Api.Message;
     }
 
     // Album: photos/documents must be pre-uploaded before SendMultiMedia
@@ -495,7 +507,7 @@ async function sendMediaRaw(
     const randomIds = albumItems.map(m => m.randomId);
     const msgs = getResponseMessage(client, randomIds, apiResult, peer);
     const first = Array.isArray(msgs) ? msgs[0] : msgs;
-    return (first as Api.Message).id;
+    return first as Api.Message;
 }
 
 async function sendPartViaAccount(
@@ -527,6 +539,8 @@ async function sendPartViaAccount(
 
         let result: SendResult | null = null;
         let captionConsumed = false;
+        // First message produced for this part — used to build the scheduled task.
+        let firstMsg: Api.Message | undefined;
 
         // ── Photos and videos: grouped into one album ─────────────────────────────
         if (photoAndVideoFiles.length > 0) {
@@ -535,8 +549,9 @@ async function sendPartViaAccount(
                 const data = Buffer.from(await blob.arrayBuffer());
                 return new CustomFile(f.name, data.length, "", data);
             }));
-            const msgId = await sendMediaRaw(client, entity, customFiles, text, false, silent, attachUnderText, scheduleDateUnix, topicId);
-            result = { link: buildPostLinkFromChatId(channel.chatId, msgId, topicId), messageId: msgId };
+            const msg = await sendMediaRaw(client, entity, customFiles, text, false, silent, attachUnderText, scheduleDateUnix, topicId);
+            result = { link: buildPostLinkFromChatId(channel.chatId, msg.id, topicId), messageId: msg.id };
+            if (!firstMsg) firstMsg = msg;
             captionConsumed = true;
         }
 
@@ -546,9 +561,10 @@ async function sendPartViaAccount(
             const data = Buffer.from(await blob.arrayBuffer());
             const customFile = new CustomFile(gif.name, data.length, "", data);
             const caption = captionConsumed ? "" : text;
-            const msgId = await sendMediaRaw(client, entity, [customFile], caption, false, silent,
+            const msg = await sendMediaRaw(client, entity, [customFile], caption, false, silent,
                 !captionConsumed && attachUnderText, scheduleDateUnix, topicId);
-            if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msgId, topicId), messageId: msgId };
+            if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msg.id, topicId), messageId: msg.id };
+            if (!firstMsg) firstMsg = msg;
             captionConsumed = true;
         }
 
@@ -560,14 +576,15 @@ async function sendPartViaAccount(
                 return new CustomFile(f.name, data.length, "", data);
             }));
             const caption = captionConsumed ? "" : text;
-            const msgId = await sendMediaRaw(client, entity, customFiles, caption, true, silent,
+            const msg = await sendMediaRaw(client, entity, customFiles, caption, true, silent,
                 !captionConsumed && attachUnderText, scheduleDateUnix, topicId);
-            if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msgId, topicId), messageId: msgId };
+            if (!result) result = { link: buildPostLinkFromChatId(channel.chatId, msg.id, topicId), messageId: msg.id };
+            if (!firstMsg) firstMsg = msg;
             captionConsumed = true;
         }
 
         if (!captionConsumed && text.length > 0) {
-            let msgId: number;
+            let msg: Api.Message;
             if (topicId) {
                 const peer = await client.getInputEntity(entity);
                 const [message, entities] = await _parseMessageText(client, text, "html");
@@ -581,18 +598,29 @@ async function sendPartViaAccount(
                 });
                 const apiResult = await client.invoke(req);
                 const m = getResponseMessage(client, req, apiResult, peer);
-                const msg = Array.isArray(m) ? m[0] : m;
-                msgId = (msg as Api.Message).id;
+                msg = (Array.isArray(m) ? m[0] : m) as Api.Message;
             } else {
-                const sent = await client.sendMessage(entity, {
+                msg = await client.sendMessage(entity, {
                     message: text,
                     parseMode: "html",
                     silent,
                     schedule: scheduleDateUnix,
                 });
-                msgId = sent.id;
             }
-            result = { link: buildPostLinkFromChatId(channel.chatId, msgId, topicId), messageId: msgId };
+            result = { link: buildPostLinkFromChatId(channel.chatId, msg.id, topicId), messageId: msg.id };
+            if (!firstMsg) firstMsg = msg;
+        }
+
+        // For scheduled posts the link built above points at the scheduled-queue id,
+        // not the eventual published id. Record what we need to resolve it later.
+        if (scheduleDate && result && firstMsg) {
+            result.scheduled = {
+                chatId: channel.chatId,
+                topicId,
+                scheduledMsgId: firstMsg.id,
+                scheduledDate: firstMsg.date,
+                text: firstMsg.message ?? "",
+            };
         }
 
         if (treatMdEmbedsAsComments && result && mdEmbeds.length > 0 && !scheduleDate) {
@@ -629,7 +657,7 @@ export async function sendNoteToTelegram(
     updateLink?: string,
     scheduleDate?: Date,
     onProgress?: () => void,
-): Promise<{ links: string[]; commentLinks: string[]; errors: Error[] }> {
+): Promise<{ links: string[]; commentLinks: string[]; errors: Error[]; scheduled: ScheduledSendInfo[] }> {
     const channel = { ...tg_channel, chatId: resolveChatId(tg_channel.chatId) };
     const content = await app.vault.read(file);
     const { body } = extractFrontmatter(content);
@@ -654,14 +682,14 @@ export async function sendNoteToTelegram(
                     });
                 } catch (err) {
                     if (errMessage(err).includes("MESSAGE_NOT_MODIFIED")) {
-                        return { links: [updateLink], commentLinks: [], errors: [new Error("MESSAGE_NOT_MODIFIED")] };
+                        return { links: [updateLink], commentLinks: [], errors: [new Error("MESSAGE_NOT_MODIFIED")], scheduled: [] };
                     }
                     throw err;
                 }
             } finally {
                 await client.destroy();
             }
-            return { links: [updateLink], commentLinks: [], errors: [] };
+            return { links: [updateLink], commentLinks: [], errors: [], scheduled: [] };
         }
     }
 
@@ -673,6 +701,7 @@ export async function sendNoteToTelegram(
     const links: string[] = [];
     const commentLinks: string[] = [];
     const errors: Error[] = [];
+    const scheduled: ScheduledSendInfo[] = [];
 
     for (const part of effectiveParts) {
         try {
@@ -680,13 +709,14 @@ export async function sendNoteToTelegram(
             if (result) {
                 links.push(result.link);
                 if (result.commentLinks?.length) commentLinks.push(...result.commentLinks);
+                if (result.scheduled) scheduled.push(result.scheduled);
             }
         } catch (err) {
             errors.push(err instanceof Error ? err : new Error(String(err)));
         }
     }
 
-    return { links, commentLinks, errors };
+    return { links, commentLinks, errors, scheduled };
 }
 
 // Edits pre-written comments in-place using the provided stored comment links
@@ -736,4 +766,101 @@ export async function editNoteCommentsOnly(
     } finally {
         await client.destroy();
     }
+}
+
+// ─── Scheduled post link resolution ───────────────────────────────────────────
+
+export interface ScheduledResolution {
+    task: PendingScheduledLink;
+    status: "resolved" | "pending" | "unresolved";
+    link?: string;
+    // When "pending": the actual send time currently set in Telegram's queue,
+    // if it differs from task.scheduledDate (e.g. message was rescheduled).
+    updatedScheduledDate?: number;
+}
+
+// Resolves published links for previously scheduled posts. For each task:
+//   • still in the scheduled queue            → "pending"  (not sent yet)
+//   • published message found (date + text)   → "resolved" (with link)
+//   • gone from queue but not found in history → "unresolved" (cancelled/deleted)
+// Tasks are grouped by peer so a single client connection serves the whole batch.
+export async function resolveScheduledLinks(
+    secrets: TelegramSecrets,
+    tasks: PendingScheduledLink[],
+): Promise<ScheduledResolution[]> {
+    const resolutions: ScheduledResolution[] = [];
+    if (tasks.length === 0) return resolutions;
+
+    const byChat = new Map<string, PendingScheduledLink[]>();
+    for (const task of tasks) {
+        const group = byChat.get(task.chatId) ?? [];
+        group.push(task);
+        byChat.set(task.chatId, group);
+    }
+
+    const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
+    try {
+        for (const [chatId, group] of byChat) {
+            const entity = /^-?\d+$/.test(chatId) ? parseInt(chatId) : chatId;
+            try {
+                // Messages still sitting in the scheduled queue: id → current send date.
+                // GramJS's high-level getMessages({ scheduled: true }) silently ignores the
+                // flag and returns regular history. Use raw GetScheduledHistory instead.
+                const scheduledQueue = new Map<number, number>();
+                try {
+                    const peer = await client.getInputEntity(entity);
+                    const sched = await client.invoke(new Api.messages.GetScheduledHistory({
+                        peer,
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                    hash: helpers.returnBigInt(0),
+                    }));
+                    const schedMsgs = "messages" in sched ? sched.messages : [];
+                    console.debug("[TG-sched] scheduled queue for", chatId, "→", schedMsgs.map((m: Api.TypeMessage) => ({ id: m.id, date: (m as Api.Message).date })));
+                    for (const m of schedMsgs) {
+                        if (m instanceof Api.Message) scheduledQueue.set(m.id, m.date);
+                    }
+                } catch (e) {
+                    console.debug("[TG-sched] scheduled queue fetch failed for", chatId, e);
+                }
+
+                for (const task of group) {
+                    console.debug("[TG-sched] resolving task", { scheduledMsgId: task.scheduledMsgId, scheduledDate: task.scheduledDate, text: task.text.slice(0, 60) });
+                    if (scheduledQueue.has(task.scheduledMsgId)) {
+                        const queuedDate = scheduledQueue.get(task.scheduledMsgId)!;
+                        const updatedScheduledDate = queuedDate !== task.scheduledDate ? queuedDate : undefined;
+                        if (updatedScheduledDate) {
+                            console.debug("[TG-sched] → still in queue (send time updated to", updatedScheduledDate, ")");
+                        } else {
+                            console.debug("[TG-sched] → still in queue");
+                        }
+                        resolutions.push({ task, status: "pending", updatedScheduledDate });
+                        continue;
+                    }
+                    // Left the queue → find the published message by send-time + text.
+                    // Telegram publishes scheduled messages up to a few seconds after the
+                    // exact scheduled time, so the published .date may differ by 1-2 s.
+                    const DATE_SLACK = 10;
+                    const published = await client.getMessages(entity, { limit: 50, offsetDate: task.scheduledDate + DATE_SLACK + 1 });
+                    console.debug("[TG-sched] history window for offsetDate", task.scheduledDate + DATE_SLACK + 1, "→", published.map(m => ({ id: m.id, date: m.date, text: m.message?.slice(0, 40) })));
+                    const match = published.find(m =>
+                        Math.abs(m.date - task.scheduledDate) <= DATE_SLACK &&
+                        (task.text ? m.message === task.text : !!m.media)
+                    );
+                    if (match) {
+                        console.debug("[TG-sched] → resolved, id", match.id);
+                        resolutions.push({ task, status: "resolved", link: buildPostLinkFromChatId(task.chatId, match.id, task.topicId) });
+                    } else {
+                        console.debug("[TG-sched] → unresolved, no date/text match in window");
+                        resolutions.push({ task, status: "unresolved" });
+                    }
+                }
+            } catch {
+                // Transient peer-level failure — keep these for the next tick.
+                for (const task of group) resolutions.push({ task, status: "pending" });
+            }
+        }
+    } finally {
+        await client.destroy();
+    }
+    return resolutions;
 }
