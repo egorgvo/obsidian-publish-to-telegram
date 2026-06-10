@@ -117,6 +117,9 @@ export function mdToTelegramHtml(body: string): string {
     text = text.replace(/\|\|([^\s|][\s\S]*?)\|\|/g, (_, content: string) =>
         content.split('\n').map((line: string) => `<spoiler>${line}</spoiler>`).join('\n'));
 
+    // Spoiler via HTML <span class="tg-spoiler">…</span>
+    text = text.replace(/<span class="tg-spoiler">([\s\S]*?)<\/span>/g, '<spoiler>$1</spoiler>');
+
     // Links [text](url) — URL may contain balanced parentheses
     text = text.replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g, '<a href="$2">$1</a>');
 
