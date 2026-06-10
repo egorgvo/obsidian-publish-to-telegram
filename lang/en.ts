@@ -231,7 +231,9 @@ A couple of notes:
 
 * If you split the note into multiple posts (see above), you can attach the comments to each of the posts. To do that, place .md-embeds before the corresponding marker.
 
-* Note that all comments are published with a slight delay.
+* All comments are published with a slight delay.
+
+* For now, it is not possible to schedule pre-written comments.
 
 ### Advanced publishing settings
 
