@@ -168,9 +168,6 @@ export class MultiPresetModal extends Modal {
     private builtUpdateChannel: TelegramChannel | null = null;
 
     private commentLinkDropdown: DropdownComponent | null = null;
-    private commentHintEl: HTMLElement | null = null;
-    private commentDescEl: HTMLElement | null = null;
-    private commentResolved: boolean = false;
 
     private publishBtn: ButtonComponent | null = null;
     private channelRows: Array<{ id: string, container: HTMLElement, toggle: ToggleComponent }> = [];
@@ -240,26 +237,6 @@ export class MultiPresetModal extends Modal {
         }
     }
 
-    private handleCommentLinkSelection(value: string) {
-        this.updatePublishBtn();
-        if (value === "none") {
-            this.commentResolved = false;
-            if (!this.anyLinkSelected()) this.setChannelRowsDisabled(false);
-            this.hideHint(this.commentHintEl, this.commentDescEl);
-            return;
-        }
-
-        this.setChannelRowsDisabled(true);
-        const info = this.resolvedLinks.get(value);
-        if (info?.title) {
-            this.commentResolved = true;
-            this.showHint(this.commentHintEl, this.commentDescEl, t.MULTI_PRESET_EDIT_WILL_EDIT.replace("{name}", info.title), false);
-        } else {
-            this.commentResolved = false;
-            this.showHint(this.commentHintEl, this.commentDescEl, t.MULTI_PRESET_UPDATE_NO_MATCH, true);
-        }
-    }
-
     onOpen() {
         const { contentEl, titleEl } = this;
         titleEl.setText(t.MULTI_PRESET_TITLE);
@@ -324,10 +301,12 @@ export class MultiPresetModal extends Modal {
         // ─── Edit Post & Comments Section ─────────────────────────────────────────────
 
         const cache = this.app.metadataCache.getFileCache(this.file);
-        const allStoredLinks: string[] = (() => {
-            const raw: unknown = cache?.frontmatter?.telegram_links;
+        const readLinks = (key: string): string[] => {
+            const raw: unknown = cache?.frontmatter?.[key];
             return Array.isArray(raw) ? raw.map(String) : (typeof raw === 'string' ? [raw] : []);
-        })();
+        };
+        const allStoredPostLinks = readLinks("tg_posts");
+        const allStoredCommentLinks = readLinks("tg_comments");
 
         contentEl.createDiv({ text: t.MULTI_PRESET_UPDATE_HEADING, cls: "telegram-modal-heading" });
 
@@ -344,12 +323,11 @@ export class MultiPresetModal extends Modal {
         const commentOptionEl = contentEl.createDiv("telegram-option-item");
         const commentTextEl = commentOptionEl.createDiv("telegram-option-text");
         commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_NAME, cls: "telegram-option-name" });
-        this.commentDescEl = commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_DESC, cls: "telegram-option-desc" });
-        this.commentHintEl = commentTextEl.createDiv({ cls: "telegram-update-channel-hint" });
-        this.commentHintEl.hide();
+        commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_DESC, cls: "telegram-option-desc" });
         const commentControlEl = commentOptionEl.createDiv("telegram-option-control");
 
-        if (allStoredLinks.length === 0 || !this.plugin.secrets.telegramSession) {
+        const hasAnyLinks = allStoredPostLinks.length > 0 || allStoredCommentLinks.length > 0;
+        if (!hasAnyLinks || !this.plugin.secrets.telegramSession) {
             updateTextEl.createDiv({ text: t.MULTI_PRESET_UPDATE_NO_LINKS, cls: "telegram-option-desc" });
             commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_NO_LINKS, cls: "telegram-option-desc" });
         } else {
@@ -357,26 +335,22 @@ export class MultiPresetModal extends Modal {
             const commentLoadingEl = commentControlEl.createSpan({ text: t.MULTI_PRESET_UPDATE_RESOLVING, cls: "telegram-update-channel-hint" });
 
             void (async () => {
+                const allLinksToResolve = [...allStoredPostLinks, ...allStoredCommentLinks];
                 const results = await Promise.all(
-                    allStoredLinks.map(link => fetchEntityInfo(link, this.plugin.secrets))
+                    allLinksToResolve.map(link => fetchEntityInfo(link, this.plugin.secrets))
                 );
 
                 if (!updateLoadingEl.isConnected) return; // modal was closed before resolution
 
-                const postLinks: string[] = [];
-                const commentLinks: string[] = [];
-                results.forEach((info, i) => {
-                    if (info === null) return;
-                    this.resolvedLinks.set(allStoredLinks[i], info);
-                    if (info.isChannel) postLinks.push(allStoredLinks[i]);
-                    else commentLinks.push(allStoredLinks[i]);
+                allLinksToResolve.forEach((link, i) => {
+                    if (results[i]) this.resolvedLinks.set(link, results[i]!);
                 });
 
                 updateLoadingEl.remove();
-                if (postLinks.length > 0) {
+                if (allStoredPostLinks.length > 0) {
                     this.updateLinkDropdown = new DropdownComponent(updateControlEl);
                     this.updateLinkDropdown.addOption("none", t.MULTI_PRESET_UPDATE_NO_OPTION);
-                    postLinks.forEach(link => { this.updateLinkDropdown!.addOption(link, t.MULTI_PRESET_UPDATE_LINK_LABEL.replace("{link}", link)); });
+                    allStoredPostLinks.forEach(link => { this.updateLinkDropdown!.addOption(link, t.MULTI_PRESET_UPDATE_LINK_LABEL.replace("{link}", link)); });
                     this.updateLinkDropdown.setValue("none");
                     this.updateLinkDropdown.onChange(value => { this.handleLinkSelection(value); });
                 } else {
@@ -384,12 +358,37 @@ export class MultiPresetModal extends Modal {
                 }
 
                 commentLoadingEl.remove();
-                if (commentLinks.length > 0) {
+                if (allStoredCommentLinks.length > 0) {
+                    const commentGroups = new Map<string, { links: string[]; title: string | null }>();
+                    allStoredCommentLinks.forEach(link => {
+                        const parsed = parseLinkComponents(link);
+                        if (!parsed) return;
+                        if (!commentGroups.has(parsed.chatId)) {
+                            commentGroups.set(parsed.chatId, {
+                                links: [],
+                                title: this.resolvedLinks.get(link)?.title ?? null,
+                            });
+                        }
+                        commentGroups.get(parsed.chatId)!.links.push(link);
+                    });
+
                     this.commentLinkDropdown = new DropdownComponent(commentControlEl);
                     this.commentLinkDropdown.addOption("none", t.MULTI_PRESET_UPDATE_NO_OPTION);
-                    commentLinks.forEach(link => { this.commentLinkDropdown!.addOption(link, t.MULTI_PRESET_UPDATE_LINK_LABEL.replace("{link}", link)); });
+                    if (commentGroups.size > 1) {
+                        this.commentLinkDropdown.addOption("all", t.MULTI_PRESET_EDIT_COMMENTS_ALL_CHATS);
+                    }
+                    commentGroups.forEach((group, chatId) => {
+                        this.commentLinkDropdown!.addOption(chatId, group.title ?? chatId);
+                    });
                     this.commentLinkDropdown.setValue("none");
-                    this.commentLinkDropdown.onChange(value => { this.handleCommentLinkSelection(value); });
+                    this.commentLinkDropdown.onChange(value => {
+                        this.updatePublishBtn();
+                        if (value === "none") {
+                            if (!this.anyLinkSelected()) this.setChannelRowsDisabled(false);
+                        } else {
+                            this.setChannelRowsDisabled(true);
+                        }
+                    });
                 } else {
                     commentTextEl.createDiv({ text: t.MULTI_PRESET_EDIT_COMMENTS_NO_LINKS, cls: "telegram-option-desc" });
                 }
@@ -405,8 +404,8 @@ export class MultiPresetModal extends Modal {
             .onClick(async () => {
                 const updateLinkRaw = this.updateLinkDropdown?.getValue();
                 const isUpdatingPost = !!updateLinkRaw && updateLinkRaw !== "none";
-                const commentLinkRaw = this.commentLinkDropdown?.getValue();
-                const isEditingComments = !!commentLinkRaw && commentLinkRaw !== "none";
+                const commentDropdownValue = this.commentLinkDropdown?.getValue();
+                const isEditingComments = !!commentDropdownValue && commentDropdownValue !== "none";
 
                 if (!isUpdatingPost && !isEditingComments && this.selectedChannels.size === 0) {
                     new Notice(t.MULTI_PRESET_NO_SELECTION);
@@ -431,14 +430,26 @@ export class MultiPresetModal extends Modal {
                     await this.plugin.sendNoteToTelegram(this.file, this.builtUpdateChannel!, silent, attachUnderText, updateLinkRaw, undefined);
                 }
                 if (isEditingComments) {
-                    // Find all comment links that belong to the same discussion group as the selected one
-                    const selectedParsed = parseLinkComponents(commentLinkRaw);
-                    const filteredLinks = selectedParsed
-                        ? allStoredLinks
-                            .filter(l => parseLinkComponents(l)?.chatId === selectedParsed.chatId)
-                            .sort((a, b) => (parseLinkComponents(a)?.messageId ?? 0) - (parseLinkComponents(b)?.messageId ?? 0))
-                        : [];
-                    await this.plugin.editNoteComments(this.file, filteredLinks, silent);
+                    const commentGroupsByChatId = new Map<string, string[]>();
+                    allStoredCommentLinks.forEach(link => {
+                        const parsed = parseLinkComponents(link);
+                        if (!parsed) return;
+                        const group = commentGroupsByChatId.get(parsed.chatId) ?? [];
+                        group.push(link);
+                        commentGroupsByChatId.set(parsed.chatId, group);
+                    });
+                    commentGroupsByChatId.forEach(links => {
+                        links.sort((a, b) => (parseLinkComponents(a)?.messageId ?? 0) - (parseLinkComponents(b)?.messageId ?? 0));
+                    });
+
+                    if (commentDropdownValue === "all") {
+                        for (const links of commentGroupsByChatId.values()) {
+                            await this.plugin.editNoteComments(this.file, links, silent);
+                        }
+                    } else {
+                        const links = commentGroupsByChatId.get(commentDropdownValue!) ?? [];
+                        await this.plugin.editNoteComments(this.file, links, silent);
+                    }
                 }
                 if (!isUpdatingPost && !isEditingComments) {
                     for (const channelId of this.selectedChannels) {

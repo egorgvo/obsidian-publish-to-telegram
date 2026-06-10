@@ -173,12 +173,21 @@ export default class SendToTelegramPlugin extends Plugin {
             progressNotice.hide();
 
             if (this.settings.savePostLinks && (allLinks.length > 0 || allCommentLinks.length > 0) && !scheduleDate) {
-                await this.app.fileManager.processFrontMatter(file, (fm: { telegram_links?: unknown }) => {
-                    const existing = Array.isArray(fm.telegram_links) ? fm.telegram_links as string[] : [];
-                    for (const link of [...allLinks, ...allCommentLinks]) {
-                        if (!existing.includes(link)) existing.push(link);
+                await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+                    if (allLinks.length > 0) {
+                        const existing = Array.isArray(fm.tg_posts) ? fm.tg_posts as string[] : [];
+                        for (const link of allLinks) {
+                            if (!existing.includes(link)) existing.push(link);
+                        }
+                        fm.tg_posts = existing;
                     }
-                    fm.telegram_links = existing;
+                    if (allCommentLinks.length > 0) {
+                        const existing = Array.isArray(fm.tg_comments) ? fm.tg_comments as string[] : [];
+                        for (const link of allCommentLinks) {
+                            if (!existing.includes(link)) existing.push(link);
+                        }
+                        fm.tg_comments = existing;
+                    }
                 });
             }
 
@@ -212,11 +221,11 @@ export default class SendToTelegramPlugin extends Plugin {
         }
     }
 
-    async editNoteComments(file: TFile, commentLinks: string[], silent: boolean): Promise<void> {
+    async editNoteComments(file: TFile, commentLinks: string[], silent: boolean, embedOffset = 0): Promise<void> {
         if (!this.secrets.telegramSession) { new Notice(t.NOTICE_ERR_NOT_AUTHENTICATED); return; }
         const progressNotice = new Notice(t.NOTICE_EDITING_COMMENTS, 0);
         try {
-            const { errors } = await editNoteCommentsOnly(this.app, file, this.secrets, commentLinks, silent);
+            const { errors } = await editNoteCommentsOnly(this.app, file, this.secrets, commentLinks, silent, embedOffset);
             progressNotice.hide();
             for (const err of errors) {
                 const msg = (err.message ?? "").toUpperCase();

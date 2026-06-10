@@ -697,6 +697,7 @@ export async function editNoteCommentsOnly(
     secrets: TelegramSecrets,
     commentLinks: string[],
     silent: boolean,
+    embedOffset = 0,
 ): Promise<{ errors: Error[] }> {
     const content = await app.vault.read(file);
     const { body } = extractFrontmatter(content);
@@ -708,9 +709,9 @@ export async function editNoteCommentsOnly(
     const client = await createClient(secrets.telegramSession, secrets.telegramApiId, secrets.telegramApiHash);
     try {
         let anyChanged = false;
-        const limit = Math.min(mdEmbeds.length, storedLinks.length);
+        const limit = Math.min(mdEmbeds.length - embedOffset, storedLinks.length);
         for (let i = 0; i < limit; i++) {
-            const mdContent = await app.vault.read(mdEmbeds[i]);
+            const mdContent = await app.vault.read(mdEmbeds[i + embedOffset]);
             const { body: mdBody } = extractFrontmatter(mdContent);
             const formattedContent = mdToTelegramHtml(mdBody);
             if (!formattedContent.length) continue;

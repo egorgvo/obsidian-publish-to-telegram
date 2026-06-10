@@ -62,7 +62,7 @@ export default {
     MULTI_PRESET_SCHEDULE_DESC: "Оставьте пустым, чтобы опубликовать сейчас",
     MULTI_PRESET_UPDATE_HEADING: "Редактирование",
     MULTI_PRESET_UPDATE_NAME: "Редактировать пост",
-    MULTI_PRESET_UPDATE_NAME_DESC: "Ссылки хранятся в свойстве telegram_links",
+    MULTI_PRESET_UPDATE_NAME_DESC: "Ссылки хранятся в свойстве tg_posts",
     MULTI_PRESET_UPDATE_NO_OPTION: "Выберите ссылку",
     MULTI_PRESET_UPDATE_LINK_LABEL: "{link}",
     MULTI_PRESET_UPDATE_NO_LINKS: "Ссылки на посты не найдены в свойствах заметки",
@@ -71,9 +71,9 @@ export default {
     MULTI_PRESET_UPDATE_NO_MATCH: "Не удалось определить источник ссылки",
     MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Не удалось определить источник ссылки!",
     MULTI_PRESET_EDIT_COMMENTS_NAME: "Редактировать комментарий",
-    MULTI_PRESET_EDIT_COMMENTS_DESC: "Ссылки хранятся в свойстве telegram_links",
+    MULTI_PRESET_EDIT_COMMENTS_DESC: "Ссылки хранятся в свойстве tg_posts",
     MULTI_PRESET_EDIT_COMMENTS_NO_LINKS: "Ссылки на комментарии не найдены в свойствах заметки",
-    MULTI_PRESET_EDIT_WILL_EDIT: "Будет отредактирован комментарий в {name}",
+    MULTI_PRESET_EDIT_COMMENTS_ALL_CHATS: "Редактировать во всех чатах",
     SETTING_SAVE_POST_LINKS_NAME: "Сохранять ссылки на посты",
     SETTING_SAVE_POST_LINKS_DESC: "Если включено, ссылка на опубликованную запись будет сохранена в свойствах заметки",
     SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Считать .md-вложения комментариями к посту",
@@ -148,7 +148,7 @@ export default {
       <td><s>Зачёркивание</s></td>
     </tr>
     <tr>
-      <td><code>&lt;span class="tg-spoiler"&gt;Спойлер&lt;/span&gt;</code></td>
+      <td><code><spoiler>Спойлер</spoiler></code></td>
       <td>Спойлер</td>
     </tr>
     <tr>
@@ -245,7 +245,7 @@ export default {
 
 * Запланировать пост.
 
-* Отредактировать уже существующий пост или (заготовленный) комментарий. Ссылки хранятся в свойстве \`telegram_links\`, которое заполняется автоматически если включена соответствующая функция в настройках, а также его можно создать и заполнить вручную.
+* Отредактировать уже существующие посты или комментарии. Ссылки хранятся в свойствах \`tg_posts\` и \`tg_comments\`, которые заполняются автоматически если включена соответствующая функция в настройках, а также их можно создать и заполнить вручную.
 
 ### Лимиты
 

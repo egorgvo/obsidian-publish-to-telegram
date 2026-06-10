@@ -62,7 +62,7 @@ export default {
     MULTI_PRESET_SCHEDULE_DESC: "Leave empty to publish immediately",
     MULTI_PRESET_UPDATE_HEADING: "Editing",
     MULTI_PRESET_UPDATE_NAME: "Edit existing post",
-    MULTI_PRESET_UPDATE_NAME_DESC: "Links are stored in the telegram_links property",
+    MULTI_PRESET_UPDATE_NAME_DESC: "Links are stored in the tg_posts property",
     MULTI_PRESET_UPDATE_NO_OPTION: "Choose a link",
     MULTI_PRESET_UPDATE_LINK_LABEL: "{link}",
     MULTI_PRESET_UPDATE_NO_LINKS: "No post links found in properties of the note",
@@ -71,9 +71,9 @@ export default {
     MULTI_PRESET_UPDATE_NO_MATCH: "Could not resolve this link",
     MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Could not resolve this link!",
     MULTI_PRESET_EDIT_COMMENTS_NAME: "Edit existing comments",
-    MULTI_PRESET_EDIT_COMMENTS_DESC: "Links are stored in the telegram_links property",
+    MULTI_PRESET_EDIT_COMMENTS_DESC: "Links are stored in the tg_posts property",
     MULTI_PRESET_EDIT_COMMENTS_NO_LINKS: "No comment links found in properties of the note",
-    MULTI_PRESET_EDIT_WILL_EDIT: "Will edit the comment in {name}",
+    MULTI_PRESET_EDIT_COMMENTS_ALL_CHATS: "Edit in all chats",
     SETTING_SAVE_POST_LINKS_NAME: "Save posts links",
     SETTING_SAVE_POST_LINKS_DESC: "If enabled, the link to the published post will be saved to the note's properties",
     SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Treat .md embeds as post comments",
@@ -148,7 +148,7 @@ All standard Telegram formatting elements are supported as well as some addition
       <td><s>Strikethrough</s></td>
     </tr>
     <tr>
-      <td><code>&lt;span class="tg-spoiler"&gt;Spoiler&lt;/span&gt;</code></td>
+      <td><code><spoiler>Spoiler</spoiler></code></td>
       <td>Spoiler</td>
     </tr>
     <tr>
@@ -245,7 +245,7 @@ You can open an advanced publishing settings window with command palette (\`Ctrl
 
 * Schedule the publication.
 
-* Edit already existing post or (pre-written comment). Links are stored in the \`telegram_links\` property, which is filled automatically if the corresponding option is enabled in the settings. You can also create it and fill manually.
+* Edit already existing posts or pre-written comments. Links are stored in the \`tg_posts\` and \`tg_comments\` properties, that are filled automatically if the corresponding option is enabled in the settings. You can also create them and fill manually.
 
 ### Limits
 

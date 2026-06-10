@@ -5,7 +5,7 @@
 
 ### What's new
 
-* New feature: Edit pre-written comments after their publication in the advanced publishing settings. Comments links are now stored in the telegram_links property next to the posts links.
+* New feature: Edit pre-written comments after their publication in the advanced publishing settings. Comments links are now stored in the tg_posts property next to the posts links.
 * New feature: View changelog in the settings.
 
 ### UI/UX enhancements
