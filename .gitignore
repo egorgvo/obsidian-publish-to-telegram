@@ -1,6 +1,7 @@
 /node_modules
 data.json
 main.js
+tests/.tmp
 Publish to Telegram.sublime-prject
 Publish to Telegram.sublime-workspace
 /.idea
