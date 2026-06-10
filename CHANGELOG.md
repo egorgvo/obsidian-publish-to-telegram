@@ -1,8 +1,27 @@
 # Changelog
 
+
+## 3.1.0
+
+### What's new
+
+* New feature: Edit pre-written comments after their publication in the advanced publishing settings. Comments links are now stored in the telegram_links property next to the posts links.
+* New feature: View changelog in the settings.
+
+## UI/UX enhancements
+
+* New notifications that reflect post/comment editing process.
+* Legacy auto-default preset feature removed: Now, if you have only one preset and try to post with default preset and it is not set up, advanced publishing settings modal will open.
+
+## Other
+
+* GramJS localStorage API schema cache was disabled to avoid triggering Obsidian linter.
+
+
 ## 3.0.1
 
 * This 3.0.1 release is a security and stability hotfix. See changelog for the vesrion 3.0.0 to get more information about the latest major update.
+
 
 ## 3.0.0
 
