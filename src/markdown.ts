@@ -77,8 +77,8 @@ export function mdToTelegramHtml(body: string): string {
     // Unordered list markers (*, +, -) → bullet •
     text = text.replace(/^(\s*)(?:\*|\+|-)\s+/gm, '$1• ');
 
-    // Headings → bold
-    text = text.replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>');
+    // Headings → bold, separated from the following block by a blank line
+    text = text.replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>\n');
 
     // Bold **text** (multiline: wrap each line separately)
     text = text.replace(/\*\*([^\s*][\s\S]*?)\*\*/g, (_, content: string) =>
@@ -112,5 +112,5 @@ export function mdToTelegramHtml(body: string): string {
     // Collapse multiple blank lines into one
     text = text.replace(/\n{3,}/g, '\n\n');
 
-    return text;
+    return text.replace(/\n+$/, '');
 }

@@ -25,6 +25,12 @@ test('Escaped text', () => {
   expect(mdToTelegramHtml(markdown)).toBe(expected);
 });
 
+test('Headings', () => {
+  const markdown = '# heading 1\n## heading 2\n### heading 3';
+  const expected = '<b>heading 1</b>\n\n<b>heading 2</b>\n\n<b>heading 3</b>';
+  expect(mdToTelegramHtml(markdown)).toBe(expected);
+});
+
 test('Bold', () => {
   const markdown = '**bold text**';
   const expected = `<b>bold text</b>`;
