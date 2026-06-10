@@ -99,8 +99,10 @@ export function mdToTelegramHtml(body: string): string {
     // Headings → bold, set off by a blank line before and after
     text = text.replace(/^#{1,6}\s+(.+)$/gm, '\n<b>$1</b>\n');
 
-    // Bold **text** (multiline: wrap each line separately)
+    // Bold **text** / __text__ (multiline: wrap each line separately)
     text = text.replace(/\*\*([^\s*][\s\S]*?)\*\*/g, (_, content: string) =>
+        content.split('\n').map((line: string) => `<b>${line}</b>`).join('\n'));
+    text = text.replace(/__([^\s_][\s\S]*?)__/g, (_, content: string) =>
         content.split('\n').map((line: string) => `<b>${line}</b>`).join('\n'));
 
     // Italic *text* or _text_  (multiline: wrap each line separately)

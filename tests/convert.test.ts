@@ -163,6 +163,14 @@ test('Multiple code blocks and lists', () => {
   expect(mdToTelegramHtml(markdown)).toBe(expected);
 });
 
+// Telegram Markdown V2 specific tests
+test('Telegram V2: Underline support', () => {
+  // Standard markdown has no underline, so `__` is treated as strong (bold).
+  const markdown = '__underline__';
+  const expected = '<b>underline</b>';
+  expect(mdToTelegramHtml(markdown)).toBe(expected);
+});
+
 test('Telegram V2: Special character escaping', () => {
   const markdown = 'Test with {braces} and |pipes| and =equals=';
   const expected = 'Test with {braces} and |pipes| and =equals=';
