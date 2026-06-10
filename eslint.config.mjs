@@ -10,6 +10,7 @@ export default [
             "cloud-functions/**",
             "shims/**",
             "*.mjs",
+            "tests/**",
         ],
     },
     ...obsidianmd.configs.recommended,

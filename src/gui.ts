@@ -350,7 +350,7 @@ export class MultiPresetModal extends Modal {
                 if (!updateLoadingEl.isConnected) return; // modal was closed before resolution
 
                 allLinksToResolve.forEach((link, i) => {
-                    if (results[i]) this.resolvedLinks.set(link, results[i]!);
+                    if (results[i]) this.resolvedLinks.set(link, results[i]);
                 });
 
                 updateLoadingEl.remove();
@@ -466,7 +466,7 @@ export class MultiPresetModal extends Modal {
                             await this.plugin.editNoteComments(this.file, links, silent);
                         }
                     } else {
-                        const links = commentGroupsByChatId.get(commentDropdownValue!) ?? [];
+                        const links = commentGroupsByChatId.get(commentDropdownValue) ?? [];
                         await this.plugin.editNoteComments(this.file, links, silent);
                     }
                 }
