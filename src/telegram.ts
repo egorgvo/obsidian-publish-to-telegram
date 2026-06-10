@@ -8,6 +8,7 @@ import { _parseMessageText } from "telegram/client/messageParse";
 import { getInputMedia } from "telegram/Utils";
 import { TelegramChannel, TelegramSettings, TelegramSecrets } from "./types";
 import { errMessage } from "./util";
+import { mdToTelegramHtml } from "./markdown";
 
 // ─── Internal result & media types ────────────────────────────────────────────
 
@@ -34,120 +35,6 @@ function extractFrontmatter(content: string): { frontmatter: string; body: strin
     const body = match ? content.slice(match[0].length) : content;
     if (!match) return { frontmatter: "", body };
     return { frontmatter: match[1], body };
-}
-
-// ─── Content preparation ──────────────────────────────────────────────────────
-
-function stripObsidianSyntax(body: string): string {
-    return body
-        .replace(/%%[\s\S]*?%%/g, "")             // Strip Obsidian comments %% ... %%
-        .replace(/!\[\[[^\]]*\]\]/g, "")           // Strip wikilink embeds
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")      // Strip standard MD embeds ![]()
-        .replace(/!\([^)]*\)\[[^\]]*\]/g, "")      // Strip reversed MD embeds !()[]
-        .replace(/<!--[\s\S]*?-->/g, "")           // Strip HTML comments
-        .replace(/[ \t]+\n/g, "\n")
-        .trim();
-}
-
-function escHtml(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-// Converts Obsidian markdown directly to Telegram-compatible HTML
-// for GramJS HTMLParser (supports: b, i, u, s, code, pre, blockquote, a, spoiler)
-function mdToTelegramHtml(body: string): string {
-    const stripped = stripObsidianSyntax(body);
-
-    // Protect code blocks and inline code from further processing
-    const codeBlocks: string[] = [];
-    let text = stripped
-        .replace(/```(\w*)\n([\s\S]*?)\n?```/g, (_, _lang: string, code: string) => {
-            codeBlocks.push(`<pre>${escHtml(code)}</pre>`);
-            return `\x00CB${codeBlocks.length - 1}\x00`;
-        })
-        .replace(/`([^`\n]+)`/g, (_, c: string) => {
-            codeBlocks.push(`<code>${escHtml(c)}</code>`);
-            return `\x00CB${codeBlocks.length - 1}\x00`;
-        });
-
-    // Protect escaped characters (\* \_ \~ etc.) from formatting
-    const escapes: string[] = [];
-    text = text.replace(/\\([\\*_~`|>\-[\](){}#+.!])/g, (_, ch: string) => {
-        escapes.push(ch);
-        return `\x00ES${escapes.length - 1}\x00`;
-    });
-
-    // Blockquote: lines starting with > plus lazy continuations (non-empty lines without >)
-    const lines = text.split('\n');
-    const processed: string[] = [];
-    let quoteLines: string[] = [];
-    let inQuote = false;
-
-    for (const line of lines) {
-        if (/^>/.test(line)) {
-            inQuote = true;
-            quoteLines.push(line.replace(/^>[ \t]?/, ''));
-        } else if (inQuote && line.trim() !== '') {
-            quoteLines.push(line);
-        } else {
-            if (inQuote) {
-                processed.push(`<blockquote>${quoteLines.join('\n').trimEnd()}</blockquote>`);
-                quoteLines = [];
-                inQuote = false;
-            }
-            processed.push(line);
-        }
-    }
-    if (inQuote) {
-        processed.push(`<blockquote>${quoteLines.join('\n').trimEnd()}</blockquote>`);
-    }
-    text = processed.join('\n');
-
-    // Thematic breaks (---, ___, ***) → horizontal line, preserving length
-    text = text.replace(/^[ \t]*([-_*])\1{2,}[ \t]*$/gm, (match) => {
-        const len = match.trim().length;
-        return '\u2500'.repeat(len);
-    });
-
-    // Unordered list markers (*, +, -) → bullet •
-    text = text.replace(/^(\s*)(?:\*|\+|-)\s+/gm, '$1• ');
-
-    // Headings → bold
-    text = text.replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>');
-
-    // Bold **text** (multiline: wrap each line separately)
-    text = text.replace(/\*\*([^\s*][\s\S]*?)\*\*/g, (_, content: string) =>
-        content.split('\n').map((line: string) => `<b>${line}</b>`).join('\n'));
-
-    // Italic *text* or _text_  (multiline: wrap each line separately)
-    text = text.replace(/\*([^\s*][\s\S]*?)\*/g, (_, content: string) =>
-        content.split('\n').map((line: string) => `<i>${line}</i>`).join('\n'));
-    text = text.replace(/(?<![\\a-zA-Zа-яА-ЯёЁ])_([^\s_][\s\S]*?)_(?![a-zA-Zа-яА-ЯёЁ])/g, (_, content: string) =>
-        content.split('\n').map((line: string) => `<i>${line}</i>`).join('\n'));
-
-    // Strikethrough ~~text~~  (multiline: wrap each line separately)
-    text = text.replace(/~~([^\s~][\s\S]*?)~~/g, (_, content: string) =>
-        content.split('\n').map((line: string) => `<s>${line}</s>`).join('\n'));
-
-    // Spoiler ||text||  (multiline: wrap each line separately)
-    text = text.replace(/\|\|([^\s|][\s\S]*?)\|\|/g, (_, content: string) =>
-        content.split('\n').map((line: string) => `<spoiler>${line}</spoiler>`).join('\n'));
-
-    // Links [text](url)
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
-    // Restore escaped characters as literal text
-    // eslint-disable-next-line no-control-regex -- \x00 sentinels delimit protected escape spans
-    text = text.replace(/\x00ES(\d+)\x00/g, (_, idx: string) => escHtml(escapes[parseInt(idx)]));
-
-    // Restore code blocks
-    // eslint-disable-next-line no-control-regex -- \x00 sentinels delimit protected code spans
-    text = text.replace(/\x00CB(\d+)\x00/g, (_, idx: string) => codeBlocks[parseInt(idx)]);
-
-    // Collapse multiple blank lines into one
-    text = text.replace(/\n{3,}/g, '\n\n');
-
-    return text;
 }
 
 // ─── Split helpers ────────────────────────────────────────────────────────────
