@@ -227,6 +227,13 @@ export class MultiPresetModal extends Modal {
         }
 
         this.setChannelRowsDisabled(true);
+
+        if (value === "all") {
+            this.builtUpdateChannel = null;
+            this.hideHint(this.updateHintEl, this.updateDescEl);
+            return;
+        }
+
         const info = this.resolvedLinks.get(value);
         if (info?.title) {
             this.builtUpdateChannel = channelFromLink(value, info.title);
@@ -350,6 +357,9 @@ export class MultiPresetModal extends Modal {
                 if (allStoredPostLinks.length > 0) {
                     this.updateLinkDropdown = new DropdownComponent(updateControlEl);
                     this.updateLinkDropdown.addOption("none", t.MULTI_PRESET_UPDATE_NO_OPTION);
+                    if (allStoredPostLinks.length > 1) {
+                        this.updateLinkDropdown.addOption("all", t.MULTI_PRESET_EDIT_COMMENTS_ALL_CHATS);
+                    }
                     allStoredPostLinks.forEach(link => { this.updateLinkDropdown!.addOption(link, t.MULTI_PRESET_UPDATE_LINK_LABEL.replace("{link}", link)); });
                     this.updateLinkDropdown.setValue("none");
                     this.updateLinkDropdown.onChange(value => { this.handleLinkSelection(value); });
@@ -411,7 +421,7 @@ export class MultiPresetModal extends Modal {
                     new Notice(t.MULTI_PRESET_NO_SELECTION);
                     return;
                 }
-                if (isUpdatingPost && !this.builtUpdateChannel) {
+                if (isUpdatingPost && updateLinkRaw !== "all" && !this.builtUpdateChannel) {
                     new Notice(t.MULTI_PRESET_UPDATE_NO_MATCH_NOTICE);
                     return;
                 }
@@ -427,7 +437,16 @@ export class MultiPresetModal extends Modal {
                 this.close();
 
                 if (isUpdatingPost) {
-                    await this.plugin.sendNoteToTelegram(this.file, this.builtUpdateChannel!, silent, attachUnderText, updateLinkRaw, undefined);
+                    if (updateLinkRaw === "all") {
+                        for (const link of allStoredPostLinks) {
+                            const info = this.resolvedLinks.get(link);
+                            if (!info?.title) continue;
+                            const channel = channelFromLink(link, info.title);
+                            if (channel) await this.plugin.sendNoteToTelegram(this.file, channel, silent, attachUnderText, link, undefined);
+                        }
+                    } else {
+                        await this.plugin.sendNoteToTelegram(this.file, this.builtUpdateChannel!, silent, attachUnderText, updateLinkRaw, undefined);
+                    }
                 }
                 if (isEditingComments) {
                     const commentGroupsByChatId = new Map<string, string[]>();
