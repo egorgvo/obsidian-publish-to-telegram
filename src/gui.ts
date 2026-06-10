@@ -75,6 +75,18 @@ export class FormattingHelpModal extends Modal {
             "",
             this.renderComponent
         );
+        contentEl.addEventListener("click", (e) => {
+            const link = (e.target as HTMLElement).closest("a");
+            if (!link) return;
+            let url: URL;
+            try { url = new URL(link.href); } catch { return; }
+            if (url.protocol !== "obsidian:") return;
+            if (url.hostname !== "command") return;
+            e.preventDefault();
+            e.stopPropagation();
+            const id = url.searchParams.get("id");
+            if (id) (this.app as unknown as { commands: { executeCommandById(id: string): void } }).commands.executeCommandById(id);
+        }, { capture: true });
     }
 
     onClose() {

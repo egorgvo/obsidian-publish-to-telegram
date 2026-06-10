@@ -47,6 +47,7 @@ export default {
     COMMAND_SEND_MULTIPLE: "Опубликовать с расширенными настройками",
     COMMAND_SEND_TO_PRESET: "Опубликовать в",
     COMMAND_SHOW_FORMATTING_HELP: "Открыть руководство пользователя",
+    COMMAND_SHOW_CHANGELOG: "Показать список изменений",
     MULTI_PRESET_TITLE: "Расширенные настройки публикации",
     MULTI_PRESET_CHANNEL_SELECTION: "Выберите один или несколько пресетов",
     MULTI_PRESET_ADVANCED_FORMATTING: "Расширенное форматирование",
@@ -104,7 +105,7 @@ export default {
     AUTH_LOADING: "Подождите…",
 
     FORMATTING_HELP_CONTENT: `
-Данную справку можно вызвать из палитры команд, введя "Publish to Telegram: Открыть руководство пользователя".
+Данную справку можно вызвать из палитры команд, введя "Publish to Telegram: Открыть руководство пользователя". Также, вы можете посмотреть [список изменений](obsidian://command?id=publish-to-telegram:show-changelog) последних обновлений.
 
 ### Пресеты
 

@@ -8,14 +8,15 @@
 * New feature: Edit pre-written comments after their publication in the advanced publishing settings. Comments links are now stored in the telegram_links property next to the posts links.
 * New feature: View changelog in the settings.
 
-## UI/UX enhancements
+### UI/UX enhancements
 
 * New notifications that reflect post/comment editing process.
 * Legacy auto-default preset feature removed: Now, if you have only one preset and try to post with default preset and it is not set up, advanced publishing settings modal will open.
 
-## Other
+### Other
 
 * GramJS localStorage API schema cache was disabled to avoid triggering Obsidian linter.
+* Various markdown parsing fixes.
 
 
 ## 3.0.1
@@ -44,7 +45,7 @@ Version 3.0.0 of the plugin presents the biggest update since the beginning of d
 * New error notification when an attempt to update the post is made, but no text was changed.
 * READMEs and user guide are updated to reflect all changes and new features.
 
-## Other
+### Other
 
 * Startup time was optimized.
 * Locales are updated, corrected and cleaned up.

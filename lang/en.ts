@@ -47,6 +47,7 @@ export default {
     COMMAND_SEND_MULTIPLE: "Publish with advanced settings",
     COMMAND_SEND_TO_PRESET: "Publish to",
     COMMAND_SHOW_FORMATTING_HELP: "Open user guide",
+    COMMAND_SHOW_CHANGELOG: "View changelog",
     MULTI_PRESET_TITLE: "Advanced publishing settings",
     MULTI_PRESET_CHANNEL_SELECTION: "Choose one or multiple presets",
     MULTI_PRESET_ADVANCED_FORMATTING: "Advanced post settings",
@@ -104,7 +105,7 @@ export default {
     AUTH_LOADING: "Please wait…",
 
     FORMATTING_HELP_CONTENT: `
-You can open these instructions from the command palette by typing "Publish to Telegram: Open user guide".
+You can open these instructions from the command palette by typing "Publish to Telegram: Open user guide". You can also [view changelog](obsidian://command?id=publish-to-telegram:show-changelog) of the latest updates.
 
 ### Presets
 

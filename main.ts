@@ -1,8 +1,8 @@
-import { Plugin, Notice, TFile, TFolder, Menu } from "obsidian";
+import { Plugin, Notice, TFile, TFolder, Menu, normalizePath } from "obsidian";
 import { t } from "./lang/helpers";
 import { TelegramChannel, TelegramSettings, TelegramSecrets, DEFAULT_SETTINGS } from "./src/types";
 import { sendNoteToTelegram, editNoteCommentsOnly, checkIsForum, createClient } from "./src/telegram";
-import { FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
+import { ChangelogModal, FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
 import { errMessage } from "./src/util";
 
 export default class SendToTelegramPlugin extends Plugin {
@@ -80,6 +80,17 @@ export default class SendToTelegramPlugin extends Plugin {
             name: t.COMMAND_SHOW_FORMATTING_HELP,
             callback: () => {
                 new FormattingHelpModal(this.app).open();
+            }
+        });
+
+        this.addCommand({
+            id: "show-changelog",
+            name: t.COMMAND_SHOW_CHANGELOG,
+            callback: async () => {
+                const content = await this.app.vault.adapter.read(
+                    normalizePath(`${this.manifest.dir}/CHANGELOG.md`)
+                );
+                new ChangelogModal(this.app, content).open();
             }
         });
     }
