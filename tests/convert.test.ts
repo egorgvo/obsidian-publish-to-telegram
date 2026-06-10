@@ -101,6 +101,12 @@ test('Ordered list with ) marker', () => {
   expect(mdToTelegramHtml(markdown)).toBe(expected);
 });
 
+test('Ordered list with mixed ) and . markers', () => {
+  const markdown = '1) list\n2) list\n3. list';
+  const expected = '1) list\n2) list\n\n3. list';
+  expect(mdToTelegramHtml(markdown)).toBe(expected);
+});
+
 test('Link with alt', () => {
   const markdown = '[t.e.s+t](http://atlassian.com)';
   const expected = '<a href="http://atlassian.com">t.e.s+t</a>';

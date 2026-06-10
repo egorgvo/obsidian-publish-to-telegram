@@ -77,6 +77,25 @@ export function mdToTelegramHtml(body: string): string {
     // Unordered list markers (*, +, -) → bullet •
     text = text.replace(/^(\s*)(?:\*|\+|-)\s+/gm, '$1• ');
 
+    // Separate consecutive ordered-list items when the delimiter changes (. vs )),
+    // mirroring how distinct ordered lists are rendered.
+    const olines = text.split('\n');
+    const olist: string[] = [];
+    let prevDelim: string | null = null;
+    for (const line of olines) {
+        const m = line.match(/^\s*\d+([.)])\s+/);
+        if (m) {
+            if (prevDelim && m[1] !== prevDelim && olist.length && olist[olist.length - 1].trim() !== '') {
+                olist.push('');
+            }
+            prevDelim = m[1];
+        } else {
+            prevDelim = null;
+        }
+        olist.push(line);
+    }
+    text = olist.join('\n');
+
     // Headings → bold, separated from the following block by a blank line
     text = text.replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>\n');
 
