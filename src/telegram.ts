@@ -811,7 +811,7 @@ export async function resolveScheduledLinks(
                     const peer = await client.getInputEntity(entity);
                     const sched = await client.invoke(new Api.messages.GetScheduledHistory({
                         peer,
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- helpers re-export loses precise BigInteger return type
                     hash: helpers.returnBigInt(0),
                     }));
                     const schedMsgs = "messages" in sched ? sched.messages : [];
