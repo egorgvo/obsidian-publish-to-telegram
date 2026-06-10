@@ -117,8 +117,8 @@ export function mdToTelegramHtml(body: string): string {
     text = text.replace(/\|\|([^\s|][\s\S]*?)\|\|/g, (_, content: string) =>
         content.split('\n').map((line: string) => `<spoiler>${line}</spoiler>`).join('\n'));
 
-    // Links [text](url)
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    // Links [text](url) — URL may contain balanced parentheses
+    text = text.replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/g, '<a href="$2">$1</a>');
 
     // Restore escaped characters as literal text
     // eslint-disable-next-line no-control-regex -- \x00 sentinels delimit protected escape spans

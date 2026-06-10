@@ -113,6 +113,12 @@ test('Link with alt', () => {
   expect(mdToTelegramHtml(markdown)).toBe(expected);
 });
 
+test('Link with parentheses', () => {
+  const markdown = '[Apple](https://en.wikipedia.org/wiki/Apple_(disambiguation))';
+  const expected = '<a href="https://en.wikipedia.org/wiki/Apple_(disambiguation)">Apple</a>';
+  expect(mdToTelegramHtml(markdown)).toBe(expected);
+});
+
 test('Inline code', () => {
   const markdown = 'hello `world`';
   const expected = 'hello <code>world</code>';
