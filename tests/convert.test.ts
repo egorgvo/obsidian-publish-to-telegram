@@ -192,6 +192,19 @@ test('Underline support with HTML <u> tags', () => {
   expect(mdToTelegramHtml(markdown)).toBe(expected);
 });
 
+test('Spoiler support with HTML <span> tags', () => {
+  const markdown = 'This is <spoiler>spoiler</spoiler> text';
+  const expected = 'This is <spoiler>spoiler</spoiler> text';
+  expect(mdToTelegramHtml(markdown)).toBe(expected);
+});
+
+test('Combined underline and spoiler', () => {
+  const markdown =
+    'Text with <u>underline</u> and <spoiler>spoiler</spoiler>';
+  const expected = 'Text with <u>underline</u> and <spoiler>spoiler</spoiler>';
+  expect(mdToTelegramHtml(markdown)).toBe(expected);
+});
+
 test('Nested formatting with underline', () => {
   const markdown = '<u>**bold underline**</u>';
   const expected = '<u><b>bold underline</b></u>';
@@ -207,6 +220,12 @@ test('User mention links', () => {
 test('Escaping in V2 features', () => {
   const markdown = '<u>under_line_test</u>';
   const expected = '<u>under_line_test</u>';
+  expect(mdToTelegramHtml(markdown)).toBe(expected);
+});
+
+test('Complex nesting with all V2 features', () => {
+  const markdown = '***<u><spoiler>nested</spoiler></u>***';
+  const expected = '<i><b><u><spoiler>nested</spoiler></u></b></i>';
   expect(mdToTelegramHtml(markdown)).toBe(expected);
 });
 
