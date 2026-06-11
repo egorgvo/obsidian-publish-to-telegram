@@ -4,17 +4,17 @@
 
 ### New features
 
-* **Automatic scheduled posts links fetching.** If "Save posts links" option is enabled in the settings and you make a scheduled post, the plugin will create a task to fetch the link. Fetching happens in two scenarios: when Obsidian is open on scheduled time or if you open Obsidian past scheduled time, the link is automatically fetched and inserted to the corresponding property.
-* **Edit pre-written comments after their publication.** Comments links are now stored in the separate `tg_comments` property and after publication you can edit them with the advanced publishing settings. Note that `telegram_links` property was renamed to `tg_posts`: if you used "Save posts links" feature, be sure to rename already existing property with Obsidian core plugin [Properties view](https://obsidian.md/help/plugins/properties).
-* **View changelog.** Available to view in the settings, in the user guide, or via the palette command. The notification in the settings could be closed and will not appear until the next update.
+* **Automatic scheduled posts links fetching.** If "Save posts links" option is enabled in the settings and you make a scheduled post, the plugin will create a task to fetch the link after publication. Fetching happens in two scenarios: when Obsidian is open on scheduled time or when you open Obsidian past scheduled time — the link is automatically fetched and inserted to the corresponding property.
+* **Edit pre-written comments after publication.** Links to published comments are stored in the separate `tg_comments` property and after publication you can edit them with the advanced publishing settings menu. Note that `telegram_links` property was renamed to `tg_posts`: if you used "Save posts links" feature, be sure to rename already existing property with the Obsidian core plugin [Properties view](https://obsidian.md/help/plugins/properties).
+* **View changelog.** Available to view in the settings, the user guide, or via the palette command. Changelog notification in the settings can be dismissed and will not appear until the next update.
 
 ### UI/UX enhancements and bug fixes
 
 * New notifications that reflect post/comment editing process.
-* Legacy auto-default preset feature removed. Now, if you have only one preset and try to post with the default preset and it is not set up, advanced publishing settings modal will open.
+* Legacy auto-default preset feature removed. Now, if you have only one preset and try to post with the default option` and it is not set up, advanced publishing settings menu will open.
 * GramJS `localStorage` API schema cache was disabled to avoid triggering linter issues.
 * Fixed UI bugs in the advanced settings.
-* Various markdown parsing fixes.
+* Various markdown parsing fixes by @egorgvo.
 
 
 ## 3.0.1
