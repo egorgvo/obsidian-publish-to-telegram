@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.1
+
+* **Hotfix.** Fixed an bug when changelog and user guide were not opening.
+
 ## 3.1.0
 
 ### New features
