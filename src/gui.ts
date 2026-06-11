@@ -3,7 +3,7 @@ import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { Api } from "telegram";
 import { LogLevel } from "telegram/extensions/Logger";
-import { t } from "../lang/helpers";
+import { t, getUserGuideFilename } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
 import * as QRCode from "qrcode";
 import { TelegramChannel, TelegramSecrets } from "./types";
@@ -58,9 +58,11 @@ export class FormattingHelpModal extends Modal {
     // cleaned up on close — Modal isn't a Component, and the plugin instance
     // lives too long to use here.
     private readonly renderComponent = new Component();
+    private readonly content: string;
 
-    constructor(app: App) {
+    constructor(app: App, content: string) {
         super(app);
+        this.content = content;
     }
 
     onOpen() {
@@ -70,7 +72,7 @@ export class FormattingHelpModal extends Modal {
         this.renderComponent.load();
         void MarkdownRenderer.render(
             this.app,
-            t.FORMATTING_HELP_CONTENT,
+            this.content,
             contentEl,
             "",
             this.renderComponent
@@ -653,7 +655,16 @@ export class TelegramSettingTab extends PluginSettingTab {
 
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_FORMATTING_HELP)
-            .onClick(() => { new FormattingHelpModal(this.app).open(); })
+            .onClick(async () => {
+                try {
+                    const content = await this.plugin.app.vault.adapter.read(
+                        normalizePath(`${this.plugin.manifest.dir}/${getUserGuideFilename()}`)
+                    );
+                    new FormattingHelpModal(this.app, content).open();
+                } catch {
+                    new Notice(t.USER_GUIDE_LOAD_ERROR);
+                }
+            })
             .buttonEl.addClass("telegram-link-button");
 
         new ButtonComponent(buttonContainer)
