@@ -99,8 +99,6 @@ export default {
     AUTH_ERROR: "Ошибка авторизации",
     MULTI_PRESET_NO_SELECTION: "Выберите хотя бы один пресет",
     MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Не удалось определить источник ссылки!",
-    CHANGELOG_LOAD_ERROR: "Не удалось загрузить список изменений",
-    USER_GUIDE_LOAD_ERROR: "Не удалось загрузить руководство пользователя",
 
     // ─── Other ───────────────────────────────────────────────────────────────────
     MENU_TITLE: "Опубликовать в Telegram",

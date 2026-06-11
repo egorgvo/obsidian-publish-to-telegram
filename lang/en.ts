@@ -99,8 +99,6 @@ export default {
     AUTH_ERROR: "Authorization error",
     MULTI_PRESET_NO_SELECTION: "Choose at least one preset",
     MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Could not resolve this link!",
-    CHANGELOG_LOAD_ERROR: "Could not load changelog",
-    USER_GUIDE_LOAD_ERROR: "Could not load user guide",
 
     // ─── Other ───────────────────────────────────────────────────────────────────
     MENU_TITLE: "Publish to Telegram",

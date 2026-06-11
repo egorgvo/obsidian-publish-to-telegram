@@ -1,9 +1,9 @@
-import { App, Modal, Component, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent, setIcon, AbstractInputSuggest, normalizePath } from "obsidian";
+import { App, Modal, Component, ButtonComponent, ToggleComponent, Notice, TFile, MarkdownRenderer, PluginSettingTab, Setting, TextComponent, DropdownComponent, setIcon, AbstractInputSuggest } from "obsidian";
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions";
 import { Api } from "telegram";
 import { LogLevel } from "telegram/extensions/Logger";
-import { t, getUserGuideFilename } from "../lang/helpers";
+import { t, getUserGuideContent, changelogContent } from "../lang/helpers";
 import type SendToTelegramPlugin from "../main";
 import * as QRCode from "qrcode";
 import { TelegramChannel, TelegramSecrets } from "./types";
@@ -572,16 +572,9 @@ export class TelegramSettingTab extends PluginSettingTab {
                 text: currentVersion,
                 cls: "telegram-changelog-version-link",
             });
-            versionBtn.addEventListener("click", voidListener(async () => {
-                try {
-                    const content = await this.plugin.app.vault.adapter.read(
-                        normalizePath(`${this.plugin.manifest.dir}/CHANGELOG.md`)
-                    );
-                    new ChangelogModal(this.app, content).open();
-                } catch {
-                    new Notice(t.CHANGELOG_LOAD_ERROR);
-                }
-            }));
+            versionBtn.addEventListener("click", () => {
+                new ChangelogModal(this.app, changelogContent).open();
+            });
             const closeBtn = bannerEl.createEl("button", {
                 cls: "clickable-icon telegram-changelog-close",
                 attr: { "aria-label": t.CHANGELOG_BANNER_DISMISS },
@@ -655,15 +648,8 @@ export class TelegramSettingTab extends PluginSettingTab {
 
         new ButtonComponent(buttonContainer)
             .setButtonText(t.SETTING_FORMATTING_HELP)
-            .onClick(async () => {
-                try {
-                    const content = await this.plugin.app.vault.adapter.read(
-                        normalizePath(`${this.plugin.manifest.dir}/${getUserGuideFilename()}`)
-                    );
-                    new FormattingHelpModal(this.app, content).open();
-                } catch {
-                    new Notice(t.USER_GUIDE_LOAD_ERROR);
-                }
+            .onClick(() => {
+                new FormattingHelpModal(this.app, getUserGuideContent()).open();
             })
             .buttonEl.addClass("telegram-link-button");
 

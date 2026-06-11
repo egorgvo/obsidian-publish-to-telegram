@@ -1,6 +1,9 @@
 import { moment } from "obsidian";
 import en from "./en";
 import ru from "./ru";
+import userGuideEn from "../USER_GUIDE.md";
+import userGuideRu from "../USER_GUIDE_RU.md";
+import changelogMd from "../CHANGELOG.md";
 
 const localeMap: { [key: string]: typeof en } = {
     en,
@@ -10,10 +13,12 @@ const localeMap: { [key: string]: typeof en } = {
 const lang = moment.locale();
 export const t = localeMap[lang] || localeMap.en;
 
-const userGuideFiles: { [key: string]: string } = {
-    ru: "USER_GUIDE_RU.md",
+const userGuideContents: { [key: string]: string } = {
+    ru: userGuideRu,
 };
 
-export function getUserGuideFilename(): string {
-    return userGuideFiles[lang] ?? "USER_GUIDE.md";
+export function getUserGuideContent(): string {
+    return userGuideContents[lang] ?? userGuideEn;
 }
+
+export const changelogContent = changelogMd;

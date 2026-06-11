@@ -65,6 +65,7 @@ const context = await esbuild.context({
         vm: "vm-browserify",
     },
     inject: ["./shims/buffer.js", "./shims/process.js"],
+    loader: { ".md": "text" },
     plugins: [disableGramjsApiCachePlugin, nodeStubPlugin],
 });
 

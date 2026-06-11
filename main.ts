@@ -1,5 +1,5 @@
-import { Plugin, Notice, TFile, TFolder, Menu, normalizePath } from "obsidian";
-import { t, getUserGuideFilename } from "./lang/helpers";
+import { Plugin, Notice, TFile, TFolder, Menu } from "obsidian";
+import { t, getUserGuideContent, changelogContent } from "./lang/helpers";
 import { TelegramChannel, TelegramSettings, TelegramSecrets, DEFAULT_SETTINGS, PendingScheduledLink } from "./src/types";
 import { sendNoteToTelegram, editNoteCommentsOnly, checkIsForum, createClient, resolveScheduledLinks } from "./src/telegram";
 import { ChangelogModal, FormattingHelpModal, MultiPresetModal, TelegramSettingTab } from "./src/gui";
@@ -84,26 +84,16 @@ export default class SendToTelegramPlugin extends Plugin {
         this.addCommand({
             id: "show-formatting-help",
             name: t.COMMAND_SHOW_FORMATTING_HELP,
-            callback: async () => {
-                try {
-                    const content = await this.app.vault.adapter.read(
-                        normalizePath(`${this.manifest.dir}/${getUserGuideFilename()}`)
-                    );
-                    new FormattingHelpModal(this.app, content).open();
-                } catch {
-                    new Notice(t.USER_GUIDE_LOAD_ERROR);
-                }
+            callback: () => {
+                new FormattingHelpModal(this.app, getUserGuideContent()).open();
             }
         });
 
         this.addCommand({
             id: "show-changelog",
             name: t.COMMAND_SHOW_CHANGELOG,
-            callback: async () => {
-                const content = await this.app.vault.adapter.read(
-                    normalizePath(`${this.manifest.dir}/CHANGELOG.md`)
-                );
-                new ChangelogModal(this.app, content).open();
+            callback: () => {
+                new ChangelogModal(this.app, changelogContent).open();
             }
         });
     }
