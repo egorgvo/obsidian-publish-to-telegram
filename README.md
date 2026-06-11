@@ -57,9 +57,9 @@ If you want to test beta-versions of the plugin or use previous versions, you ca
 4. Under “Select a version” choose the desired version and click the “Add plugin” button. The plugin will be automatically installed and will be ready to use.
 
 
-## User guide
+# User guide
 
-### Presets
+## Presets
 
 To publish notes to Telegram, you need to configure a preset.
 
@@ -71,7 +71,7 @@ To publish notes to Telegram, you need to configure a preset.
 
 Now you can post notes to Telegram using your preset’s name via the command palette, the note’s context menu, or keyboard shortcuts.
 
-### Formatting
+## Formatting
 
 All standard Telegram formatting elements are supported as well as some additional:
 
@@ -138,15 +138,15 @@ All standard Telegram formatting elements are supported as well as some addition
   </tbody>
 </table>
 
-#### Omitting text from a post
+### Omitting text from a post
 
 In addition to the formatting that will be reflected in the Telegram post, you can use the comment syntax `<!-- hidden text -->` or `%% hidden text %%` to add information to your notes that will not be included in the post content when it is published.
 
-#### Splitting the note into multiple posts
+### Splitting the note into multiple posts
 
 You can also use the special command `<!-- \split -->` or `%% \split %%` to split the text of your note into separate posts. If you use this command, the plugin will publish all posts at the same time. Attachments (see below), including pre-written comments, must appear before the special command that marks the end of the post.
 
-### Attachments
+## Attachments
 
 Media, album (groups of media) and document attachments are supported. To attach a file to your post, use any of the standard Obsidian embed syntax options:
 
@@ -169,7 +169,7 @@ Currently supported formats:
 | `.mp4`, `.mov`, `.avi`, `.mkv`, `.webm`            | Video / Album   |
 | `.pdf`                                             | Document        |
 
-### Pre-written comments
+## Pre-written comments
 
 You can pre-write one or more comments for your post that will appear in its discussion right after the publication. To use that feature:
 
@@ -187,7 +187,7 @@ A couple of notes:
 
 * For now, it is not possible to schedule pre-written comments.
 
-### Advanced publishing settings
+## Advanced publishing settings
 
 You can open an advanced publishing settings window with command palette (`Ctrl + P`) by typing "Publish to Telegram: Publish with advanced settings". In that settings window you can choose to:
 
@@ -201,13 +201,13 @@ You can open an advanced publishing settings window with command palette (`Ctrl 
 
 * Edit already existing posts or pre-written comments. Links are stored in the `tg_posts` and `tg_comments` properties, that are filled automatically if the corresponding option is enabled in the settings. You can also create them and fill manually.
 
-### Limits
+## Limits
 
 Standard Telegram posting limits apply to limits of characters per post, limits of attached media size per post, etc. More about that: [https://limits.tginfo.me/](https://limits.tginfo.me/)
 
 I also highly recommend my other plugin, [Advanced Word Count](https://community.obsidian.md/plugins/advanced-word-count), which lets you create detailed presets for word counts in notes and offers significantly greater functionality compared to the standard Obsidian word counter. This plugin can be configured to count characters exactly the same way Telegram does.
 
-## About the Author
+# About the Author
 
 My name is Mark Ingram (Ingrem), I am a Religious Studies scholar. Apart from my main area of study (Protestant Political Theology in Russia), I teach the subject "Information Technologies in Scientific Research", a unique course that I developed myself from scratch. This plugin helps me in my studies and I use it in my teaching, as well as other plugins that I develop and that you can find on [my GitHub profile](https://github.com/pan4ratte/).
 
