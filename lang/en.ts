@@ -1,5 +1,84 @@
 export default {
-    MENU_TITLE: "Publish to Telegram",
+    // ─── Settings ────────────────────────────────────────────────────────────────
+    SETTING_HEADER: "Publish to Telegram Settings",
+    SETTING_DESCRIPTION: "This plugin allows you to post notes directly to Telegram channels, groups and personal messages. All Telegram formatting options are supported, as well as media and document attachments. Use advanced publishing settings menu to schedule posts, send them to multiple chats at once and more.",
+    CHANGELOG_BANNER_PREFIX: "What's new in version ",
+    CHANGELOG_BANNER_DISMISS: "Dismiss until next update",
+    SECTION_GENERAL: "General",
+    AUTH_AUTHORIZED_AS: "Authorized as: {name}",
+    AUTH_LOGOUT_BTN: "Log out",
+    AUTH_STEP_1: "Authorization: Step 1 of 2",
+    AUTH_PHONE_PLACEHOLDER: "+1234567890",
+    AUTH_SEND_CODE_BTN: "Send code",
+    AUTH_PHONE_NOTE: "*Phone number linked to your Telegram account from which publications will be made.",
+    AUTH_PHONE_USE_QR: "Use QR code instead",
+    AUTH_QR_TITLE: "Sign in with QR Code",
+    AUTH_QR_NOTE: "Open Telegram on your phone → Settings → Devices → Link Desktop Device, then scan the code.",
+    AUTH_QR_USE_PHONE: "Use phone number instead",
+    AUTH_STEP_2: "Authorization: Step 2 of 2",
+    AUTH_CODE_PLACEHOLDER: "Enter code…",
+    AUTH_VERIFY_BTN: "Verify",
+    AUTH_CODE_NOTE: "*The code will arrive in Telegram",
+    AUTH_PASSWORD_PLACEHOLDER: "Enter password…",
+    AUTH_PASSWORD_REQUIRED: "Two-factor authentication is enabled. Enter your cloud password.",
+    AUTH_LOADING: "Please wait…",
+    SETTING_SAVE_POST_LINKS_NAME: "Save posts links",
+    SETTING_SAVE_POST_LINKS_DESC: "If enabled, the link to the published post will be saved to the note's properties",
+    SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Treat .md embeds as post comments",
+    SETTING_MD_EMBEDS_AS_COMMENTS_DESC: "If enabled, the contents of .md-attachments will be sent as comments to the post discussion",
+    SECTION_PRESETS: "Presets",
+    SETTING_ADD_CHANNEL_NAME: "Preset creation and usage",
+    SETTING_ADD_CHANNEL_DESC: `1. Authorize into your account and make sure that you have relevant permissions to post to the target channels/groups.
+2. Create a new preset and click on the search field to load chat list. You can also enter @username or ID manually.
+3. Add one or multiple target channels, groups, forum topics, chats or bots to the preset.
+
+* Note that the user guide describes all of the plugin's features and supported formatting options in detail.
+** You can get the ID of any user, channel, group or bot with the @userinfobot.`,
+    SETTING_OPEN_USERINFOBOT: "Open @userinfobot",
+    SETTING_FORMATTING_HELP: "User guide",
+    SETTING_ADD_CHANNEL: "Create new preset",
+    CHANNEL_DEFAULT_NAME: "New Preset",
+    SETTING_PLACE_HOLDER_NAME: "Preset name…",
+    SETTING_PLACEHOLDER_CHAT: "@username or ID…",
+    SETTING_CHAT_PICKER_LOADING: "Loading chats…",
+    SETTING_PLACEHOLDER_CHAT_SEARCH: "Search target chats or enter @username or ID manually…",
+    SETTING_DEFAULT_CHANNEL: "Set as the default preset",
+    SETTING_DEFAULT_DESC: "Publish with the defualt preset from the context menu of with a hotkey",
+
+    // ─── Advanced settings ────────────────────────────────────────────────────────
+    MULTI_PRESET_TITLE: "Advanced publishing settings",
+    MULTI_PRESET_CHANNEL_SELECTION: "Choose one or multiple presets",
+    MULTI_PRESET_ADVANCED_FORMATTING: "Advanced post settings",
+    MULTI_PRESET_SILENT_POST_NAME: "Publish silently",
+    MULTI_PRESET_SILENT_POST_DESC: "Subscribers will receive a notification without sound",
+    MULTI_PRESET_ATTACHMENTS_NAME: "Attachments below the text",
+    MULTI_PRESET_ATTACHMENTS_DESC: "Display post text above the attached media files",
+    MULTI_PRESET_SCHEDULE_NAME: "Schedule the post",
+    MULTI_PRESET_SCHEDULE_DESC: "Leave empty to publish immediately",
+    MULTI_PRESET_UPDATE_HEADING: "Editing",
+    MULTI_PRESET_UPDATE_NAME: "Edit post",
+    MULTI_PRESET_UPDATE_NAME_DESC: "Links are stored in the tg_posts property",
+    MULTI_PRESET_UPDATE_RESOLVING: "Loading…",
+    MULTI_PRESET_EDIT_COMMENTS_NAME: "Edit comments",
+    MULTI_PRESET_EDIT_COMMENTS_DESC: "Links are stored in the tg_comments property",
+    MULTI_PRESET_UPDATE_NO_LINKS: "No post links found in properties of the note",
+    MULTI_PRESET_EDIT_COMMENTS_NO_LINKS: "No comments links found in properties of the note",
+    MULTI_PRESET_UPDATE_NO_OPTION: "Choose a link",
+    MULTI_PRESET_EDIT_COMMENTS_ALL_CHATS: "Edit in all chats",
+    MULTI_PRESET_UPDATE_LINK_LABEL: "{link}",
+    MULTI_PRESET_UPDATE_WILL_USE: "Will edit in {name}",
+    MULTI_PRESET_UPDATE_NO_MATCH: "Could not resolve this link",
+    MULTI_PRESET_POST_BTN: "Publish",
+    MULTI_PRESET_EDIT_BTN: "Edit",
+
+    // ─── Commands ─────────────────────────────────────────────────────────────────
+    COMMAND_SEND_DEFAULT: "Publish with default preset",
+    COMMAND_SEND_MULTIPLE: "Publish with advanced settings",
+    COMMAND_SHOW_FORMATTING_HELP: "Open user guide",
+    COMMAND_SHOW_CHANGELOG: "View changelog",
+    COMMAND_SEND_TO_PRESET: "Publish to",
+
+    // ─── Notifications ────────────────────────────────────────────────────────────
     NOTICE_PUBLISHING: "Publishing the post…",
     NOTICE_EDITING: "Editing the post…",
     NOTICE_EDITING_COMMENTS: "Editing the comment…",
@@ -16,28 +95,14 @@ export default {
     NOTICE_ERR_TOO_LONG_CAPTION: "Error: Post with media attachments must be less than 1025 symbols.",
     NOTICE_ERR_NOT_AUTHENTICATED: "Error: Authorize into your Telegram account in the plugin settings before publishing.",
     NOTICE_ERR_NOT_MODIFIED: "Nothing to update: contents weren't changed.",
-    SETTING_HEADER: "Publish to Telegram Settings",
-    SECTION_GENERAL: "General",
-    SECTION_PRESETS: "Presets",
-    SETTING_DESCRIPTION: "This plugin allows you to post notes directly to Telegram channels, groups and personal messages. All Telegram formatting options are supported, as well as media and document attachments. Use advanced publishing settings menu to schedule posts, send them to multiple chats at once and more.",
-    SETTING_ADD_CHANNEL_NAME: "Preset creation and usage",
-    SETTING_ADD_CHANNEL_DESC: `1. Authorize into your account and make sure that you have relevant permissions to post to the target channels/groups.
-2. Create a new preset and click on the search field to load chat list. You can also enter @username or ID manually.
-3. Add one or multiple target channels, groups, forum topics, chats or bots to the preset.
+    AUTH_SUCCESS: "Successfully authorized",
+    AUTH_ERROR: "Authorization error",
+    MULTI_PRESET_NO_SELECTION: "Choose at least one preset",
+    MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Could not resolve this link!",
+    CHANGELOG_LOAD_ERROR: "Could not load changelog",
 
-* Note that the user guide describes all of the plugin’s features and supported formatting options in detail.
-** You can get the ID of any user, channel, group or bot with the @userinfobot.`,
-    SETTING_ADD_CHANNEL: "Create new preset",
-    SETTING_FORMATTING_HELP: "User guide",
-    SETTING_OPEN_USERINFOBOT: "Open @userinfobot",
-    SETTING_DEFAULT_CHANNEL: "Set as the default preset",
-    SETTING_DEFAULT_DESC: "Publish with the defualt preset from the context menu of with a hotkey",
-    SETTING_PLACE_HOLDER_NAME: "Preset name…",
-    SETTING_PLACEHOLDER_CHAT: "@username or ID…",
-    SETTING_PLACEHOLDER_CHAT_SEARCH: "Search target chats or enter @username or ID manually…",
-    SETTING_CHAT_PICKER_LOADING: "Loading chats…",
-    CHANNEL_DEFAULT_NAME: "New Preset",
-
+    // ─── Other ───────────────────────────────────────────────────────────────────
+    MENU_TITLE: "Publish to Telegram",
     CONFIRM_DELETE_TITLE: "Delete preset?",
     CONFIRM_DELETE_MSG: "Are you sure you want to delete \"{name}\" preset? This action is irreversible.",
     CONFIRM_DELETE_BTN: "Yes, delete",
@@ -45,67 +110,8 @@ export default {
     CONFIRM_LOGOUT_MSG: "Are you sure you want to log out of your Telegram account?",
     CONFIRM_LOGOUT_BTN: "Yes, log out",
     CONFIRM_CANCEL_BTN: "Cancel",
-    COMMAND_SEND_DEFAULT: "Publish with default preset",
-    COMMAND_SEND_MULTIPLE: "Publish with advanced settings",
-    COMMAND_SEND_TO_PRESET: "Publish to",
-    COMMAND_SHOW_FORMATTING_HELP: "Open user guide",
-    COMMAND_SHOW_CHANGELOG: "View changelog",
-    MULTI_PRESET_TITLE: "Advanced publishing settings",
-    MULTI_PRESET_CHANNEL_SELECTION: "Choose one or multiple presets",
-    MULTI_PRESET_ADVANCED_FORMATTING: "Advanced post settings",
-    MULTI_PRESET_POST_BTN: "Publish",
-    MULTI_PRESET_EDIT_BTN: "Edit",
-    MULTI_PRESET_NO_SELECTION: "Choose at least one preset",
-    MULTI_PRESET_SILENT_POST_NAME: "Publish silently",
-    MULTI_PRESET_SILENT_POST_DESC: "Subscribers will receive a notification without sound",
-    MULTI_PRESET_ATTACHMENTS_NAME: "Attachments below the text",
-    MULTI_PRESET_ATTACHMENTS_DESC: "Display post text above the attached media files",
-    MULTI_PRESET_SCHEDULE_NAME: "Schedule the post",
-    MULTI_PRESET_SCHEDULE_DESC: "Leave empty to publish immediately",
-    MULTI_PRESET_UPDATE_HEADING: "Editing",
-    MULTI_PRESET_UPDATE_NAME: "Edit post",
-    MULTI_PRESET_UPDATE_NAME_DESC: "Links are stored in the tg_posts property",
-    MULTI_PRESET_UPDATE_NO_OPTION: "Choose a link",
-    MULTI_PRESET_UPDATE_LINK_LABEL: "{link}",
-    MULTI_PRESET_UPDATE_NO_LINKS: "No post links found in properties of the note",
-    MULTI_PRESET_UPDATE_RESOLVING: "Loading…",
-    MULTI_PRESET_UPDATE_WILL_USE: "Will edit in {name}",
-    MULTI_PRESET_UPDATE_NO_MATCH: "Could not resolve this link",
-    MULTI_PRESET_UPDATE_NO_MATCH_NOTICE: "Could not resolve this link!",
-    MULTI_PRESET_EDIT_COMMENTS_NAME: "Edit comments",
-    MULTI_PRESET_EDIT_COMMENTS_DESC: "Links are stored in the tg_comments property",
-    MULTI_PRESET_EDIT_COMMENTS_NO_LINKS: "No comments links found in properties of the note",
-    MULTI_PRESET_EDIT_COMMENTS_ALL_CHATS: "Edit in all chats",
-    SETTING_SAVE_POST_LINKS_NAME: "Save posts links",
-    SETTING_SAVE_POST_LINKS_DESC: "If enabled, the link to the published post will be saved to the note's properties",
-    SETTING_MD_EMBEDS_AS_COMMENTS_NAME: "Treat .md embeds as post comments",
-    SETTING_MD_EMBEDS_AS_COMMENTS_DESC: "If enabled, the contents of .md-attachments will be sent as comments to the post discussion",
 
-    CHANGELOG_BANNER_PREFIX: "What's new in version ",
-    CHANGELOG_BANNER_DISMISS: "Dismiss until next update",
-    CHANGELOG_LOAD_ERROR: "Could not load changelog",
-
-    AUTH_AUTHORIZED_AS: "Authorized as: {name}",
-    AUTH_LOGOUT_BTN: "Log out",
-    AUTH_STEP_1: "Authorization: Step 1 of 2",
-    AUTH_STEP_2: "Authorization: Step 2 of 2",
-    AUTH_PHONE_NOTE: "*Phone number linked to your Telegram account from which publications will be made.",
-    AUTH_CODE_NOTE: "*The code will arrive in Telegram",
-    AUTH_QR_TITLE: "Sign in with QR Code",
-    AUTH_QR_NOTE: "Open Telegram on your phone → Settings → Devices → Link Desktop Device, then scan the code.",
-    AUTH_QR_USE_PHONE: "Use phone number instead",
-    AUTH_PHONE_USE_QR: "Use QR code instead",
-
-    AUTH_PHONE_PLACEHOLDER: "+1234567890",
-    AUTH_SEND_CODE_BTN: "Send code",
-    AUTH_CODE_PLACEHOLDER: "Enter code…",
-    AUTH_VERIFY_BTN: "Verify",
-    AUTH_PASSWORD_REQUIRED: "Two-factor authentication is enabled. Enter your cloud password.",
-    AUTH_PASSWORD_PLACEHOLDER: "Enter password…",
-    AUTH_SUCCESS: "Successfully authorized",
-    AUTH_ERROR: "Authorization error",
-    AUTH_LOADING: "Please wait…",
-
+    // ─── User guide ───────────────────────────────────────────────────────────────
     FORMATTING_HELP_CONTENT: `
 You can open these instructions from the command palette by typing "Publish to Telegram: Open user guide". You can also [view changelog](obsidian://command?id=publish-to-telegram:show-changelog) of the latest updates.
 
@@ -119,7 +125,7 @@ To publish notes to Telegram, you need to configure a preset.
 
 3. Add one or multiple target channels, groups, forum topics, chats or bots to the preset.
 
-Now you can post notes to Telegram using your preset’s name via the command palette, the note’s context menu, or keyboard shortcuts.
+Now you can post notes to Telegram using your preset's name via the command palette, the note's context menu, or keyboard shortcuts.
 
 ### Formatting
 
